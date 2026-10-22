@@ -1023,109 +1023,228 @@ html, body {
 }
 
 /* ========================================================
-   REVENUE BAR CHART STYLES
+   UNIQUE SLENDER CAPSULE REVENUE BAR CHART
    ======================================================== */
 
-.rev-bar-chart {
-  display: flex;
-  align-items: flex-end;
-  height: 200px;
-  gap: 12px;
-  position: relative;
-  padding-top: 26px;
-  padding-bottom: 24px;
-  width: 100%;
+@keyframes barRiseFadeIn {
+  0% {
+    opacity: 0;
+    transform: scaleY(0);
+  }
+  60% {
+    opacity: 0.95;
+    transform: scaleY(1.03);
+  }
+  100% {
+    opacity: 1;
+    transform: scaleY(1);
+  }
 }
 
-.rev-bar-track {
-  flex: 1;
-  height: 155px;
-  background: rgba(30, 68, 59, 0.04);
-  border-radius: 8px 8px 0 0;
+.unique-chart-wrap {
+  position: relative;
+  height: 220px;
+  width: 100%;
+  margin-top: 14px;
+  padding: 10px 0 34px 44px;
+  box-sizing: border-box;
+}
+
+.unique-chart-grid {
+  position: absolute;
+  top: 10px;
+  bottom: 34px;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+}
+
+.unique-grid-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px dashed rgba(23, 25, 26, 0.08);
+  display: flex;
+  align-items: center;
+}
+
+.unique-grid-line span {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--muted);
+  position: absolute;
+  left: 0;
+  transform: translateY(-50%);
+  width: 38px;
+  text-align: right;
+}
+
+.unique-grid-line--target {
+  border-top: 1.5px dashed var(--pearl-green);
+  opacity: 0.75;
+}
+
+.unique-target-tag {
+  left: auto !important;
+  right: 0;
+  background: var(--solid);
+  color: var(--pearl-green) !important;
+  font-weight: 700 !important;
+  font-size: 0.68rem !important;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid rgba(30, 68, 59, 0.18);
+  width: auto !important;
+  transform: translateY(-50%) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.unique-bars-row {
   display: flex;
   align-items: flex-end;
+  justify-content: space-between;
+  height: 100%;
+  width: 100%;
+  position: relative;
+  z-index: 2;
+}
+
+.unique-bar-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  height: 100%;
+  justify-content: flex-end;
   position: relative;
   cursor: pointer;
-  transition: all 0.2s ease;
 }
 
-.rev-bar-track:hover {
-  background: rgba(30, 68, 59, 0.08);
-}
-
-.rev-bar-fill {
-  width: 100%;
-  border-radius: 6px 6px 0 0;
-  transition: height 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+.unique-bar-track {
+  width: 18px;
+  height: 100%;
+  background: rgba(30, 68, 59, 0.04);
+  border-radius: 999px;
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
   position: relative;
+  transition: all 0.22s ease;
+  border: 1px solid rgba(30, 68, 59, 0.04);
 }
 
-.rev-bar-fill--met {
-  background: linear-gradient(180deg, #26554A 0%, #1E443B 100%);
-  box-shadow: 0 2px 8px rgba(30, 68, 59, 0.22);
+.unique-bar-col:hover .unique-bar-track {
+  background: rgba(30, 68, 59, 0.09);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(30, 68, 59, 0.12);
 }
 
-.rev-bar-fill--miss {
-  background: linear-gradient(180deg, #E06341 0%, #C8431F 100%);
-  box-shadow: 0 2px 8px rgba(200, 67, 31, 0.22);
+.unique-bar-fill {
+  width: 100%;
+  border-radius: 999px;
+  transform-origin: bottom center;
+  position: relative;
+  display: flex;
+  justify-content: center;
+  transition: filter 0.2s ease;
 }
 
-.rev-bar-tooltip {
+.unique-bar-fill--met {
+  background: linear-gradient(180deg, #34D399 0%, #1E443B 100%);
+  box-shadow: 0 2px 8px rgba(30, 68, 59, 0.3);
+}
+
+.unique-bar-fill--miss {
+  background: linear-gradient(180deg, #FBBF24 0%, #C8431F 100%);
+  box-shadow: 0 2px 8px rgba(200, 67, 31, 0.3);
+}
+
+.unique-bar-beacon {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  position: absolute;
+  top: 4px;
+}
+
+.unique-bar-beacon--met {
+  background: #FFFFFF;
+  box-shadow: 0 0 6px #34D399;
+}
+
+.unique-bar-beacon--miss {
+  background: #FFFFFF;
+  box-shadow: 0 0 6px #FBBF24;
+}
+
+.unique-bar-month {
+  position: absolute;
+  top: calc(100% + 6px);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+  transition: color 0.2s ease;
+}
+
+.unique-bar-col:hover .unique-bar-month {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.unique-bar-popover {
   position: absolute;
   bottom: calc(100% + 8px);
   left: 50%;
   transform: translateX(-50%);
   background: #17191A;
   color: #FFFFFF;
-  padding: 4px 8px;
+  padding: 5px 9px;
   border-radius: 6px;
   font-size: 0.72rem;
-  font-weight: 700;
   white-space: nowrap;
   pointer-events: none;
   opacity: 0;
-  transition: opacity 0.2s ease, transform 0.2s ease;
-  z-index: 10;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 15;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+  text-align: center;
 }
 
-.rev-bar-track:hover .rev-bar-tooltip {
+.unique-bar-col:hover .unique-bar-popover {
   opacity: 1;
-  transform: translateX(-50%) translateY(-2px);
+  transform: translateX(-50%) translateY(-3px);
 }
 
-.rev-bar-label {
+.unique-popover-val {
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.unique-popover-meta {
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.75);
+  margin-top: 1px;
+}
+
+.unique-peak-badge {
   position: absolute;
-  top: calc(100% + 6px);
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: var(--muted);
-  white-space: nowrap;
-}
-
-.rev-target-line {
-  position: absolute;
-  left: 0;
-  right: 0;
-  border-top: 1.5px dashed var(--muted);
-  pointer-events: none;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-}
-
-.rev-target-badge {
+  top: -16px;
   font-size: 0.68rem;
-  font-weight: 700;
-  color: var(--muted);
-  background: var(--solid);
-  padding: 2px 7px;
-  border-radius: 4px;
-  border: 1px solid var(--line);
-  margin-top: -9px;
+  color: var(--butter);
+  font-weight: 800;
+  animation: pulseBeacon 1.8s infinite ease-in-out;
+}
+
+@keyframes pulseBeacon {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  50% {
+    transform: scale(1.25);
+    opacity: 1;
+  }
 }
 
 /* ========================================================

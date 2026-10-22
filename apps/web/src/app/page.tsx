@@ -249,34 +249,86 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Modern Interactive Revenue Bar Chart */}
-          <div className="rev-bar-chart">
-            {/* Target Threshold Dashed Line */}
-            <div className="rev-target-line" style={{ top: '22%' }}>
-              <span className="rev-target-badge">Target ₹156.7K</span>
+          {/* Unique Sleek Capsule Revenue Bar Chart with Staggered One-By-One Fade-In & Rise */}
+          <div key={timeRange} className="unique-chart-wrap">
+            {/* Background Grid Lines */}
+            <div className="unique-chart-grid">
+              <div className="unique-grid-line" style={{ top: '0%' }}>
+                <span>₹200K</span>
+              </div>
+              <div className="unique-grid-line unique-grid-line--target" style={{ top: '22%' }}>
+                <span className="unique-target-tag">Target ₹156.7K</span>
+              </div>
+              <div className="unique-grid-line" style={{ top: '50%' }}>
+                <span>₹100K</span>
+              </div>
+              <div className="unique-grid-line" style={{ top: '75%' }}>
+                <span>₹50K</span>
+              </div>
+              <div className="unique-grid-line" style={{ bottom: '0%' }}>
+                <span>₹0</span>
+              </div>
             </div>
 
-            {activeRevenueData.map((d) => {
-              const maxVal = 200000;
-              const fillPct = Math.min(100, Math.max(8, (d.revenue / maxVal) * 100));
-              const isMet = d.revenue >= d.target;
+            {/* Bar Columns Container */}
+            <div className="unique-bars-row">
+              {activeRevenueData.map((d, index) => {
+                const maxVal = 200000;
+                const fillPct = Math.min(100, Math.max(10, (d.revenue / maxVal) * 100));
+                const isMet = d.revenue >= d.target;
+                const isPeak = d.revenue === 196000;
+                const staggerDelay = (0.08 + index * 0.055).toFixed(3);
 
-              return (
-                <div key={d.month} className="rev-bar-track" title={`${d.month}: ₹${d.revenue.toLocaleString('en-IN')}`}>
+                return (
                   <div
-                    className={`rev-bar-fill ${isMet ? 'rev-bar-fill--met' : 'rev-bar-fill--miss'}`}
-                    style={{ height: `${fillPct}%` }}
-                  />
-                  <div className="rev-bar-tooltip">
-                    <div>₹{(d.revenue / 1000).toFixed(1)}K · {d.month}</div>
-                    <div style={{ fontSize: '0.65rem', color: isMet ? '#86EFAC' : '#FCA5A5' }}>
-                      {isMet ? 'Target Met ✓' : 'Below Target'}
+                    key={d.month}
+                    className="unique-bar-col"
+                  >
+                    {/* Hover Floating Tooltip */}
+                    <div className="unique-bar-popover">
+                      <div className="unique-popover-val">₹{(d.revenue).toLocaleString('en-IN')}</div>
+                      <div className="unique-popover-meta">
+                        {d.month} · {isMet ? 'Target Met ✓' : 'Shortfall'}
+                      </div>
                     </div>
+
+                    {/* Peak Best Month Badge */}
+                    {isPeak && timeRange === '12M' && (
+                      <span className="unique-peak-badge" title="Highest Revenue Month">
+                        ★
+                      </span>
+                    )}
+
+                    {/* Track */}
+                    <div className="unique-bar-track">
+                      {/* Filled Animated Capsule Bar with One-by-One Staggered Entrance */}
+                      <div
+                        className={`unique-bar-fill ${isMet ? 'unique-bar-fill--met' : 'unique-bar-fill--miss'}`}
+                        style={{
+                          height: `${fillPct}%`,
+                          animation: `barRiseFadeIn 0.55s cubic-bezier(0.16, 1, 0.3, 1) both`,
+                          animationDelay: `${staggerDelay}s`,
+                        }}
+                      >
+                        {/* Luminous Peak Beacon Dot */}
+                        <div className={`unique-bar-beacon ${isMet ? 'unique-bar-beacon--met' : 'unique-bar-beacon--miss'}`} />
+                      </div>
+                    </div>
+
+                    {/* Month Label with matching fade-in */}
+                    <span
+                      className="unique-bar-month"
+                      style={{
+                        animation: `wordFadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) both`,
+                        animationDelay: `${staggerDelay}s`,
+                      }}
+                    >
+                      {d.month}
+                    </span>
                   </div>
-                  <span className="rev-bar-label">{d.month}</span>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </div>
 
