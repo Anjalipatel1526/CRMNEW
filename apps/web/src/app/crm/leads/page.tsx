@@ -754,9 +754,6 @@ export default function LeadsPage() {
                     ['--btn-glow' as any]: currentStageConfig.glow,
                   }}
                 >
-                  <span className="btn-icon-pod">
-                    <Sparkles size={13} />
-                  </span>
                   <span className="btn-text">Create Lead in {currentStageConfig.label}</span>
                   <ArrowRight size={15} className="btn-arrow-icon" />
                 </button>
@@ -1070,19 +1067,7 @@ export default function LeadsPage() {
               </div>
             )}
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', borderTop: '1px solid var(--color-border)', paddingTop: '1rem' }}>
-              <button className="btn btn-secondary" onClick={() => setSelectedLead(null)}>
-                Close
-              </button>
-              <button
-                className="btn btn-primary"
-                onClick={() => {
-                  handleStageTransition(selectedLead.id, 'negotiation');
-                }}
-              >
-                Advance to Negotiation <ArrowRight size={15} />
-              </button>
-            </div>
+
           </div>
         </Modal>
       )}

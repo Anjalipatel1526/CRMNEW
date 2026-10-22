@@ -2010,7 +2010,7 @@ html, body {
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 22px 10px 14px;
+  padding: 10px 22px;
   border-radius: 999px;
   border: 1.5px solid var(--btn-accent, #2563EB);
   background: linear-gradient(135deg, var(--btn-accent, #2563EB) 0%, #0F172A 150%);

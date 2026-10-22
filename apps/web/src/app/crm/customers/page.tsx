@@ -692,9 +692,6 @@ export default function CustomersPage() {
               type="submit"
               className="unique-lead-submit-btn"
             >
-              <span className="btn-icon-pod">
-                <Sparkles size={13} />
-              </span>
               <span className="btn-text">Register Customer</span>
               <ChevronRight size={15} className="btn-arrow-icon" />
             </button>
