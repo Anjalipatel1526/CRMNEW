@@ -23,6 +23,8 @@ import {
   ExternalLink,
   ChevronRight,
   ChevronLeft,
+  Car,
+  Tag,
 } from 'lucide-react';
 import { WordFadeIn } from '@/components/ui/WordFadeIn';
 
@@ -97,6 +99,8 @@ type FilterCategory = 'all' | 'individual' | 'business' | 'kyc_verified' | 'kyc_
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>(api.getCustomers());
+  const [leads] = useState(api.getLeads());
+  const [deals] = useState(api.getDeals());
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
 
@@ -113,12 +117,70 @@ export default function CustomersPage() {
     phone: '',
     panNumber: '',
     city: '',
+    preferredVehicle: '',
+    budget: '',
   };
 
   const [formData, setFormData] = useState(emptyCustomerForm);
   const [editingCustomerId, setEditingCustomerId] = useState<string | null>(null);
 
+  const getCustomerCarPreference = (c: Customer) => {
+    if ((c as any).preferredVehicle && (c as any).budget) {
+      return {
+        car: (c as any).preferredVehicle,
+        fuelOrVariant: (c as any).fuelType || 'Customer Selected',
+        price: String((c as any).budget).startsWith('₹') ? (c as any).budget : `₹${(c as any).budget}`,
+        priceLabel: 'Target Budget',
+      };
+    }
+
+    const lead = leads.find(
+      (l) =>
+        l.customerId === c.id ||
+        (l.customerName &&
+          `${c.firstName} ${c.lastName}`.toLowerCase().trim() ===
+            l.customerName.toLowerCase().trim())
+    );
+
+    const deal = deals.find(
+      (d) =>
+        d.customerId === c.id ||
+        (d.customerName &&
+          `${c.firstName} ${c.lastName}`.toLowerCase().trim() ===
+            d.customerName.toLowerCase().trim())
+    );
+
+    if (deal) {
+      return {
+        car: deal.vehicleName || 'Vehicle Selected',
+        fuelOrVariant: `${deal.stage.replace('_', ' ')} · ${deal.financeType ? deal.financeType.toUpperCase() : 'Active Deal'}`,
+        price: `₹${(deal.grandTotal / 100000).toFixed(2)} Lakh`,
+        priceLabel: 'Closing Value',
+      };
+    }
+
+    if (lead) {
+      const minL = lead.budgetMin ? (lead.budgetMin / 100000).toFixed(1) : null;
+      const maxL = lead.budgetMax ? (lead.budgetMax / 100000).toFixed(1) : null;
+      const priceStr = minL && maxL ? `₹${minL}L - ₹${maxL}L` : minL ? `₹${minL} Lakh+` : 'Budget on request';
+      return {
+        car: `${lead.preferredMake} ${lead.preferredModel}`.trim(),
+        fuelOrVariant: `${lead.preferredFuelType || 'Fuel'} · ${lead.status.replace('_', ' ')}`,
+        price: priceStr,
+        priceLabel: 'Target Budget',
+      };
+    }
+
+    return {
+      car: (c as any).preferredVehicle || 'All Models Open',
+      fuelOrVariant: 'New Inquiry',
+      price: (c as any).budget ? (String((c as any).budget).startsWith('₹') ? (c as any).budget : `₹${(c as any).budget}`) : 'Flexible',
+      priceLabel: 'Price Range',
+    };
+  };
+
   const handleStartEditCustomer = (customer: Customer) => {
+    const carPref = getCustomerCarPreference(customer);
     setFormData({
       firstName: customer.firstName,
       lastName: customer.lastName,
@@ -127,7 +189,9 @@ export default function CustomersPage() {
       email: customer.email || '',
       phone: customer.phone || '',
       panNumber: customer.panNumber || '',
-      city: customer.address?.city || 'Mumbai',
+      city: customer.address?.city || '',
+      preferredVehicle: (customer as any).preferredVehicle || carPref.car,
+      budget: (customer as any).budget || carPref.price,
     });
     setEditingCustomerId(customer.id);
     setSelectedCustomer(null);
@@ -140,13 +204,17 @@ export default function CustomersPage() {
       api.updateCustomer(editingCustomerId, {
         ...formData,
         address: { city: formData.city },
-      });
+        preferredVehicle: formData.preferredVehicle,
+        budget: formData.budget,
+      } as any);
       setEditingCustomerId(null);
     } else {
       api.addCustomer({
         ...formData,
         address: { city: formData.city },
-      });
+        preferredVehicle: formData.preferredVehicle,
+        budget: formData.budget,
+      } as any);
     }
     setCustomers([...api.getCustomers()]);
     setIsModalOpen(false);
@@ -171,6 +239,9 @@ export default function CustomersPage() {
       const pan = (c.panNumber || '').toLowerCase();
       const company = (c.companyName || '').toLowerCase();
       const city = (c.address?.city || '').toLowerCase();
+      const carPref = getCustomerCarPreference(c);
+      const carName = carPref.car.toLowerCase();
+      const carPrice = carPref.price.toLowerCase();
 
       return (
         fullName.includes(q) ||
@@ -178,10 +249,12 @@ export default function CustomersPage() {
         email.includes(q) ||
         pan.includes(q) ||
         company.includes(q) ||
-        city.includes(q)
+        city.includes(q) ||
+        carName.includes(q) ||
+        carPrice.includes(q)
       );
     });
-  }, [customers, searchQuery, activeFilter]);
+  }, [customers, searchQuery, activeFilter, leads, deals]);
 
   // Counts for filter pills
   const counts = useMemo(() => {
@@ -349,8 +422,8 @@ export default function CustomersPage() {
             <div>Customer Profile</div>
             <div>Contact Info</div>
             <div>Category</div>
-            <div>KYC & Tax ID</div>
-            <div>Consent</div>
+            <div>Car Preference</div>
+            <div>Price / Budget</div>
             <div style={{ textAlign: 'right' }}>Actions</div>
           </div>
 
@@ -361,6 +434,7 @@ export default function CustomersPage() {
               const isBusiness = customer.type === 'business';
               const hasKyc = Boolean(customer.panNumber || customer.gstin);
               const initials = getInitials(customer.firstName, customer.lastName);
+              const carPref = getCustomerCarPreference(customer);
 
               return (
                 <div
@@ -427,52 +501,30 @@ export default function CustomersPage() {
                     </span>
                   </div>
 
-                  {/* Column 4: KYC & Tax ID */}
-                  <div className="customer-row-cell-kyc">
-                    <div className="pan-tax-chip">
-                      {customer.panNumber || customer.gstin || 'Tax ID Pending'}
+                  {/* Column 4: Car Preference */}
+                  <div className="customer-row-cell-car">
+                    <div className="customer-car-icon-wrap">
+                      <Car size={16} />
                     </div>
-                    <div>
-                      {hasKyc ? (
-                        <span className="kyc-badge-verified">
-                          <ShieldCheck size={11} /> Verified
-                        </span>
-                      ) : (
-                        <span className="kyc-badge-pending">
-                          <AlertCircle size={11} /> Pending KYC
-                        </span>
-                      )}
+                    <div className="customer-car-info">
+                      <span className="customer-car-title" title={carPref.car}>
+                        {carPref.car}
+                      </span>
+                      <span className="customer-car-subtitle" title={carPref.fuelOrVariant}>
+                        {carPref.fuelOrVariant}
+                      </span>
                     </div>
                   </div>
 
-                  {/* Column 5: Consent */}
-                  <div>
-                    <div className="consent-chips">
-                      <span
-                        className={`consent-chip ${
-                          customer.consent?.whatsapp ? 'is-active' : 'is-inactive'
-                        }`}
-                        title="WhatsApp Consent"
-                      >
-                        WA ✓
-                      </span>
-                      <span
-                        className={`consent-chip ${
-                          customer.consent?.sms ? 'is-active' : 'is-inactive'
-                        }`}
-                        title="SMS Consent"
-                      >
-                        SMS ✓
-                      </span>
-                      <span
-                        className={`consent-chip ${
-                          customer.consent?.email ? 'is-active' : 'is-inactive'
-                        }`}
-                        title="Email Consent"
-                      >
-                        Email ✓
-                      </span>
-                    </div>
+                  {/* Column 5: Price of Car / Budget */}
+                  <div className="customer-row-cell-price">
+                    <span className="customer-price-badge">
+                      <Tag size={12} />
+                      {carPref.price}
+                    </span>
+                    <span className="customer-price-label">
+                      {carPref.priceLabel}
+                    </span>
                   </div>
 
                   {/* Column 6: Actions */}
@@ -711,6 +763,29 @@ export default function CustomersPage() {
             </div>
           </div>
 
+          <div className="form-grid-2">
+            <div className="form-group">
+              <label className="form-label">Car Preference / Desired Model</label>
+              <input
+                type="text"
+                className="form-input"
+                value={formData.preferredVehicle}
+                onChange={(e) => setFormData({ ...formData, preferredVehicle: e.target.value })}
+                placeholder="e.g. Mahindra XUV700 AX7L or Tata Nexon EV"
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Target Price / Budget (₹)</label>
+              <input
+                type="text"
+                className="form-input"
+                value={formData.budget}
+                onChange={(e) => setFormData({ ...formData, budget: e.target.value })}
+                placeholder="e.g. ₹22.0L - ₹26.0L"
+              />
+            </div>
+          </div>
+
           <div className="unique-modal-footer-bar" style={{ marginTop: '12px', paddingTop: '16px', borderTop: '1px solid #E2E8F0' }}>
             <button
               type="button"
@@ -813,6 +888,84 @@ export default function CustomersPage() {
                 </div>
               </div>
             </div>
+
+            {/* Vehicle Preference & Target Budget Section */}
+            {(() => {
+              const pref = getCustomerCarPreference(selectedCustomer);
+              return (
+                <div
+                  style={{
+                    background: '#FFFFFF',
+                    borderRadius: '16px',
+                    border: '1.5px solid #E2E8F0',
+                    padding: '16px 18px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '16px',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                    <div
+                      style={{
+                        width: '44px',
+                        height: '44px',
+                        borderRadius: '12px',
+                        backgroundColor: '#EFF6FF',
+                        color: '#2563EB',
+                        border: '1px solid #BFDBFE',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <Car size={22} />
+                    </div>
+                    <div>
+                      <span
+                        style={{
+                          color: '#64748B',
+                          fontSize: '0.72rem',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.04em',
+                          fontWeight: 600,
+                          display: 'block',
+                        }}
+                      >
+                        Car Preference
+                      </span>
+                      <div style={{ fontSize: '1.05rem', fontWeight: 700, color: '#0F172A', marginTop: '2px' }}>
+                        {pref.car}
+                      </div>
+                      <div style={{ fontSize: '0.76rem', color: '#64748B', marginTop: '2px' }}>
+                        {pref.fuelOrVariant}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    <span
+                      style={{
+                        color: '#64748B',
+                        fontSize: '0.72rem',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.04em',
+                        fontWeight: 600,
+                        display: 'block',
+                        marginBottom: '4px',
+                      }}
+                    >
+                      {pref.priceLabel}
+                    </span>
+                    <span className="customer-price-badge" style={{ fontSize: '0.92rem', padding: '5px 12px' }}>
+                      <Tag size={13} />
+                      {pref.price}
+                    </span>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* KYC & Identity Section */}
             <div
