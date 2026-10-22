@@ -18,6 +18,9 @@ import {
   DollarSign,
   ArrowRight,
   Filter,
+  Car,
+  GripVertical,
+  MoveHorizontal,
 } from 'lucide-react';
 import { WordFadeIn } from '@/components/ui/WordFadeIn';
 
@@ -29,6 +32,11 @@ export default function LeadsPage() {
   const [viewMode, setViewMode] = useState<'kanban' | 'table'>('kanban');
   const [isNewLeadModalOpen, setIsNewLeadModalOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+
+  // Drag and drop states
+  const [draggedLeadId, setDraggedLeadId] = useState<string | null>(null);
+  const [dragOverStage, setDragOverStage] = useState<LeadStatus | null>(null);
+  const [recentlyMovedId, setRecentlyMovedId] = useState<string | null>(null);
 
   React.useEffect(() => {
     setMounted(true);
@@ -62,15 +70,121 @@ export default function LeadsPage() {
     }
   };
 
-  const stages: { key: LeadStatus; label: string }[] = [
-    { key: 'new', label: 'New Inquiries' },
-    { key: 'contacted', label: 'Contacted' },
-    { key: 'qualified', label: 'Qualified' },
-    { key: 'appointment_set', label: 'Appointment Set' },
-    { key: 'test_drive', label: 'Test Drive' },
-    { key: 'negotiation', label: 'Negotiation' },
-    { key: 'converted', label: 'Converted' },
+  const stages: {
+    key: LeadStatus;
+    label: string;
+    accent: string;
+    lightBg: string;
+    border: string;
+    badgeBg: string;
+    badgeText: string;
+    glow: string;
+  }[] = [
+    {
+      key: 'new',
+      label: 'New Inquiries',
+      accent: '#0284C7',
+      lightBg: '#F0F9FF',
+      border: 'rgba(2, 132, 199, 0.25)',
+      badgeBg: '#E0F2FE',
+      badgeText: '#0369A1',
+      glow: 'rgba(2, 132, 199, 0.16)',
+    },
+    {
+      key: 'contacted',
+      label: 'Contacted',
+      accent: '#4F46E5',
+      lightBg: '#EEF2FF',
+      border: 'rgba(79, 70, 229, 0.25)',
+      badgeBg: '#EEF2FF',
+      badgeText: '#4338CA',
+      glow: 'rgba(79, 70, 229, 0.16)',
+    },
+    {
+      key: 'qualified',
+      label: 'Qualified',
+      accent: '#7C3AED',
+      lightBg: '#F5F3FF',
+      border: 'rgba(124, 58, 237, 0.25)',
+      badgeBg: '#F5F3FF',
+      badgeText: '#6D28D9',
+      glow: 'rgba(124, 58, 237, 0.16)',
+    },
+    {
+      key: 'appointment_set',
+      label: 'Appointment Set',
+      accent: '#D97706',
+      lightBg: '#FFFBEB',
+      border: 'rgba(217, 119, 6, 0.25)',
+      badgeBg: '#FEF3C7',
+      badgeText: '#B45309',
+      glow: 'rgba(217, 119, 6, 0.16)',
+    },
+    {
+      key: 'test_drive',
+      label: 'Test Drive',
+      accent: '#0D9488',
+      lightBg: '#F0FDFA',
+      border: 'rgba(13, 148, 136, 0.25)',
+      badgeBg: '#CCFBF1',
+      badgeText: '#0F766E',
+      glow: 'rgba(13, 148, 136, 0.16)',
+    },
+    {
+      key: 'negotiation',
+      label: 'Negotiation',
+      accent: '#E11D48',
+      lightBg: '#FFF1F2',
+      border: 'rgba(225, 29, 72, 0.25)',
+      badgeBg: '#FFE4E6',
+      badgeText: '#BE123C',
+      glow: 'rgba(225, 29, 72, 0.16)',
+    },
+    {
+      key: 'converted',
+      label: 'Converted',
+      accent: '#16A34A',
+      lightBg: '#F0FDF4',
+      border: 'rgba(22, 163, 74, 0.25)',
+      badgeBg: '#DCFCE7',
+      badgeText: '#15803D',
+      glow: 'rgba(22, 163, 74, 0.16)',
+    },
   ];
+
+  const handleDragStart = (e: React.DragEvent, leadId: string) => {
+    e.dataTransfer.setData('text/plain', leadId);
+    e.dataTransfer.effectAllowed = 'move';
+    setDraggedLeadId(leadId);
+  };
+
+  const handleDragOver = (e: React.DragEvent, stageKey: LeadStatus) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverStage !== stageKey) {
+      setDragOverStage(stageKey);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent, stageKey: LeadStatus) => {
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      if (dragOverStage === stageKey) {
+        setDragOverStage(null);
+      }
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent, targetStage: LeadStatus) => {
+    e.preventDefault();
+    const leadId = e.dataTransfer.getData('text/plain') || draggedLeadId;
+    if (leadId) {
+      handleStageTransition(leadId, targetStage);
+      setRecentlyMovedId(leadId);
+      setTimeout(() => setRecentlyMovedId(null), 1400);
+    }
+    setDraggedLeadId(null);
+    setDragOverStage(null);
+  };
 
   const columns: Column<Lead>[] = [
     {
@@ -155,54 +269,81 @@ export default function LeadsPage() {
             />
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '0.75rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+          {/* Helpful Drag & Drop Badge */}
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '0.78rem',
+              color: 'var(--pearl-green)',
+              background: 'rgba(35, 78, 67, 0.07)',
+              border: '1px solid rgba(35, 78, 67, 0.15)',
+              padding: '6px 12px',
+              borderRadius: '999px',
+              fontWeight: 600,
+            }}
+          >
+            <MoveHorizontal size={14} />
+            <span>Drag cards between columns to change stage</span>
+          </div>
+
           {/* View Toggle */}
           <div
             style={{
               display: 'flex',
-              backgroundColor: 'var(--color-white)',
-              border: '1px solid var(--color-border)',
-              borderRadius: 'var(--radius-md)',
-              padding: '2px',
+              backgroundColor: '#FAFBF9',
+              border: '1px solid var(--line-2)',
+              borderRadius: '999px',
+              padding: '3px',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
             }}
           >
             <button
               onClick={() => setViewMode('kanban')}
               style={{
-                padding: '0.4rem 0.6rem',
-                borderRadius: 'var(--radius-sm)',
-                backgroundColor: viewMode === 'kanban' ? 'var(--color-blue-bg)' : 'transparent',
-                color: viewMode === 'kanban' ? 'var(--color-blue)' : 'var(--color-text-secondary)',
-                fontWeight: 600,
+                padding: '0.4rem 0.85rem',
+                borderRadius: '999px',
+                backgroundColor: viewMode === 'kanban' ? 'var(--pearl-green)' : 'transparent',
+                color: viewMode === 'kanban' ? '#FFFFFF' : 'var(--muted)',
+                fontWeight: 700,
                 fontSize: '0.8125rem',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '0.35rem',
+                border: 'none',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
               }}
             >
-              <LayoutGrid size={15} /> Board
+              <LayoutGrid size={14} /> Board
             </button>
             <button
               onClick={() => setViewMode('table')}
               style={{
-                padding: '0.4rem 0.6rem',
-                borderRadius: 'var(--radius-sm)',
-                backgroundColor: viewMode === 'table' ? 'var(--color-blue-bg)' : 'transparent',
-                color: viewMode === 'table' ? 'var(--color-blue)' : 'var(--color-text-secondary)',
-                fontWeight: 600,
+                padding: '0.4rem 0.85rem',
+                borderRadius: '999px',
+                backgroundColor: viewMode === 'table' ? 'var(--pearl-green)' : 'transparent',
+                color: viewMode === 'table' ? '#FFFFFF' : 'var(--muted)',
+                fontWeight: 700,
                 fontSize: '0.8125rem',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '0.35rem',
+                border: 'none',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
               }}
             >
-              <List size={15} /> Table
+              <List size={14} /> Table
             </button>
           </div>
 
           <button
             onClick={() => setIsNewLeadModalOpen(true)}
             className="btn btn-primary btn-sm"
+            style={{ borderRadius: '999px', padding: '0.45rem 1rem' }}
           >
             <Plus size={16} /> New Lead
           </button>
@@ -211,134 +352,123 @@ export default function LeadsPage() {
 
       {/* Kanban Board View */}
       {viewMode === 'kanban' ? (
-        <div
-          style={{
-            display: 'flex',
-            gap: '1rem',
-            overflowX: 'auto',
-            paddingBottom: '1.5rem',
-            minHeight: '70vh',
-          }}
-        >
+        <div className="kanban-board-container">
           {stages.map((stage) => {
             const stageLeads = leads.filter((l) => l.status === stage.key);
+            const isOver = dragOverStage === stage.key;
+
             return (
               <div
                 key={stage.key}
+                className={`kanban-column ${isOver ? 'is-drag-over' : ''}`}
                 style={{
-                  minWidth: '280px',
-                  maxWidth: '300px',
-                  backgroundColor: '#F1F5F9',
-                  borderRadius: 'var(--radius-lg)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  maxHeight: 'calc(100vh - 220px)',
-                  border: '1px solid var(--color-border)',
+                  ['--col-accent' as any]: stage.accent,
+                  ['--col-light-bg' as any]: stage.lightBg,
+                  ['--col-glow' as any]: stage.glow,
                 }}
+                onDragOver={(e) => handleDragOver(e, stage.key)}
+                onDragLeave={(e) => handleDragLeave(e, stage.key)}
+                onDrop={(e) => handleDrop(e, stage.key)}
               >
                 {/* Column Header */}
-                <div
-                  style={{
-                    padding: '0.85rem 1rem',
-                    borderBottom: '1px solid var(--color-border)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    backgroundColor: 'var(--color-white)',
-                    borderTopLeftRadius: 'var(--radius-lg)',
-                    borderTopRightRadius: 'var(--radius-lg)',
-                  }}
-                >
-                  <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>{stage.label}</div>
+                <div className="kanban-col-header">
+                  <div className="kanban-col-title-wrap">
+                    <span className="kanban-col-dot" style={{ backgroundColor: stage.accent }} />
+                    <span className="kanban-col-title">{stage.label}</span>
+                  </div>
                   <span
+                    className="kanban-col-badge"
                     style={{
-                      fontSize: '0.75rem',
-                      fontWeight: 700,
-                      backgroundColor: 'var(--color-page-bg)',
-                      border: '1px solid var(--color-border)',
-                      padding: '0.15rem 0.5rem',
-                      borderRadius: 'var(--radius-full)',
-                      color: 'var(--color-text-secondary)',
+                      backgroundColor: stage.badgeBg,
+                      color: stage.badgeText,
                     }}
                   >
                     {stageLeads.length}
                   </span>
                 </div>
 
-                {/* Cards Container */}
-                <div
-                  style={{
-                    padding: '0.75rem',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '0.75rem',
-                    overflowY: 'auto',
-                    flex: 1,
-                  }}
-                >
-                  {stageLeads.map((lead) => (
-                    <div
-                      key={lead.id}
-                      onClick={() => setSelectedLead(lead)}
-                      style={{
-                        backgroundColor: 'var(--color-white)',
-                        borderRadius: 'var(--radius-md)',
-                        padding: '1rem',
-                        boxShadow: 'var(--shadow-xs)',
-                        border: '1px solid var(--color-border)',
-                        cursor: 'pointer',
-                        transition: 'var(--transition)',
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--color-blue)')}
-                      onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--color-border)')}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.4rem' }}>
-                        <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{lead.customerName}</div>
-                        <span
-                          style={{
-                            fontSize: '0.7rem',
-                            fontWeight: 700,
-                            color: (lead.score || 0) >= 80 ? 'var(--color-green)' : 'var(--color-blue)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '2px',
-                          }}
-                        >
-                          <Sparkles size={11} style={{ color: 'var(--color-violet)' }} />
-                          {lead.score}
-                        </span>
-                      </div>
+                {/* Cards Body */}
+                <div className="kanban-cards-body">
+                  {stageLeads.map((lead) => {
+                    const isDragging = draggedLeadId === lead.id;
+                    const wasRecentlyMoved = recentlyMovedId === lead.id;
 
-                      <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', marginBottom: '0.5rem' }}>
-                        {lead.preferredMake} {lead.preferredModel}
-                      </div>
-
+                    return (
                       <div
-                        style={{
-                          fontSize: '0.75rem',
-                          color: 'var(--color-text-muted)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          borderTop: '1px solid var(--color-border-subtle)',
-                          paddingTop: '0.5rem',
+                        key={lead.id}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, lead.id)}
+                        onDragEnd={() => {
+                          setDraggedLeadId(null);
+                          setDragOverStage(null);
                         }}
+                        onClick={() => setSelectedLead(lead)}
+                        className={`kanban-lead-card ${isDragging ? 'is-dragging' : ''} ${wasRecentlyMoved ? 'just-dropped' : ''}`}
+                        style={{
+                          ['--card-accent' as any]: stage.accent,
+                          ['--card-light-bg' as any]: stage.lightBg,
+                          ['--card-border' as any]: stage.border,
+                          ['--card-badge-bg' as any]: stage.badgeBg,
+                        }}
+                        title="Drag to advance stage, or click to open full details"
                       >
-                        <span>Budget: ₹{(lead.budgetMin! / 100000).toFixed(0)}-{(lead.budgetMax! / 100000).toFixed(0)}L</span>
-                        <span style={{ fontWeight: 500, color: 'var(--color-blue)' }}>{lead.assigneeName?.split(' ')[0]}</span>
+                        {/* Top: Customer name & Grip + Score */}
+                        <div className="kanban-card-top">
+                          <div className="kanban-card-title-group">
+                            <GripVertical size={14} className="kanban-grip-icon" />
+                            <span className="kanban-customer-name">{lead.customerName}</span>
+                          </div>
+                          <span
+                            className="kanban-score-pill"
+                            style={{
+                              color: (lead.score || 0) >= 80 ? '#15803D' : stage.accent,
+                              borderColor: (lead.score || 0) >= 80 ? 'rgba(22, 163, 74, 0.3)' : stage.border,
+                            }}
+                          >
+                            <Sparkles size={11} style={{ color: (lead.score || 0) >= 80 ? '#16A34A' : stage.accent }} />
+                            {lead.score}
+                          </span>
+                        </div>
+
+                        {/* Vehicle Interest Pill */}
+                        <div className="kanban-vehicle-tag">
+                          <Car size={13} style={{ color: stage.accent, flexShrink: 0 }} />
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {lead.preferredMake} {lead.preferredModel}
+                          </span>
+                          {lead.preferredFuelType && (
+                            <span style={{ fontSize: '0.7rem', color: 'var(--muted)', marginLeft: 'auto' }}>
+                              · {lead.preferredFuelType}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Footer: Budget & Sales Exec */}
+                        <div className="kanban-card-footer">
+                          <span className="kanban-budget-label">
+                            Budget: ₹{(lead.budgetMin! / 100000).toFixed(0)}-{(lead.budgetMax! / 100000).toFixed(0)}L
+                          </span>
+                          <span className="kanban-assignee-pill">
+                            {lead.assigneeName?.split(' ')[0]}
+                          </span>
+                        </div>
                       </div>
+                    );
+                  })}
+
+                  {/* Active Drop Slot Indicator when Dragging Over */}
+                  {isOver && draggedLeadId && (
+                    <div className="kanban-drop-placeholder">
+                      <ArrowRight size={14} />
+                      <span>Drop to move to {stage.label}</span>
                     </div>
-                  ))}
-                  {stageLeads.length === 0 && (
-                    <div
-                      style={{
-                        textAlign: 'center',
-                        padding: '2rem 1rem',
-                        color: 'var(--color-text-muted)',
-                        fontSize: '0.8rem',
-                      }}
-                    >
-                      No leads in this stage
+                  )}
+
+                  {stageLeads.length === 0 && !isOver && (
+                    <div className="kanban-empty-col">
+                      <span style={{ fontSize: '1.2rem', opacity: 0.55 }}>📥</span>
+                      <span>No leads in stage</span>
+                      <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>Drag leads here</span>
                     </div>
                   )}
                 </div>
@@ -516,14 +646,16 @@ export default function LeadsPage() {
                     key={s.key}
                     onClick={() => handleStageTransition(selectedLead.id, s.key)}
                     style={{
-                      padding: '0.35rem 0.75rem',
+                      padding: '0.4rem 0.8rem',
                       borderRadius: 'var(--radius-sm)',
                       fontSize: '0.75rem',
                       fontWeight: 600,
-                      backgroundColor: selectedLead.status === s.key ? 'var(--color-blue)' : '#F1F5F9',
-                      color: selectedLead.status === s.key ? '#FFFFFF' : 'var(--color-text-secondary)',
+                      backgroundColor: selectedLead.status === s.key ? s.accent : s.lightBg,
+                      color: selectedLead.status === s.key ? '#FFFFFF' : s.badgeText,
                       border: '1px solid',
-                      borderColor: selectedLead.status === s.key ? 'var(--color-blue)' : 'var(--color-border)',
+                      borderColor: selectedLead.status === s.key ? s.accent : s.border,
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
                     }}
                   >
                     {s.label}
