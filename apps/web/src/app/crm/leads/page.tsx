@@ -338,24 +338,27 @@ export default function LeadsPage() {
     setMounted(true);
   }, []);
 
+  const emptyLeadForm = {
+    customerId: '',
+    branchId: '',
+    source: 'Walk-in Showroom',
+    preferredMake: '',
+    preferredModel: '',
+    preferredFuelType: '',
+    budgetMin: '',
+    budgetMax: '',
+    notes: '',
+  };
+
   // Form state & stage questionnaire
   const [formStage, setFormStage] = useState<LeadStatus>('new');
   const [stageQuestions, setStageQuestions] = useState<Record<string, string>>({});
-  const [formData, setFormData] = useState({
-    customerId: customers[0]?.id || '',
-    branchId: branches[0]?.id || '',
-    source: 'Google Search Ads',
-    preferredMake: 'Mahindra',
-    preferredModel: 'XUV700',
-    preferredFuelType: 'Diesel',
-    budgetMin: '2000000',
-    budgetMax: '2500000',
-    notes: '',
-  });
+  const [formData, setFormData] = useState(emptyLeadForm);
 
   const openStageModal = (stageKey: LeadStatus) => {
     setFormStage(stageKey);
     setStageQuestions({});
+    setFormData(emptyLeadForm);
     setIsNewLeadModalOpen(true);
   };
 
@@ -388,6 +391,8 @@ export default function LeadsPage() {
     setLeads([...api.getLeads()]);
     setRecentlyMovedId(created.id);
     setTimeout(() => setRecentlyMovedId(null), 1500);
+    setFormData(emptyLeadForm);
+    setStageQuestions({});
     setIsNewLeadModalOpen(false);
   };
 
@@ -533,7 +538,12 @@ export default function LeadsPage() {
           </p>
         </div>
         <button
-          onClick={() => setIsNewLeadModalOpen(true)}
+          onClick={() => {
+            setFormData(emptyLeadForm);
+            setStageQuestions({});
+            setFormStage('new');
+            setIsNewLeadModalOpen(true);
+          }}
           className="btn btn-primary btn-sm"
           style={{ borderRadius: '999px', padding: '0.45rem 1.15rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
         >
@@ -759,6 +769,7 @@ export default function LeadsPage() {
                     onChange={(e) => setFormData({ ...formData, customerId: e.target.value })}
                     required
                   >
+                    <option value="">-- Select Customer Profile --</option>
                     {customers.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.firstName} {c.lastName} ({c.phone})
@@ -774,6 +785,7 @@ export default function LeadsPage() {
                     value={formData.branchId}
                     onChange={(e) => setFormData({ ...formData, branchId: e.target.value })}
                   >
+                    <option value="">-- Select Branch Destination --</option>
                     {branches.map((b) => (
                       <option key={b.id} value={b.id}>
                         {b.name}
@@ -818,6 +830,7 @@ export default function LeadsPage() {
                     value={formData.preferredFuelType}
                     onChange={(e) => setFormData({ ...formData, preferredFuelType: e.target.value })}
                   >
+                    <option value="">-- Select Fuel Type --</option>
                     <option value="Petrol">Petrol</option>
                     <option value="Diesel">Diesel</option>
                     <option value="Electric">Electric</option>

@@ -1,31 +1,109 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { api } from '@/lib/api-client';
 import { Customer } from '@crm/shared-types';
-import { DataTable, Column } from '@/components/ui/DataTable';
 import { Modal } from '@/components/ui/Modal';
-import { StatusBadge } from '@/components/ui/StatusBadge';
 import {
   Users,
   Plus,
   Phone,
   Mail,
-  Building,
+  Building2,
   User,
   CheckCircle2,
-  FileText,
-  Clock,
-  Car,
+  ShieldCheck,
+  AlertCircle,
+  MapPin,
+  Search,
+  X,
+  MessageSquare,
+  Sparkles,
+  ExternalLink,
+  ChevronRight,
+  ChevronLeft,
 } from 'lucide-react';
 import { WordFadeIn } from '@/components/ui/WordFadeIn';
+
+// Distinctive color palettes matching Lead Management themes
+const CUSTOMER_CARD_PALETTES = [
+  {
+    accent: '#0284C7',
+    lightBg: '#F0F9FF',
+    border: 'rgba(2, 132, 199, 0.28)',
+    badgeBg: '#E0F2FE',
+    badgeText: '#0369A1',
+    glow: 'rgba(2, 132, 199, 0.18)',
+    themeName: 'Sky Blue',
+  },
+  {
+    accent: '#4F46E5',
+    lightBg: '#EEF2FF',
+    border: 'rgba(79, 70, 229, 0.28)',
+    badgeBg: '#EEF2FF',
+    badgeText: '#4338CA',
+    glow: 'rgba(79, 70, 229, 0.18)',
+    themeName: 'Royal Indigo',
+  },
+  {
+    accent: '#16A34A',
+    lightBg: '#F0FDF4',
+    border: 'rgba(22, 163, 74, 0.28)',
+    badgeBg: '#DCFCE7',
+    badgeText: '#15803D',
+    glow: 'rgba(22, 163, 74, 0.18)',
+    themeName: 'Emerald Pearl',
+  },
+  {
+    accent: '#7C3AED',
+    lightBg: '#F5F3FF',
+    border: 'rgba(124, 58, 237, 0.28)',
+    badgeBg: '#F5F3FF',
+    badgeText: '#6D28D9',
+    glow: 'rgba(124, 58, 237, 0.18)',
+    themeName: 'Imperial Violet',
+  },
+  {
+    accent: '#0D9488',
+    lightBg: '#F0FDFA',
+    border: 'rgba(13, 148, 136, 0.28)',
+    badgeBg: '#CCFBF1',
+    badgeText: '#0F766E',
+    glow: 'rgba(13, 148, 136, 0.18)',
+    themeName: 'Oceanic Teal',
+  },
+  {
+    accent: '#D97706',
+    lightBg: '#FFFBEB',
+    border: 'rgba(217, 119, 6, 0.28)',
+    badgeBg: '#FEF3C7',
+    badgeText: '#B45309',
+    glow: 'rgba(217, 119, 6, 0.18)',
+    themeName: 'Warm Amber',
+  },
+  {
+    accent: '#E11D48',
+    lightBg: '#FFF1F2',
+    border: 'rgba(225, 29, 72, 0.28)',
+    badgeBg: '#FFE4E6',
+    badgeText: '#BE123C',
+    glow: 'rgba(225, 29, 72, 0.18)',
+    themeName: 'Crimson Rose',
+  },
+];
+
+type FilterCategory = 'all' | 'individual' | 'business' | 'kyc_verified' | 'kyc_pending';
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>(api.getCustomers());
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
 
-  const [formData, setFormData] = useState({
+  // Search and filter states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState<FilterCategory>('all');
+
+  const emptyCustomerForm = {
     firstName: '',
     lastName: '',
     type: 'individual' as 'individual' | 'business',
@@ -34,128 +112,71 @@ export default function CustomersPage() {
     phone: '',
     panNumber: '',
     city: 'Mumbai',
-  });
+  };
+
+  const [formData, setFormData] = useState(emptyCustomerForm);
 
   const handleCreateCustomer = (e: React.FormEvent) => {
     e.preventDefault();
-    const created = api.addCustomer({
+    api.addCustomer({
       ...formData,
       address: { city: formData.city },
     });
     setCustomers([...api.getCustomers()]);
     setIsModalOpen(false);
-    setFormData({
-      firstName: '',
-      lastName: '',
-      type: 'individual',
-      companyName: '',
-      email: '',
-      phone: '',
-      panNumber: '',
-      city: 'Mumbai',
-    });
+    setFormData(emptyCustomerForm);
   };
 
-  const columns: Column<Customer>[] = [
-    {
-      header: 'Customer Name',
-      cell: (row) => (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <div
-            style={{
-              width: '34px',
-              height: '34px',
-              borderRadius: '50%',
-              backgroundColor: row.type === 'business' ? 'var(--color-indigo-bg)' : 'var(--color-blue-bg)',
-              color: row.type === 'business' ? 'var(--color-indigo)' : 'var(--color-blue)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontWeight: 600,
-              fontSize: '0.8rem',
-            }}
-          >
-            {row.type === 'business' ? <Building size={16} /> : <User size={16} />}
-          </div>
-          <div>
-            <div style={{ fontWeight: 600 }}>
-              {row.firstName} {row.lastName}
-            </div>
-            {row.companyName && (
-              <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>
-                {row.companyName}
-              </div>
-            )}
-          </div>
-        </div>
-      ),
-    },
-    {
-      header: 'Contact Info',
-      cell: (row) => (
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.8125rem' }}>
-            <Phone size={13} style={{ color: 'var(--color-text-muted)' }} /> {row.phone}
-          </div>
-          {row.email && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>
-              <Mail size={13} style={{ color: 'var(--color-text-muted)' }} /> {row.email}
-            </div>
-          )}
-        </div>
-      ),
-    },
-    {
-      header: 'Category',
-      cell: (row) => (
-        <span
-          style={{
-            fontSize: '0.75rem',
-            fontWeight: 600,
-            padding: '0.2rem 0.5rem',
-            borderRadius: 'var(--radius-sm)',
-            textTransform: 'capitalize',
-            backgroundColor: row.type === 'business' ? 'var(--color-indigo-bg)' : 'var(--color-blue-bg)',
-            color: row.type === 'business' ? 'var(--color-indigo)' : 'var(--color-blue)',
-          }}
-        >
-          {row.type}
-        </span>
-      ),
-    },
-    {
-      header: 'KYC & Tax ID',
-      cell: (row) => (
-        <div style={{ fontSize: '0.8125rem', fontFamily: 'monospace' }}>
-          {row.panNumber || row.gstin || 'Pending Verification'}
-        </div>
-      ),
-    },
-    {
-      header: 'Consent',
-      cell: (row) => (
-        <div style={{ display: 'flex', gap: '0.35rem', fontSize: '0.7rem' }}>
-          <span style={{ color: row.consent?.whatsapp ? 'var(--color-green)' : 'var(--color-text-muted)' }}>WA ✓</span>
-          <span style={{ color: row.consent?.sms ? 'var(--color-green)' : 'var(--color-text-muted)' }}>SMS ✓</span>
-          <span style={{ color: row.consent?.email ? 'var(--color-green)' : 'var(--color-text-muted)' }}>Email ✓</span>
-        </div>
-      ),
-    },
-    {
-      header: 'Actions',
-      cell: (row) => (
-        <button
-          className="btn btn-secondary btn-sm"
-          onClick={() => setSelectedCustomer(row)}
-        >
-          Customer 360
-        </button>
-      ),
-    },
-  ];
+  // Filtered customer list
+  const filteredCustomers = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    return customers.filter((c) => {
+      // Category filter
+      if (activeFilter === 'individual' && c.type !== 'individual') return false;
+      if (activeFilter === 'business' && c.type !== 'business') return false;
+      if (activeFilter === 'kyc_verified' && !c.panNumber && !c.gstin) return false;
+      if (activeFilter === 'kyc_pending' && (c.panNumber || c.gstin)) return false;
+
+      // Text query match
+      if (!q) return true;
+      const fullName = `${c.firstName} ${c.lastName}`.toLowerCase();
+      const phone = (c.phone || '').toLowerCase();
+      const email = (c.email || '').toLowerCase();
+      const pan = (c.panNumber || '').toLowerCase();
+      const company = (c.companyName || '').toLowerCase();
+      const city = (c.address?.city || '').toLowerCase();
+
+      return (
+        fullName.includes(q) ||
+        phone.includes(q) ||
+        email.includes(q) ||
+        pan.includes(q) ||
+        company.includes(q) ||
+        city.includes(q)
+      );
+    });
+  }, [customers, searchQuery, activeFilter]);
+
+  // Counts for filter pills
+  const counts = useMemo(() => {
+    return {
+      all: customers.length,
+      individual: customers.filter((c) => c.type === 'individual').length,
+      business: customers.filter((c) => c.type === 'business').length,
+      kyc_verified: customers.filter((c) => c.panNumber || c.gstin).length,
+      kyc_pending: customers.filter((c) => !c.panNumber && !c.gstin).length,
+    };
+  }, [customers]);
+
+  const getInitials = (firstName: string, lastName?: string) => {
+    const first = firstName ? firstName[0] : '';
+    const last = lastName ? lastName[0] : '';
+    return `${first}${last}`.toUpperCase() || 'CU';
+  };
 
   return (
     <div>
+      {/* Page Header */}
       <div className="page-header">
         <div>
           <h1 className="page-title">
@@ -170,75 +191,430 @@ export default function CustomersPage() {
           </p>
         </div>
         <button
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => {
+            setFormData(emptyCustomerForm);
+            setIsModalOpen(true);
+          }}
           className="btn btn-primary btn-sm"
+          style={{
+            borderRadius: '999px',
+            padding: '0.45rem 1.25rem',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+          }}
         >
           <Plus size={16} /> Add Customer
         </button>
       </div>
 
-      <div className="card">
-        <div className="card-body">
-          <DataTable
-            data={customers}
-            columns={columns}
-            searchPlaceholder="Search by name, phone, email, PAN..."
+      {/* Unique Search Bar & Filters */}
+      <div className="unique-search-wrapper">
+        <div className="unique-search-bar">
+          <div className="search-lens-pod">
+            <Search size={18} />
+          </div>
+          <input
+            type="text"
+            className="search-input-field"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search customers by name, phone (+91), email, or PAN / Tax ID..."
           />
+          {searchQuery && (
+            <button
+              type="button"
+              className="search-clear-btn"
+              onClick={() => setSearchQuery('')}
+              title="Clear search"
+            >
+              <X size={15} />
+            </button>
+          )}
+          <div className="search-kbd-badge">
+            <span>⌘</span>
+            <span>K</span>
+          </div>
+        </div>
+
+        {/* Filter Pills and Counter */}
+        <div className="search-controls-row">
+          <div className="search-filter-pills">
+            <button
+              type="button"
+              onClick={() => setActiveFilter('all')}
+              className={`search-filter-pill ${activeFilter === 'all' ? 'is-active' : ''}`}
+            >
+              <span>All Customers</span>
+              <span className="pill-count">{counts.all}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveFilter('individual')}
+              className={`search-filter-pill ${activeFilter === 'individual' ? 'is-active' : ''}`}
+            >
+              <User size={13} />
+              <span>Individual</span>
+              <span className="pill-count">{counts.individual}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveFilter('business')}
+              className={`search-filter-pill ${activeFilter === 'business' ? 'is-active' : ''}`}
+            >
+              <Building2 size={13} />
+              <span>Corporate Fleet</span>
+              <span className="pill-count">{counts.business}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveFilter('kyc_verified')}
+              className={`search-filter-pill ${activeFilter === 'kyc_verified' ? 'is-active' : ''}`}
+            >
+              <ShieldCheck size={13} style={{ color: '#16A34A' }} />
+              <span>KYC Verified</span>
+              <span className="pill-count">{counts.kyc_verified}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveFilter('kyc_pending')}
+              className={`search-filter-pill ${activeFilter === 'kyc_pending' ? 'is-active' : ''}`}
+            >
+              <AlertCircle size={13} style={{ color: '#D97706' }} />
+              <span>Pending KYC</span>
+              <span className="pill-count">{counts.kyc_pending}</span>
+            </button>
+          </div>
+
+          <div className="search-results-info">
+            <span>
+              Showing <strong>{filteredCustomers.length}</strong> of {customers.length} Customers
+            </span>
+            {(searchQuery || activeFilter !== 'all') && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery('');
+                  setActiveFilter('all');
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#2563EB',
+                  fontSize: '0.78rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  textDecoration: 'underline',
+                }}
+              >
+                Reset filters
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Add Customer Modal */}
+      {/* Customer Cards Grid with Different Colors */}
+      {filteredCustomers.length > 0 ? (
+        <div className="customer-cards-grid">
+          {filteredCustomers.map((customer, index) => {
+            const palette = CUSTOMER_CARD_PALETTES[index % CUSTOMER_CARD_PALETTES.length];
+            const isBusiness = customer.type === 'business';
+            const hasKyc = Boolean(customer.panNumber || customer.gstin);
+            const initials = getInitials(customer.firstName, customer.lastName);
+
+            return (
+              <div
+                key={customer.id}
+                className="customer-card"
+                style={{
+                  ['--theme-accent' as any]: palette.accent,
+                  ['--theme-light-bg' as any]: palette.lightBg,
+                  ['--theme-border' as any]: palette.border,
+                  ['--theme-badge-bg' as any]: palette.badgeBg,
+                  ['--theme-badge-text' as any]: palette.badgeText,
+                  ['--theme-glow' as any]: palette.glow,
+                }}
+              >
+                {/* Header */}
+                <div className="customer-card-header">
+                  <div className="customer-card-avatar">
+                    {isBusiness ? <Building2 size={20} /> : initials}
+                  </div>
+                  <div className="customer-card-title-wrap">
+                    <h3 className="customer-card-name">
+                      {customer.firstName} {customer.lastName}
+                    </h3>
+                    <div className="customer-card-category-row">
+                      <span className="customer-category-pill">
+                        {isBusiness ? <Building2 size={11} /> : <User size={11} />}
+                        {isBusiness ? 'Corporate Fleet' : 'Individual'}
+                      </span>
+                      {customer.companyName && (
+                        <span
+                          style={{
+                            fontSize: '0.74rem',
+                            color: '#475569',
+                            fontWeight: 600,
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                          }}
+                        >
+                          • {customer.companyName}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Body Details */}
+                <div className="customer-card-body">
+                  {/* KYC & Identity Bar */}
+                  <div className="customer-id-row">
+                    <div className="pan-tax-chip">
+                      {customer.panNumber || customer.gstin || 'Tax ID Pending'}
+                    </div>
+                    {hasKyc ? (
+                      <span className="kyc-badge-verified">
+                        <ShieldCheck size={12} /> Verified
+                      </span>
+                    ) : (
+                      <span className="kyc-badge-pending">
+                        <AlertCircle size={12} /> Pending KYC
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="customer-card-section-divider" />
+
+                  {/* Contact List */}
+                  <div className="customer-contact-list">
+                    <a
+                      href={`tel:${customer.phone}`}
+                      className="customer-contact-item"
+                      title="Call customer"
+                    >
+                      <Phone size={14} className="customer-contact-icon" />
+                      <span style={{ fontWeight: 600 }}>{customer.phone}</span>
+                    </a>
+                    {customer.email && (
+                      <a
+                        href={`mailto:${customer.email}`}
+                        className="customer-contact-item"
+                        title="Send email"
+                      >
+                        <Mail size={14} className="customer-contact-icon" />
+                        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {customer.email}
+                        </span>
+                      </a>
+                    )}
+                    <div className="customer-contact-item">
+                      <MapPin size={14} className="customer-contact-icon" />
+                      <span>
+                        {customer.address?.city || 'Mumbai'}
+                        {customer.address?.pincode ? `, ${customer.address.pincode}` : ''}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Digital Consent Indicators */}
+                  <div className="customer-consent-bar">
+                    <span>Consent:</span>
+                    <div className="consent-chips">
+                      <span
+                        className={`consent-chip ${
+                          customer.consent?.whatsapp ? 'is-active' : 'is-inactive'
+                        }`}
+                      >
+                        WA ✓
+                      </span>
+                      <span
+                        className={`consent-chip ${
+                          customer.consent?.sms ? 'is-active' : 'is-inactive'
+                        }`}
+                      >
+                        SMS ✓
+                      </span>
+                      <span
+                        className={`consent-chip ${
+                          customer.consent?.email ? 'is-active' : 'is-inactive'
+                        }`}
+                      >
+                        Email ✓
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Card Footer Actions */}
+                <div className="customer-card-footer">
+                  <div className="customer-quick-links">
+                    <a
+                      href={`https://wa.me/${customer.phone.replace(/[^0-9]/g, '')}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="customer-icon-btn"
+                      title="Open WhatsApp chat"
+                    >
+                      <MessageSquare size={15} style={{ color: '#16A34A' }} />
+                    </a>
+                    <a
+                      href={`tel:${customer.phone}`}
+                      className="customer-icon-btn"
+                      title="Call phone"
+                    >
+                      <Phone size={15} style={{ color: palette.accent }} />
+                    </a>
+                  </div>
+                  <button
+                    type="button"
+                    className="customer-action-btn"
+                    onClick={() => setSelectedCustomer(customer)}
+                  >
+                    <span>Customer 360</span>
+                    <ChevronRight size={14} />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        /* Empty State */
+        <div
+          style={{
+            background: '#FFFFFF',
+            border: '1.5px dashed #CBD5E1',
+            borderRadius: '20px',
+            padding: '3.5rem 1.5rem',
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '12px',
+          }}
+        >
+          <div
+            style={{
+              width: '54px',
+              height: '54px',
+              borderRadius: '50%',
+              background: '#F1F5F9',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#64748B',
+            }}
+          >
+            <Search size={24} />
+          </div>
+          <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#0F172A' }}>
+            No matching customers found
+          </h3>
+          <p style={{ margin: 0, fontSize: '0.84rem', color: '#64748B', maxWidth: '380px' }}>
+            We couldn't find any customers matching &ldquo;{searchQuery}&rdquo;. Try adjusting your search query or reset the filters.
+          </p>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={() => {
+              setSearchQuery('');
+              setActiveFilter('all');
+            }}
+            style={{ marginTop: '6px' }}
+          >
+            Clear Search & Filters
+          </button>
+        </div>
+      )}
+
+      {/* Add Customer Modal with Modern Form UI */}
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title="Register New Customer"
+        maxWidth="680px"
       >
-        <form onSubmit={handleCreateCustomer}>
+        <form onSubmit={handleCreateCustomer} className="inspo-form-wrapper">
           <div className="form-group">
-            <label className="form-label">Customer Classification</label>
-            <div style={{ display: 'flex', gap: '1rem' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                <input
-                  type="radio"
-                  name="type"
-                  checked={formData.type === 'individual'}
-                  onChange={() => setFormData({ ...formData, type: 'individual' })}
-                />
-                Individual Retail
-              </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                <input
-                  type="radio"
-                  name="type"
-                  checked={formData.type === 'business'}
-                  onChange={() => setFormData({ ...formData, type: 'business' })}
-                />
-                Corporate / Business Fleet
-              </label>
+            <label className="form-label">
+              Customer Classification <span className="req-star">*</span>
+            </label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, type: 'individual' })}
+                style={{
+                  padding: '11px 16px',
+                  borderRadius: '12px',
+                  border: '1.5px solid',
+                  borderColor: formData.type === 'individual' ? '#2563EB' : '#CBD5E1',
+                  backgroundColor: formData.type === 'individual' ? '#EFF6FF' : '#FFFFFF',
+                  color: formData.type === 'individual' ? '#1D4ED8' : '#475569',
+                  fontWeight: 600,
+                  fontSize: '0.88rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <User size={16} /> Individual Retail
+              </button>
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, type: 'business' })}
+                style={{
+                  padding: '11px 16px',
+                  borderRadius: '12px',
+                  border: '1.5px solid',
+                  borderColor: formData.type === 'business' ? '#4F46E5' : '#CBD5E1',
+                  backgroundColor: formData.type === 'business' ? '#EEF2FF' : '#FFFFFF',
+                  color: formData.type === 'business' ? '#4338CA' : '#475569',
+                  fontWeight: 600,
+                  fontSize: '0.88rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <Building2 size={16} /> Corporate Fleet
+              </button>
             </div>
           </div>
 
           {formData.type === 'business' && (
             <div className="form-group">
-              <label className="form-label">Company Name</label>
+              <label className="form-label">
+                Company / Organization Name <span className="req-star">*</span>
+              </label>
               <input
                 type="text"
                 className="form-input"
                 value={formData.companyName}
                 onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
+                placeholder="e.g. Nexa Logistics Pvt Ltd"
                 required
               />
             </div>
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <div className="form-grid-2">
             <div className="form-group">
-              <label className="form-label">First Name / Contact Person</label>
+              <label className="form-label">
+                First Name / Contact Person <span className="req-star">*</span>
+              </label>
               <input
                 type="text"
                 className="form-input"
                 value={formData.firstName}
                 onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                placeholder="e.g. Rajesh"
                 required
               />
             </div>
@@ -249,13 +625,16 @@ export default function CustomersPage() {
                 className="form-input"
                 value={formData.lastName}
                 onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                placeholder="e.g. Sharma"
               />
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <div className="form-grid-2">
             <div className="form-group">
-              <label className="form-label">Phone (WhatsApp enabled)</label>
+              <label className="form-label">
+                Phone Number <span className="req-star">*</span>
+              </label>
               <input
                 type="tel"
                 className="form-input"
@@ -264,6 +643,7 @@ export default function CustomersPage() {
                 placeholder="+91 98000 00000"
                 required
               />
+              <div className="form-helper">WhatsApp messaging will be enabled by default.</div>
             </div>
             <div className="form-group">
               <label className="form-label">Email Address</label>
@@ -272,54 +652,60 @@ export default function CustomersPage() {
                 className="form-input"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                placeholder="e.g. client@example.com"
               />
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <div className="form-grid-2">
             <div className="form-group">
-              <label className="form-label">PAN Card Number</label>
+              <label className="form-label">PAN Card / Tax ID</label>
               <input
                 type="text"
                 className="form-input"
                 value={formData.panNumber}
                 onChange={(e) => setFormData({ ...formData, panNumber: e.target.value.toUpperCase() })}
-                placeholder="ABCPS1234M"
+                placeholder="e.g. ABCPS1234M"
               />
             </div>
             <div className="form-group">
-              <label className="form-label">City</label>
+              <label className="form-label">Registered City</label>
               <input
                 type="text"
                 className="form-input"
                 value={formData.city}
                 onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                placeholder="e.g. Mumbai"
               />
             </div>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.5rem' }}>
+          <div className="inspo-form-nav">
             <button
               type="button"
-              className="btn btn-secondary"
+              className="inspo-btn-back"
               onClick={() => setIsModalOpen(false)}
             >
-              Cancel
+              <ChevronLeft size={16} /> Cancel
             </button>
-            <button type="submit" className="btn btn-primary">
-              Register Customer
+            <button
+              type="submit"
+              className="inspo-btn-submit"
+            >
+              <span>Register Customer</span>
+              <ChevronRight size={16} />
             </button>
           </div>
         </form>
       </Modal>
 
-      {/* Customer 360 Detail Modal */}
+      {/* Customer 360 Detail Dossier Modal */}
       {selectedCustomer && (
         <Modal
           isOpen={!!selectedCustomer}
           onClose={() => setSelectedCustomer(null)}
           title={`Customer 360: ${selectedCustomer.firstName} ${selectedCustomer.lastName}`}
-          maxWidth="720px"
+          maxWidth="760px"
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             {/* Quick Profile Summary */}
@@ -328,73 +714,176 @@ export default function CustomersPage() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                padding: '1rem',
-                backgroundColor: 'var(--color-page-bg)',
-                borderRadius: 'var(--radius-lg)',
-                border: '1px solid var(--color-border)',
+                padding: '1.2rem',
+                backgroundColor: '#F8FAFC',
+                borderRadius: '16px',
+                border: '1.5px solid #E2E8F0',
               }}
             >
-              <div>
-                <div style={{ fontSize: '1.1rem', fontWeight: 700 }}>
-                  {selectedCustomer.firstName} {selectedCustomer.lastName}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                <div
+                  style={{
+                    width: '48px',
+                    height: '48px',
+                    borderRadius: '14px',
+                    backgroundColor: '#EFF6FF',
+                    color: '#1D4ED8',
+                    border: '1.5px solid #BFDBFE',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 700,
+                    fontSize: '1.05rem',
+                  }}
+                >
+                  {selectedCustomer.type === 'business' ? (
+                    <Building2 size={22} />
+                  ) : (
+                    getInitials(selectedCustomer.firstName, selectedCustomer.lastName)
+                  )}
                 </div>
-                <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', marginTop: '0.2rem' }}>
-                  {selectedCustomer.companyName ? `Corporate: ${selectedCustomer.companyName}` : 'Individual Retail Buyer'}
+                <div>
+                  <div style={{ fontSize: '1.15rem', fontWeight: 700, color: '#0F172A' }}>
+                    {selectedCustomer.firstName} {selectedCustomer.lastName}
+                  </div>
+                  <div style={{ fontSize: '0.8125rem', color: '#64748B', marginTop: '0.2rem' }}>
+                    {selectedCustomer.companyName
+                      ? `Corporate Account: ${selectedCustomer.companyName}`
+                      : 'Individual Retail Buyer'}
+                  </div>
                 </div>
               </div>
               <div style={{ textAlign: 'right' }}>
-                <div style={{ fontWeight: 600 }}>{selectedCustomer.phone}</div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>{selectedCustomer.email || 'No email provided'}</div>
+                <div style={{ fontWeight: 700, color: '#0F172A' }}>{selectedCustomer.phone}</div>
+                <div style={{ fontSize: '0.78rem', color: '#64748B' }}>
+                  {selectedCustomer.email || 'No email provided'}
+                </div>
               </div>
             </div>
 
             {/* KYC & Identity Section */}
-            <div className="card">
-              <div className="card-header" style={{ padding: '0.75rem 1rem' }}>
-                <h4 style={{ fontSize: '0.85rem', fontWeight: 600 }}>Compliance & KYC Records</h4>
-                <span className="badge badge-green">Verified</span>
+            <div
+              style={{
+                background: '#FFFFFF',
+                borderRadius: '16px',
+                border: '1.5px solid #E2E8F0',
+                padding: '16px 18px',
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: '14px',
+                }}
+              >
+                <h4 style={{ fontSize: '0.88rem', fontWeight: 700, color: '#0F172A', margin: 0 }}>
+                  Compliance & KYC Records
+                </h4>
+                {selectedCustomer.panNumber || selectedCustomer.gstin ? (
+                  <span className="kyc-badge-verified">
+                    <ShieldCheck size={13} /> Verified
+                  </span>
+                ) : (
+                  <span className="kyc-badge-pending">
+                    <AlertCircle size={13} /> Pending Verification
+                  </span>
+                )}
               </div>
-              <div style={{ padding: '1rem', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', fontSize: '0.8125rem' }}>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(3, 1fr)',
+                  gap: '1rem',
+                  fontSize: '0.82rem',
+                }}
+              >
                 <div>
-                  <span style={{ color: 'var(--color-text-muted)', fontSize: '0.7rem' }}>PAN Number:</span>
-                  <div style={{ fontWeight: 600, fontFamily: 'monospace' }}>{selectedCustomer.panNumber || 'ABCPS1234M'}</div>
+                  <span style={{ color: '#64748B', fontSize: '0.72rem', display: 'block', marginBottom: '2px' }}>
+                    PAN / Tax ID:
+                  </span>
+                  <div style={{ fontWeight: 700, fontFamily: 'monospace' }}>
+                    {selectedCustomer.panNumber || selectedCustomer.gstin || 'ABCPS1234M'}
+                  </div>
                 </div>
                 <div>
-                  <span style={{ color: 'var(--color-text-muted)', fontSize: '0.7rem' }}>Aadhaar Status:</span>
-                  <div style={{ fontWeight: 600, color: 'var(--color-green)' }}>Linked (Masked)</div>
+                  <span style={{ color: '#64748B', fontSize: '0.72rem', display: 'block', marginBottom: '2px' }}>
+                    Aadhaar Status:
+                  </span>
+                  <div style={{ fontWeight: 700, color: '#16A34A' }}>Linked (Masked)</div>
                 </div>
                 <div>
-                  <span style={{ color: 'var(--color-text-muted)', fontSize: '0.7rem' }}>Registered City:</span>
-                  <div style={{ fontWeight: 600 }}>{selectedCustomer.address?.city || 'Mumbai'}</div>
+                  <span style={{ color: '#64748B', fontSize: '0.72rem', display: 'block', marginBottom: '2px' }}>
+                    Registered City:
+                  </span>
+                  <div style={{ fontWeight: 700 }}>{selectedCustomer.address?.city || 'Mumbai'}</div>
                 </div>
               </div>
             </div>
 
             {/* Lifetime Engagement History */}
-            <div className="card">
-              <div className="card-header" style={{ padding: '0.75rem 1rem' }}>
-                <h4 style={{ fontSize: '0.85rem', fontWeight: 600 }}>Automotive Lifetime Timeline</h4>
-              </div>
-              <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
-                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--color-blue)', marginTop: '6px' }} />
+            <div
+              style={{
+                background: '#FFFFFF',
+                borderRadius: '16px',
+                border: '1.5px solid #E2E8F0',
+                padding: '16px 18px',
+              }}
+            >
+              <h4 style={{ fontSize: '0.88rem', fontWeight: 700, color: '#0F172A', margin: '0 0 14px 0' }}>
+                Automotive Lifetime Timeline
+              </h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                  <div
+                    style={{
+                      width: '10px',
+                      height: '10px',
+                      borderRadius: '50%',
+                      backgroundColor: '#2563EB',
+                      marginTop: '5px',
+                      flexShrink: 0,
+                    }}
+                  />
                   <div>
-                    <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>Deal Initialized — Mahindra XUV700 AX7L</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Quotation #Q-2024-001 accepted, deposit of ₹1,00,000 paid.</div>
+                    <div style={{ fontWeight: 700, fontSize: '0.86rem', color: '#0F172A' }}>
+                      Deal Initialized — Mahindra XUV700 AX7L
+                    </div>
+                    <div style={{ fontSize: '0.76rem', color: '#64748B' }}>
+                      Quotation #Q-2024-001 accepted, deposit of ₹1,00,000 paid.
+                    </div>
                   </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
-                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--color-teal)', marginTop: '6px' }} />
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                  <div
+                    style={{
+                      width: '10px',
+                      height: '10px',
+                      borderRadius: '50%',
+                      backgroundColor: '#0D9488',
+                      marginTop: '5px',
+                      flexShrink: 0,
+                    }}
+                  />
                   <div>
-                    <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>Test Drive Completed</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>45 min drive route on Western Express Highway. Rating: 5/5 stars.</div>
+                    <div style={{ fontWeight: 700, fontSize: '0.86rem', color: '#0F172A' }}>
+                      Test Drive Completed
+                    </div>
+                    <div style={{ fontSize: '0.76rem', color: '#64748B' }}>
+                      45 min drive route on Western Express Highway. Rating: 5/5 stars.
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
-              <button className="btn btn-secondary" onClick={() => setSelectedCustomer(null)}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '4px' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setSelectedCustomer(null)}
+              >
                 Close
               </button>
             </div>
