@@ -3419,3 +3419,54 @@ html, body {
   align-items: center;
   gap: 5px;
 }
+
+/* ========================================================
+   GLOBAL NO-SPINNER RULES FOR NUMBER INPUTS
+   Eliminate up and down stepper arrows across all browsers
+   ======================================================== */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button,
+input.no-spinner::-webkit-outer-spin-button,
+input.no-spinner::-webkit-inner-spin-button {
+  -webkit-appearance: none !important;
+  margin: 0 !important;
+}
+
+input[type="number"],
+input.no-spinner {
+  -moz-appearance: textfield !important;
+  appearance: textfield !important;
+}
+
+/* ========================================================
+   A4 PRINT STYLES FOR OFFICIAL WATERMARKED INVOICE
+   ======================================================== */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .print-invoice-sheet,
+  .print-invoice-sheet * {
+    visibility: visible;
+  }
+  .print-invoice-sheet {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 24px !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: #FFFFFF !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  @page {
+    size: A4 portrait;
+    margin: 12mm;
+  }
+}
+

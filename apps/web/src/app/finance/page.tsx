@@ -21,8 +21,12 @@ import {
   ChevronRight,
   ChevronLeft,
   Edit3,
+  Download,
+  Share2,
+  Sparkles,
 } from 'lucide-react';
 import { WordFadeIn } from '@/components/ui/WordFadeIn';
+import { InvoiceDocumentGenerator } from '@/components/invoices/InvoiceDocumentGenerator';
 
 export default function FinancePage() {
   const [payments, setPayments] = useState<Payment[]>(api.getPayments());
@@ -30,24 +34,71 @@ export default function FinancePage() {
   const [activeTab, setActiveTab] = useState<'payments' | 'invoices' | 'expenses'>('payments');
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [selectedReceipt, setSelectedReceipt] = useState<Payment | null>(null);
+  const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const emptyPaymentForm = {
-    customerId: '',
-    method: 'upi' as any,
-    amount: '',
-    referenceNumber: '',
-    notes: '',
-  };
+  const [invoices, setInvoices] = useState([
+    {
+      id: 'inv-2024-001',
+      invoiceNumber: 'INV-2024-001',
+      customerName: 'Rajesh Sharma',
+      vehicleDetails: 'Mahindra XUV700 AX7L AWD (Midnight Black)',
+      amount: 2580000,
+      dueDate: '2026-10-25',
+      status: 'partially_paid',
+      method: 'bank_transfer',
+      referenceNumber: 'HDFC-RTGS-998231',
+      date: '2026-10-18',
+    },
+    {
+      id: 'inv-2024-002',
+      invoiceNumber: 'INV-2024-002',
+      customerName: 'Ananya Sengupta',
+      vehicleDetails: 'Tata Nexon EV — Periodic Maintenance',
+      amount: 12450,
+      dueDate: '2026-10-21',
+      status: 'settled',
+      method: 'upi',
+      referenceNumber: 'UPI-778899221144',
+      date: '2026-10-21',
+    },
+  ]);
 
-  const [formData, setFormData] = useState(emptyPaymentForm);
+  const handleSaveInvoice = (inv: any) => {
+    const newPayment: Payment = {
+      id: 'pay-' + Date.now(),
+      tenantId: 't-apex-001',
+      branchId: 'b-dt-001',
+      currency: 'INR',
+      paymentNumber: inv.invoiceNumber,
+      customerId: inv.customerId || 'c-101',
+      customerName: inv.customerName || 'Valued Customer',
+      amount: inv.grandTotal,
+      method: (inv.paymentMethod || 'upi') as any,
+      referenceNumber: inv.utrReference || 'CASH-REC',
+      notes: inv.notes,
+      status: 'settled',
+      settledAt: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+    };
 
-  const handleRecordPayment = (e: React.FormEvent) => {
-    e.preventDefault();
-    api.recordPayment(formData);
-    setPayments([...api.getPayments()]);
+    const newInvoice = {
+      id: inv.id,
+      invoiceNumber: inv.invoiceNumber,
+      customerName: inv.customerName || 'Valued Customer',
+      vehicleDetails: inv.items?.[0]?.description || 'Vehicle Delivery & Services',
+      amount: inv.grandTotal,
+      dueDate: inv.dueDate,
+      status: 'settled',
+      method: inv.paymentMethod || 'upi',
+      referenceNumber: inv.utrReference || 'CASH-REC',
+      date: inv.invoiceDate,
+      rawInvoice: inv,
+    };
+
+    setPayments((prev) => [newPayment, ...prev]);
+    setInvoices((prev) => [newInvoice, ...prev]);
     setIsPaymentModalOpen(false);
-    setFormData(emptyPaymentForm);
   };
 
   const totalCollected = payments.reduce((sum, p) => sum + p.amount, 0);
@@ -81,7 +132,6 @@ export default function FinancePage() {
         </div>
         <button
           onClick={() => {
-            setFormData(emptyPaymentForm);
             setIsPaymentModalOpen(true);
           }}
           className="btn btn-primary btn-sm"
@@ -93,7 +143,7 @@ export default function FinancePage() {
             gap: '6px',
           }}
         >
-          <Plus size={16} /> Record Payment Receipt
+          <Plus size={16} /> Create Document / Invoice
         </button>
       </div>
 
@@ -274,74 +324,64 @@ export default function FinancePage() {
         <div>
           <div
             className="app-table-header"
-            style={{ ['--grid-cols' as any]: '1.8fr 2fr 2fr 1.6fr 1.4fr 1fr' }}
+            style={{ ['--grid-cols' as any]: '1.8fr 2fr 2fr 1.6fr 1.4fr 1fr 120px' }}
           >
             <div>Invoice #</div>
             <div>Customer</div>
             <div>Vehicle Details</div>
             <div>Invoice Amount</div>
             <div>Due Date</div>
-            <div style={{ textAlign: 'right' }}>Status</div>
+            <div>Status</div>
+            <div style={{ textAlign: 'right' }}>Actions</div>
           </div>
 
           <div className="app-cards-list">
-            <div
-              className="app-row-card"
-              style={{
-                ['--grid-cols' as any]: '1.8fr 2fr 2fr 1.6fr 1.4fr 1fr',
-                ['--theme-accent' as any]: '#0284C7',
-                ['--theme-border' as any]: 'rgba(2, 132, 199, 0.28)',
-                ['--theme-glow' as any]: 'rgba(2, 132, 199, 0.18)',
-                ['--theme-badge-bg' as any]: '#E0F2FE',
-                ['--theme-badge-text' as any]: '#0369A1',
-              }}
-            >
-              <div className="app-row-cell-main">
-                <div className="app-row-avatar">
-                  <FileText size={18} />
-                </div>
-                <div className="app-row-title-wrap">
-                  <span className="app-row-title" style={{ color: '#0284C7' }}>INV-2024-001</span>
-                  <span className="app-row-subtitle">Tax Invoice</span>
-                </div>
-              </div>
-              <div style={{ fontWeight: 600, fontSize: '0.88rem' }}>Rajesh Sharma</div>
-              <div style={{ fontSize: '0.84rem', color: '#475569' }}>Mahindra XUV700 AX7L AWD</div>
-              <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>₹25,80,000</div>
-              <div style={{ fontSize: '0.82rem', color: '#64748B' }}>2026-10-25</div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <StatusBadge status="partially_paid" />
-              </div>
-            </div>
+            {invoices.map((inv, index) => {
+              const palette = APP_CARD_PALETTES[index % APP_CARD_PALETTES.length];
 
-            <div
-              className="app-row-card"
-              style={{
-                ['--grid-cols' as any]: '1.8fr 2fr 2fr 1.6fr 1.4fr 1fr',
-                ['--theme-accent' as any]: '#16A34A',
-                ['--theme-border' as any]: 'rgba(22, 163, 74, 0.28)',
-                ['--theme-glow' as any]: 'rgba(22, 163, 74, 0.18)',
-                ['--theme-badge-bg' as any]: '#DCFCE7',
-                ['--theme-badge-text' as any]: '#15803D',
-              }}
-            >
-              <div className="app-row-cell-main">
-                <div className="app-row-avatar">
-                  <FileText size={18} />
+              return (
+                <div
+                  key={inv.id}
+                  className="app-row-card"
+                  style={{
+                    ['--grid-cols' as any]: '1.8fr 2fr 2fr 1.6fr 1.4fr 1fr 120px',
+                    ['--theme-accent' as any]: palette.accent,
+                    ['--theme-border' as any]: palette.border,
+                    ['--theme-glow' as any]: palette.glow,
+                    ['--theme-badge-bg' as any]: palette.badgeBg,
+                    ['--theme-badge-text' as any]: palette.badgeText,
+                  }}
+                >
+                  <div className="app-row-cell-main">
+                    <div className="app-row-avatar">
+                      <FileText size={18} />
+                    </div>
+                    <div className="app-row-title-wrap">
+                      <span className="app-row-title" style={{ color: palette.accent }}>{inv.invoiceNumber}</span>
+                      <span className="app-row-subtitle">Tax Invoice</span>
+                    </div>
+                  </div>
+                  <div style={{ fontWeight: 600, fontSize: '0.88rem' }}>{inv.customerName}</div>
+                  <div style={{ fontSize: '0.84rem', color: '#475569' }}>{inv.vehicleDetails}</div>
+                  <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>₹{inv.amount.toLocaleString('en-IN')}</div>
+                  <div style={{ fontSize: '0.82rem', color: '#64748B' }}>{inv.dueDate}</div>
+                  <div>
+                    <StatusBadge status={inv.status as any} />
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                    <button
+                      type="button"
+                      className="app-action-btn"
+                      onClick={() => setSelectedInvoice(inv)}
+                      title="Inspect watermarked invoice"
+                    >
+                      <span>Invoice</span>
+                      <ChevronRight size={13} />
+                    </button>
+                  </div>
                 </div>
-                <div className="app-row-title-wrap">
-                  <span className="app-row-title" style={{ color: '#16A34A' }}>INV-2024-002</span>
-                  <span className="app-row-subtitle">Service Invoice</span>
-                </div>
-              </div>
-              <div style={{ fontWeight: 600, fontSize: '0.88rem' }}>Ananya Sengupta</div>
-              <div style={{ fontSize: '0.84rem', color: '#475569' }}>Periodic 10k Maintenance</div>
-              <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>₹12,450</div>
-              <div style={{ fontSize: '0.82rem', color: '#64748B' }}>2026-10-21</div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <StatusBadge status="settled" />
-              </div>
-            </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -420,106 +460,213 @@ export default function FinancePage() {
         </div>
       )}
 
-      {/* Record Payment Modal (Inspo Form UI Image 2) */}
-      <Modal
-        isOpen={isPaymentModalOpen}
-        onClose={() => setIsPaymentModalOpen(false)}
-        title="Record New Customer Payment"
-        maxWidth="680px"
-      >
-        <form onSubmit={handleRecordPayment} className="inspo-form-wrapper">
-          <div className="form-group">
-            <label className="form-label">
-              Customer Profile <span className="req-star">*</span>
-            </label>
-            <select
-              className="form-select"
-              value={formData.customerId}
-              onChange={(e) => setFormData({ ...formData, customerId: e.target.value })}
-              required
-            >
-              <option value="">Select Customer...</option>
-              {customers.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.firstName} {c.lastName} ({c.phone})
-                </option>
-              ))}
-            </select>
-          </div>
+      {/* Create Document / Invoice Modal (Matching Inspo Image 2 & 3 with Watermark, PDF download, and Social Sharing) */}
+      {isPaymentModalOpen && (
+        <Modal
+          isOpen={isPaymentModalOpen}
+          onClose={() => setIsPaymentModalOpen(false)}
+          title=""
+          headerContent={<div style={{ display: 'none' }} />}
+          maxWidth="860px"
+        >
+          <InvoiceDocumentGenerator
+            onClose={() => setIsPaymentModalOpen(false)}
+            onSave={handleSaveInvoice}
+            isModal={true}
+          />
+        </Modal>
+      )}
 
-          <div className="form-grid-2">
-            <div className="form-group">
-              <label className="form-label">
-                Payment Method <span className="req-star">*</span>
-              </label>
-              <select
-                className="form-select"
-                value={formData.method}
-                onChange={(e) => setFormData({ ...formData, method: e.target.value })}
+      {/* Inspect Watermarked Invoice Modal */}
+      {selectedInvoice && (
+        <Modal
+          isOpen={!!selectedInvoice}
+          onClose={() => setSelectedInvoice(null)}
+          title={`Official Invoice: ${selectedInvoice.invoiceNumber}`}
+          maxWidth="780px"
+          headerActions={
+            <div className="modal-header-actions">
+              <button
+                type="button"
+                className="modal-header-btn-edit"
+                onClick={() => {
+                  window.print();
+                }}
+                title="Print or Save as PDF"
               >
-                <option value="upi">UPI / Instant QR</option>
-                <option value="bank_transfer">NEFT / RTGS / IMPS</option>
-                <option value="card">Credit / Debit Card</option>
-                <option value="cheque">Demand Draft / Cheque</option>
-                <option value="cash">Cash Showroom Receipt</option>
-              </select>
+                <Printer size={14} />
+                <span>Print / PDF</span>
+              </button>
+              <button
+                type="button"
+                className="modal-header-btn-close"
+                onClick={() => setSelectedInvoice(null)}
+                title="Close"
+              >
+                <X size={14} />
+                <span>Close</span>
+              </button>
             </div>
-            <div className="form-group">
-              <label className="form-label">
-                Amount (₹) <span className="req-star">*</span>
-              </label>
-              <input
-                type="number"
-                className="form-input"
-                value={formData.amount}
-                onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                placeholder="Enter amount (₹)"
-                required
-              />
+          }
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {/* Quick Share bar */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                backgroundColor: '#F8FAFC',
+                padding: '10px 14px',
+                borderRadius: '10px',
+                border: '1px solid #E2E8F0',
+                flexWrap: 'wrap',
+                gap: '8px',
+              }}
+            >
+              <div style={{ fontSize: '0.78rem', fontWeight: 600, color: '#334155' }}>
+                Official Certified Dealership Document
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const text = `*APEX MOTORS — OFFICIAL INVOICE*\nInvoice: ${selectedInvoice.invoiceNumber}\nCustomer: ${selectedInvoice.customerName}\nAmount: ₹${selectedInvoice.amount.toLocaleString('en-IN')}\nStatus: Settled`;
+                    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
+                  }}
+                  style={{
+                    padding: '5px 12px',
+                    borderRadius: '6px',
+                    backgroundColor: '#10B981',
+                    color: '#FFFFFF',
+                    border: 'none',
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}
+                >
+                  <span>💬 WhatsApp</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.print();
+                  }}
+                  style={{
+                    padding: '5px 12px',
+                    borderRadius: '6px',
+                    backgroundColor: '#2563EB',
+                    color: '#FFFFFF',
+                    border: 'none',
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}
+                >
+                  <Download size={13} />
+                  <span>Download PDF</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Watermarked A4 Sheet */}
+            <div
+              className="print-invoice-sheet"
+              style={{
+                position: 'relative',
+                backgroundColor: '#FFFFFF',
+                borderRadius: '14px',
+                border: '1.5px solid #CBD5E1',
+                padding: '28px',
+                boxShadow: '0 4px 18px rgba(0,0,0,0.06)',
+                overflow: 'hidden',
+              }}
+            >
+              {/* DIAGONAL WATERMARK */}
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%) rotate(-32deg)',
+                  fontSize: '4.2rem',
+                  fontWeight: 900,
+                  color: 'rgba(30, 68, 59, 0.06)',
+                  letterSpacing: '0.25em',
+                  textTransform: 'uppercase',
+                  pointerEvents: 'none',
+                  userSelect: 'none',
+                  whiteSpace: 'nowrap',
+                  zIndex: 0,
+                  fontFamily: 'serif',
+                }}
+              >
+                APEX MOTORS
+              </div>
+
+              <div style={{ position: 'relative', zIndex: 1 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #1E443B', paddingBottom: '12px', marginBottom: '16px' }}>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 900, color: '#1E443B' }}>APEX MOTORS</h3>
+                    <div style={{ fontSize: '0.74rem', color: '#64748B' }}>Plot 42, Western Express Highway, Mumbai, MH 400069</div>
+                    <div style={{ fontSize: '0.72rem', color: '#64748B' }}>GSTIN: 27AABCA1234F1ZP</div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#1E443B' }}>TAX INVOICE</div>
+                    <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0F172A' }}>{selectedInvoice.invoiceNumber}</div>
+                    <div style={{ fontSize: '0.74rem', color: '#64748B' }}>Due: {selectedInvoice.dueDate}</div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                  <div style={{ backgroundColor: '#F8FAFC', padding: '10px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                    <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#64748B' }}>BILLED TO:</div>
+                    <div style={{ fontSize: '0.92rem', fontWeight: 800, color: '#0F172A' }}>{selectedInvoice.customerName}</div>
+                    <div style={{ fontSize: '0.75rem', color: '#64748B' }}>Showroom Delivery • Valid KYC Completed</div>
+                  </div>
+                  <div style={{ backgroundColor: '#F8FAFC', padding: '10px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                    <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#64748B' }}>PAYMENT METHOD:</div>
+                    <div style={{ fontSize: '0.85rem', fontWeight: 700, textTransform: 'uppercase', color: '#16A34A' }}>
+                      {selectedInvoice.method || 'BANK TRANSFER'}
+                    </div>
+                    <div style={{ fontSize: '0.74rem', fontFamily: 'monospace', color: '#475569' }}>
+                      Ref: {selectedInvoice.referenceNumber || 'UTR-CONFIRMED'}
+                    </div>
+                  </div>
+                </div>
+
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', marginBottom: '16px' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: '#1E443B', color: '#FFFFFF' }}>
+                      <th style={{ padding: '8px', textAlign: 'left' }}>Item & Particulars</th>
+                      <th style={{ padding: '8px', textAlign: 'center' }}>Qty</th>
+                      <th style={{ padding: '8px', textAlign: 'right' }}>Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr style={{ borderBottom: '1px solid #E2E8F0' }}>
+                      <td style={{ padding: '10px', fontWeight: 600 }}>{selectedInvoice.vehicleDetails}</td>
+                      <td style={{ padding: '10px', textAlign: 'center' }}>1</td>
+                      <td style={{ padding: '10px', textAlign: 'right', fontWeight: 700 }}>₹{selectedInvoice.amount.toLocaleString('en-IN')}</td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                <div style={{ padding: '12px', backgroundColor: '#F0FDF4', border: '1.5px solid #86EFAC', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontWeight: 700, color: '#166534', fontSize: '0.88rem' }}>Grand Total Settled:</span>
+                  <span style={{ fontSize: '1.3rem', fontWeight: 900, color: '#15803D' }}>₹{selectedInvoice.amount.toLocaleString('en-IN')}</span>
+                </div>
+              </div>
             </div>
           </div>
-
-          <div className="form-group">
-            <label className="form-label">Transaction / Bank UTR Reference</label>
-            <input
-              type="text"
-              className="form-input"
-              value={formData.referenceNumber}
-              onChange={(e) => setFormData({ ...formData, referenceNumber: e.target.value })}
-              placeholder="Enter transaction or UTR reference"
-            />
-          </div>
-
-          <div className="form-group">
-            <label className="form-label">Accounting Notes</label>
-            <input
-              type="text"
-              className="form-input"
-              value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              placeholder="Enter notes (e.g. Booking token, balance payment)"
-            />
-          </div>
-
-          {/* Modern Inspo Footer Bar */}
-          <div className="unique-modal-footer-bar" style={{ marginTop: '12px', paddingTop: '16px', borderTop: '1px solid #E2E8F0' }}>
-            <button
-              type="button"
-              className="unique-btn-cancel"
-              onClick={() => setIsPaymentModalOpen(false)}
-            >
-              <ChevronLeft size={16} /> Cancel
-            </button>
-            <button
-              type="submit"
-              className="unique-lead-submit-btn"
-            >
-              <span className="btn-text">Issue Settled Receipt</span>
-              <ChevronRight size={15} className="btn-arrow-icon" />
-            </button>
-          </div>
-        </form>
-      </Modal>
+        </Modal>
+      )}
 
       {/* Payment Receipt Modal with Top Edit and Close Buttons */}
       {selectedReceipt && (
@@ -534,12 +681,12 @@ export default function FinancePage() {
                 type="button"
                 className="modal-header-btn-edit"
                 onClick={() => {
-                  alert('Editing payment voucher for ' + selectedReceipt.paymentNumber);
+                  window.print();
                 }}
-                title="Edit receipt"
+                title="Print Receipt"
               >
-                <Edit3 size={14} />
-                <span>Edit</span>
+                <Printer size={14} />
+                <span>Print</span>
               </button>
               <button
                 type="button"
@@ -554,49 +701,104 @@ export default function FinancePage() {
           }
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
-            <div style={{ padding: '1.2rem', border: '1.5px solid #E2E8F0', borderRadius: '16px', backgroundColor: '#FFFFFF' }}>
-              <div style={{ textAlign: 'center', borderBottom: '1px solid #E2E8F0', paddingBottom: '0.85rem', marginBottom: '1rem' }}>
-                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#16A34A' }}>APEX MOTORS OFFICIAL MONEY RECEIPT</h3>
-                <div style={{ fontSize: '0.76rem', color: '#64748B', marginTop: '2px' }}>Receipt Ref: {selectedReceipt.paymentNumber}</div>
+            <div
+              className="print-invoice-sheet"
+              style={{
+                position: 'relative',
+                padding: '1.2rem',
+                border: '1.5px solid #E2E8F0',
+                borderRadius: '16px',
+                backgroundColor: '#FFFFFF',
+                overflow: 'hidden',
+              }}
+            >
+              {/* WATERMARK */}
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%) rotate(-30deg)',
+                  fontSize: '3.6rem',
+                  fontWeight: 900,
+                  color: 'rgba(30, 68, 59, 0.06)',
+                  letterSpacing: '0.25em',
+                  textTransform: 'uppercase',
+                  pointerEvents: 'none',
+                  userSelect: 'none',
+                  whiteSpace: 'nowrap',
+                  zIndex: 0,
+                  fontFamily: 'serif',
+                }}
+              >
+                APEX MOTORS
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem', fontSize: '0.85rem', marginBottom: '1rem' }}>
-                <div style={{ padding: '0.75rem', backgroundColor: '#F8FAFC', borderRadius: '10px' }}>
-                  <span style={{ fontSize: '0.74rem', color: '#64748B', textTransform: 'uppercase', fontWeight: 600 }}>Received From:</span>
-                  <div style={{ fontWeight: 700, color: '#0F172A', marginTop: '2px' }}>{selectedReceipt.customerName}</div>
+              <div style={{ position: 'relative', zIndex: 1 }}>
+                <div style={{ textAlign: 'center', borderBottom: '1px solid #E2E8F0', paddingBottom: '0.85rem', marginBottom: '1rem' }}>
+                  <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#16A34A' }}>APEX MOTORS OFFICIAL MONEY RECEIPT</h3>
+                  <div style={{ fontSize: '0.76rem', color: '#64748B', marginTop: '2px' }}>Receipt Ref: {selectedReceipt.paymentNumber}</div>
                 </div>
-                <div style={{ padding: '0.75rem', backgroundColor: '#F8FAFC', borderRadius: '10px' }}>
-                  <span style={{ fontSize: '0.74rem', color: '#64748B', textTransform: 'uppercase', fontWeight: 600 }}>Payment Mode:</span>
-                  <div style={{ fontWeight: 700, textTransform: 'uppercase', color: '#0F172A', marginTop: '2px' }}>{selectedReceipt.method}</div>
-                </div>
-                <div style={{ padding: '0.75rem', backgroundColor: '#F8FAFC', borderRadius: '10px' }}>
-                  <span style={{ fontSize: '0.74rem', color: '#64748B', textTransform: 'uppercase', fontWeight: 600 }}>Bank UTR / Ref:</span>
-                  <div style={{ fontWeight: 600, fontFamily: 'monospace', color: '#0F172A', marginTop: '2px' }}>{selectedReceipt.referenceNumber || 'CASH-REC'}</div>
-                </div>
-                <div style={{ padding: '0.75rem', backgroundColor: '#F8FAFC', borderRadius: '10px' }}>
-                  <span style={{ fontSize: '0.74rem', color: '#64748B', textTransform: 'uppercase', fontWeight: 600 }}>Settled Date:</span>
-                  <div style={{ fontWeight: 700, color: '#0F172A', marginTop: '2px' }}>{new Date(selectedReceipt.settledAt || selectedReceipt.createdAt).toLocaleDateString()}</div>
-                </div>
-              </div>
 
-              <div style={{ padding: '1rem 1.2rem', backgroundColor: '#F0FDF4', border: '1.5px solid #86EFAC', borderRadius: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontWeight: 700, color: '#166534', fontSize: '0.9rem' }}>Net Amount Received:</span>
-                <span style={{ fontSize: '1.35rem', fontWeight: 800, color: '#15803D' }}>
-                  ₹{selectedReceipt.amount.toLocaleString()}
-                </span>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem', fontSize: '0.85rem', marginBottom: '1rem' }}>
+                  <div style={{ padding: '0.75rem', backgroundColor: '#F8FAFC', borderRadius: '10px' }}>
+                    <span style={{ fontSize: '0.74rem', color: '#64748B', textTransform: 'uppercase', fontWeight: 600 }}>Received From:</span>
+                    <div style={{ fontWeight: 700, color: '#0F172A', marginTop: '2px' }}>{selectedReceipt.customerName}</div>
+                  </div>
+                  <div style={{ padding: '0.75rem', backgroundColor: '#F8FAFC', borderRadius: '10px' }}>
+                    <span style={{ fontSize: '0.74rem', color: '#64748B', textTransform: 'uppercase', fontWeight: 600 }}>Payment Mode:</span>
+                    <div style={{ fontWeight: 700, textTransform: 'uppercase', color: '#0F172A', marginTop: '2px' }}>{selectedReceipt.method}</div>
+                  </div>
+                  <div style={{ padding: '0.75rem', backgroundColor: '#F8FAFC', borderRadius: '10px' }}>
+                    <span style={{ fontSize: '0.74rem', color: '#64748B', textTransform: 'uppercase', fontWeight: 600 }}>Bank UTR / Ref:</span>
+                    <div style={{ fontWeight: 600, fontFamily: 'monospace', color: '#0F172A', marginTop: '2px' }}>{selectedReceipt.referenceNumber || 'CASH-REC'}</div>
+                  </div>
+                  <div style={{ padding: '0.75rem', backgroundColor: '#F8FAFC', borderRadius: '10px' }}>
+                    <span style={{ fontSize: '0.74rem', color: '#64748B', textTransform: 'uppercase', fontWeight: 600 }}>Settled Date:</span>
+                    <div style={{ fontWeight: 700, color: '#0F172A', marginTop: '2px' }}>{new Date(selectedReceipt.settledAt || selectedReceipt.createdAt).toLocaleDateString()}</div>
+                  </div>
+                </div>
+
+                <div style={{ padding: '1rem 1.2rem', backgroundColor: '#F0FDF4', border: '1.5px solid #86EFAC', borderRadius: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontWeight: 700, color: '#166534', fontSize: '0.9rem' }}>Net Amount Received:</span>
+                  <span style={{ fontSize: '1.35rem', fontWeight: 800, color: '#15803D' }}>
+                    ₹{selectedReceipt.amount.toLocaleString()}
+                  </span>
+                </div>
               </div>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '4px' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', paddingTop: '4px' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  const text = `*APEX MOTORS — OFFICIAL PAYMENT RECEIPT*\nReceipt: ${selectedReceipt.paymentNumber}\nCustomer: ${selectedReceipt.customerName}\nAmount Received: ₹${selectedReceipt.amount.toLocaleString()}\nMethod: ${selectedReceipt.method.toUpperCase()}\nReference: ${selectedReceipt.referenceNumber || 'CASH'}`;
+                  window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
+                }}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  backgroundColor: '#10B981',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  fontSize: '0.8rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
+                <span>💬 Share on WhatsApp</span>
+              </button>
               <button
                 type="button"
                 className="unique-lead-submit-btn"
                 onClick={() => {
-                  alert('Printing official payment receipt voucher!');
-                  setSelectedReceipt(null);
+                  window.print();
                 }}
               >
-                <span className="btn-text">Print Receipt Voucher</span>
+                <span className="btn-text">Print / Download PDF</span>
                 <Printer size={15} className="btn-arrow-icon" />
               </button>
             </div>
