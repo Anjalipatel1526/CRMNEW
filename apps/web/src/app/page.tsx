@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api-client';
 import { Modal } from '@/components/ui/Modal';
@@ -300,7 +300,9 @@ export default function DashboardPage() {
   const [appointments] = useState(api.getAppointments());
   const [jobCards] = useState(api.getJobCards());
   const [customers] = useState(api.getCustomers());
-  const [timeRange, setTimeRange] = useState<'6M' | '12M'>('12M');
+  const [selectedYear, setSelectedYear] = useState('2026');
+  const [selectedMonth, setSelectedMonth] = useState('all');
+  const [selectedDate, setSelectedDate] = useState('2026-10-22');
   const [selectedDeal, setSelectedDeal] = useState<typeof HOT_DEALS[0] | null>(null);
   const [selectedLeadCustomer, setSelectedLeadCustomer] = useState<{
     lead: Lead;
@@ -325,8 +327,28 @@ export default function DashboardPage() {
   const totalDealValue = deals.reduce((sum, d) => sum + d.grandTotal, 0);
   const totalDeposits = deals.reduce((sum, d) => sum + d.amountPaid, 0);
 
-  const activeRevenueData = timeRange === '12M' ? REVENUE_DATA_12M : REVENUE_DATA_6M;
-  const activeWonTotal = timeRange === '12M' ? '₹1,014,640' : '₹564,200';
+  const activeRevenueData = useMemo(() => {
+    if (selectedMonth === 'all') {
+      return REVENUE_DATA_12M;
+    }
+    const found = REVENUE_DATA_12M.find(
+      (d) => d.month.toLowerCase() === selectedMonth.toLowerCase()
+    );
+    return found ? [found] : REVENUE_DATA_12M;
+  }, [selectedMonth]);
+
+  const activeWonTotal = useMemo(() => {
+    if (selectedMonth !== 'all') {
+      const found = REVENUE_DATA_12M.find(
+        (d) => d.month.toLowerCase() === selectedMonth.toLowerCase()
+      );
+      return found ? `₹${(found.revenue).toLocaleString('en-IN')}` : '₹1,96,000';
+    }
+    if (selectedYear === '2025') return '₹894,200';
+    if (selectedYear === '2024') return '₹720,000';
+    return '₹1,014,640';
+  }, [selectedMonth, selectedYear]);
+
   const targetMetCount = activeRevenueData.filter(d => d.revenue >= d.target).length;
 
   return (
@@ -389,24 +411,115 @@ export default function DashboardPage() {
       <div className="dash-hero-grid">
         {/* Left Card: Revenue Interactive Bar Chart */}
         <div className="card">
-          <div className="card-header">
+          <div className="card-header" style={{ flexWrap: 'wrap', gap: '10px' }}>
             <h2 className="card-title">Revenue</h2>
-            <div className="card-tools">
-              <button
-                className={`seg-btn ${timeRange === '6M' ? 'active' : ''}`}
-                onClick={() => setTimeRange('6M')}
+            <div className="card-tools" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              {/* Year Select */}
+              <select
+                value={selectedYear}
+                onChange={(e) => {
+                  const yr = e.target.value;
+                  setSelectedYear(yr);
+                  if (selectedDate) {
+                    const parts = selectedDate.split('-');
+                    if (parts.length === 3) {
+                      setSelectedDate(`${yr}-${parts[1]}-${parts[2]}`);
+                    }
+                  }
+                }}
+                style={{
+                  padding: '4px 9px',
+                  borderRadius: '999px',
+                  border: '1px solid var(--line)',
+                  background: 'var(--float)',
+                  fontSize: '0.78rem',
+                  fontWeight: 600,
+                  color: 'var(--text)',
+                  cursor: 'pointer',
+                  outline: 'none',
+                }}
+                title="Select Year"
               >
-                6M
-              </button>
-              <button
-                className={`seg-btn ${timeRange === '12M' ? 'active' : ''}`}
-                onClick={() => setTimeRange('12M')}
+                <option value="2026">2026</option>
+                <option value="2025">2025</option>
+                <option value="2024">2024</option>
+              </select>
+
+              {/* Month Select */}
+              <select
+                value={selectedMonth}
+                onChange={(e) => {
+                  const m = e.target.value;
+                  setSelectedMonth(m);
+                  if (m !== 'all') {
+                    const MONTH_MAP = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                    const mIdx = MONTH_MAP.indexOf(m);
+                    if (mIdx !== -1) {
+                      const mm = String(mIdx + 1).padStart(2, '0');
+                      setSelectedDate(`${selectedYear}-${mm}-15`);
+                    }
+                  }
+                }}
+                style={{
+                  padding: '4px 9px',
+                  borderRadius: '999px',
+                  border: '1px solid var(--line)',
+                  background: 'var(--float)',
+                  fontSize: '0.78rem',
+                  fontWeight: 600,
+                  color: 'var(--text)',
+                  cursor: 'pointer',
+                  outline: 'none',
+                }}
+                title="Select Month"
               >
-                12M
-              </button>
-              <button className="tool-round-btn" title="More options">
-                <MoreHorizontal size={15} />
-              </button>
+                <option value="all">All Months</option>
+                <option value="Oct">October</option>
+                <option value="Sep">September</option>
+                <option value="Aug">August</option>
+                <option value="Jul">July</option>
+                <option value="Jun">June</option>
+                <option value="May">May</option>
+                <option value="Apr">April</option>
+                <option value="Mar">March</option>
+                <option value="Feb">February</option>
+                <option value="Jan">January</option>
+                <option value="Dec">December</option>
+                <option value="Nov">November</option>
+              </select>
+
+              {/* Date Input */}
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSelectedDate(val);
+                  if (val) {
+                    const [y, m] = val.split('-');
+                    if (y) setSelectedYear(y);
+                    const mIdx = parseInt(m, 10) - 1;
+                    const MONTH_MAP = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                    if (mIdx >= 0 && mIdx < 12) {
+                      setSelectedMonth(MONTH_MAP[mIdx]);
+                    }
+                  }
+                }}
+                style={{
+                  padding: '3px 8px',
+                  borderRadius: '999px',
+                  border: '1px solid var(--line)',
+                  background: 'var(--float)',
+                  fontSize: '0.76rem',
+                  fontWeight: 600,
+                  color: 'var(--text)',
+                  cursor: 'pointer',
+                  outline: 'none',
+                  fontFamily: 'inherit',
+                }}
+                title="Select Date"
+              />
+
               <Link href="/finance" className="tool-round-btn" title="Open Finance">
                 <ArrowUpRight size={15} />
               </Link>
@@ -415,12 +528,14 @@ export default function DashboardPage() {
 
           {/* Large Metric Display */}
           <div style={{ marginBottom: '16px' }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', flexWrap: 'wrap' }}>
               <span style={{ fontSize: '2.5rem', fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--text)' }}>
                 {activeWonTotal}
               </span>
               <span style={{ fontSize: '0.9rem', color: 'var(--muted)', fontWeight: 500 }}>
-                won in {timeRange === '12M' ? '12' : '6'} months · <strong>{targetMetCount} of {activeRevenueData.length}</strong> at target
+                {selectedMonth === 'all'
+                  ? `won in ${selectedYear} · ${targetMetCount} of 12 months at target`
+                  : `won in ${selectedMonth} ${selectedYear} · As of ${selectedDate}`}
               </span>
             </div>
 
@@ -442,7 +557,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Unique Sleek Capsule Revenue Bar Chart with Staggered One-By-One Fade-In & Rise */}
-          <div key={timeRange} className="unique-chart-wrap">
+          <div key={`${selectedYear}-${selectedMonth}-${selectedDate}`} className="unique-chart-wrap">
             {/* Background Grid Lines */}
             <div className="unique-chart-grid">
               <div className="unique-grid-line" style={{ top: '0%' }}>
@@ -464,17 +579,27 @@ export default function DashboardPage() {
 
             {/* Bar Columns Container */}
             <div className="unique-bars-row">
-              {activeRevenueData.map((d, index) => {
+              {REVENUE_DATA_12M.map((d, index) => {
                 const maxVal = 200000;
                 const fillPct = Math.min(100, Math.max(10, (d.revenue / maxVal) * 100));
                 const isMet = d.revenue >= d.target;
                 const isPeak = d.revenue === 196000;
                 const staggerDelay = (0.08 + index * 0.055).toFixed(3);
+                const isSelected = selectedMonth !== 'all' && d.month.toLowerCase() === selectedMonth.toLowerCase();
+                const isDimmed = selectedMonth !== 'all' && !isSelected;
 
                 return (
                   <div
                     key={d.month}
                     className="unique-bar-col"
+                    onClick={() => setSelectedMonth(selectedMonth === d.month ? 'all' : d.month)}
+                    style={{
+                      opacity: isDimmed ? 0.32 : 1,
+                      transform: isSelected ? 'scale(1.06)' : 'none',
+                      transition: 'opacity 0.25s ease, transform 0.25s ease',
+                      zIndex: isSelected ? 5 : 1,
+                    }}
+                    title={`Click to filter by ${d.month}`}
                   >
                     {/* Hover Floating Tooltip */}
                     <div className="unique-bar-popover">
@@ -485,14 +610,20 @@ export default function DashboardPage() {
                     </div>
 
                     {/* Peak Best Month Badge */}
-                    {isPeak && timeRange === '12M' && (
+                    {isPeak && selectedMonth === 'all' && (
                       <span className="unique-peak-badge" title="Highest Revenue Month">
                         ★
                       </span>
                     )}
 
                     {/* Track */}
-                    <div className="unique-bar-track">
+                    <div
+                      className="unique-bar-track"
+                      style={{
+                        outline: isSelected ? '2px solid var(--pine)' : 'none',
+                        outlineOffset: '2px',
+                      }}
+                    >
                       {/* Filled Animated Capsule Bar with One-by-One Staggered Entrance */}
                       <div
                         className={`unique-bar-fill ${isMet ? 'unique-bar-fill--met' : 'unique-bar-fill--miss'}`}
@@ -513,6 +644,8 @@ export default function DashboardPage() {
                       style={{
                         animation: `wordFadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) both`,
                         animationDelay: `${staggerDelay}s`,
+                        fontWeight: isSelected ? 800 : 600,
+                        color: isSelected ? 'var(--pine)' : undefined,
                       }}
                     >
                       {d.month}
@@ -642,39 +775,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ====== 3. OPERATIONAL METRIC TILES ====== */}
-      <div className="grid-4" style={{ marginBottom: '20px' }}>
-        <StatCard
-          title="Vehicle Stockyard"
-          value={`${vehicles.filter(v => v.status === 'available').length} Available`}
-          sub={`Valuation: ₹${(totalStockValue / 10000000).toFixed(2)} Cr (${vehicles.length} total units)`}
-          icon={<Car size={18} />}
-          accentColor="indigo"
-        />
-        <StatCard
-          title="Active Inquiries"
-          value={`${leads.length} Leads`}
-          sub={`${leads.filter(l => (l.score || 0) >= 80).length} high-intent purchase prospects`}
-          icon={<Users size={18} />}
-          accentColor="red"
-        />
-        <StatCard
-          title="Workshop Throughput"
-          value={`${jobCards.length} In-Service`}
-          sub="98.5% on-time turnaround rate"
-          icon={<Wrench size={18} />}
-          accentColor="green"
-        />
-        <StatCard
-          title="Advance Collections"
-          value={`₹${(totalDeposits / 100000).toFixed(2)} Lakh`}
-          sub="Bank reconciled tokens received"
-          icon={<Briefcase size={18} />}
-          accentColor="blue"
-        />
-      </div>
-
-      {/* ====== 4. SHOWROOM LEADS & HANDOVER CLEARANCE GATES ====== */}
+      {/* ====== 3. SHOWROOM LEADS & AUDIT LOG ====== */}
       <div className="dash-bottom-grid">
         {/* Left: Active CRM Leads Table */}
         <div className="card">
@@ -682,7 +783,7 @@ export default function DashboardPage() {
             <div>
               <h2 className="card-title">Live Inquiries & CRM Pipeline</h2>
               <div style={{ fontSize: '0.8rem', color: 'var(--muted)', marginTop: '2px' }}>
-                Sorted by AI purchase likelihood score
+                Active prospects, vehicle interests & pipeline stages
               </div>
             </div>
             <Link href="/crm/leads" className="pill-btn">
@@ -696,7 +797,6 @@ export default function DashboardPage() {
                 <tr>
                   <th>Customer</th>
                   <th>Vehicle Interest</th>
-                  <th>AI Score</th>
                   <th>Stage</th>
                   <th>Action</th>
                 </tr>
@@ -709,48 +809,28 @@ export default function DashboardPage() {
                     onClick={() => handleSelectLeadCustomer(lead)}
                   >
                     <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '9px' }}>
-                        <div
+                      <div>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSelectLeadCustomer(lead);
+                          }}
                           style={{
-                            width: '30px',
-                            height: '30px',
-                            borderRadius: '9px',
-                            background: '#F0F9FF',
-                            color: '#0369A1',
-                            border: '1px solid rgba(2, 132, 199, 0.25)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontWeight: 800,
-                            fontSize: '0.72rem',
-                            flexShrink: 0,
+                            background: 'none',
+                            border: 'none',
+                            padding: 0,
+                            fontWeight: 700,
+                            color: 'var(--text)',
+                            cursor: 'pointer',
+                            textAlign: 'left',
+                            fontSize: '0.88rem',
                           }}
                         >
-                          {(lead.customerName || 'Customer').split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
-                        </div>
-                        <div>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleSelectLeadCustomer(lead);
-                            }}
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              padding: 0,
-                              fontWeight: 700,
-                              color: 'var(--text)',
-                              cursor: 'pointer',
-                              textAlign: 'left',
-                              fontSize: '0.88rem',
-                            }}
-                          >
-                            {lead.customerName || 'Customer'}
-                          </button>
-                          <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
-                            Source: {lead.source}
-                          </div>
+                          {lead.customerName || 'Customer'}
+                        </button>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
+                          Source: {lead.source}
                         </div>
                       </div>
                     </td>
@@ -759,20 +839,6 @@ export default function DashboardPage() {
                       <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
                         Budget: ₹{((lead.budgetMin || 0) / 100000).toFixed(1)}L - ₹{((lead.budgetMax || 0) / 100000).toFixed(1)}L
                       </div>
-                    </td>
-                    <td>
-                      <span
-                        style={{
-                          fontWeight: 700,
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          color: (lead.score || 0) >= 80 ? 'var(--pine)' : 'var(--text)',
-                        }}
-                      >
-                        <Sparkles size={13} style={{ color: 'var(--color-violet)' }} />
-                        {lead.score}/100
-                      </span>
                     </td>
                     <td>
                       <span className={`badge ${lead.status === 'converted' ? 'badge-green' : lead.status === 'negotiation' ? 'badge-amber' : 'badge-neutral'}`}>
