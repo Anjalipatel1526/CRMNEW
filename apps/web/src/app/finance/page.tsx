@@ -465,7 +465,27 @@ export default function FinancePage() {
         <Modal
           isOpen={isPaymentModalOpen}
           onClose={() => setIsPaymentModalOpen(false)}
-          title="Create Document / Invoice"
+          headerContent={
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span
+                style={{
+                  fontSize: '0.72rem',
+                  fontWeight: 800,
+                  letterSpacing: '0.06em',
+                  color: '#1E443B',
+                  background: '#E6F4EF',
+                  padding: '4px 10px',
+                  borderRadius: '6px',
+                  textTransform: 'uppercase',
+                }}
+              >
+                New Invoice
+              </span>
+              <h3 style={{ margin: 0, fontSize: '1.08rem', fontWeight: 800, color: '#0F172A' }}>
+                Create Document / Invoice
+              </h3>
+            </div>
+          }
           maxWidth="840px"
         >
           <InvoiceDocumentGenerator

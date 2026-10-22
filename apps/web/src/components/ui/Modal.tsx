@@ -67,11 +67,9 @@ export function Modal({
           ) : (
             <button
               onClick={onClose}
-              className="tool-round-btn"
-              style={{
-                padding: '0.25rem',
-              }}
+              className="modal-top-close-btn"
               aria-label="Close modal"
+              title="Close"
             >
               <X size={18} />
             </button>

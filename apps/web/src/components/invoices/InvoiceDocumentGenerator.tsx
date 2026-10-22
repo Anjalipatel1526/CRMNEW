@@ -380,41 +380,37 @@ export function InvoiceDocumentGenerator({
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              {onClose && (
-                <button
-                  type="button"
-                  onClick={onClose}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    color: '#64748B',
-                    display: 'flex',
-                    alignItems: 'center',
-                  }}
-                >
-                  <ChevronLeft size={20} />
-                </button>
-              )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span
+                style={{
+                  fontSize: '0.72rem',
+                  fontWeight: 800,
+                  letterSpacing: '0.06em',
+                  color: '#1E443B',
+                  background: '#E6F4EF',
+                  padding: '4px 10px',
+                  borderRadius: '6px',
+                  textTransform: 'uppercase',
+                }}
+              >
+                New Invoice
+              </span>
               <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#0F172A' }}>
                 Create Document
               </h2>
             </div>
 
-            <span
-              style={{
-                fontSize: '0.82rem',
-                fontWeight: 800,
-                letterSpacing: '0.08em',
-                color: '#1E443B',
-                background: '#E6F4EF',
-                padding: '4px 10px',
-                borderRadius: '8px',
-              }}
-            >
-              UNAI / APEX
-            </span>
+            {onClose && (
+              <button
+                type="button"
+                onClick={onClose}
+                className="modal-top-close-btn"
+                title="Close"
+                aria-label="Close"
+              >
+                <X size={18} />
+              </button>
+            )}
           </div>
 
           {/* Subtitle Bar with Action Buttons */}
@@ -638,217 +634,7 @@ export function InvoiceDocumentGenerator({
             </div>
           </div>
         </div>
-      ) : (
-        /* Inside Modal: sleek single toolbar (No duplicate title card, No floating X) */
-        <div
-          className="no-print"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: '10px',
-            paddingBottom: '12px',
-            marginBottom: '14px',
-            borderBottom: '1px solid #E2E8F0',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span
-              style={{
-                fontSize: '0.78rem',
-                fontWeight: 800,
-                letterSpacing: '0.06em',
-                color: '#1E443B',
-                background: '#E6F4EF',
-                padding: '4px 10px',
-                borderRadius: '6px',
-              }}
-            >
-              TAX INVOICE
-            </span>
-            <span style={{ fontSize: '0.84rem', fontWeight: 700, color: '#64748B' }}>
-              #{invoiceNumber}
-            </span>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              onClick={() => setShowPreview((prev) => !prev)}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '6px 13px',
-                backgroundColor: showPreview ? '#1E443B' : '#F1F5F9',
-                color: showPreview ? '#FFFFFF' : '#1E293B',
-                borderRadius: '999px',
-                fontSize: '0.76rem',
-                fontWeight: 700,
-                border: '1px solid #CBD5E1',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              <Eye size={13} />
-              <span>{showPreview ? 'Edit Form' : 'Preview A4'}</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={handleDownloadPDF}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '6px 13px',
-                backgroundColor: '#2563EB',
-                color: '#FFFFFF',
-                borderRadius: '999px',
-                fontSize: '0.76rem',
-                fontWeight: 700,
-                border: 'none',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              <Download size={13} />
-              <span>Download PDF</span>
-            </button>
-
-            {/* Social Share Dropdown */}
-            <div style={{ position: 'relative' }}>
-              <button
-                type="button"
-                onClick={() => setShareDropdownOpen((prev) => !prev)}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '6px 13px',
-                  backgroundColor: '#10B981',
-                  color: '#FFFFFF',
-                  borderRadius: '999px',
-                  fontSize: '0.76rem',
-                  fontWeight: 700,
-                  border: 'none',
-                  cursor: 'pointer',
-                }}
-              >
-                <Share2 size={13} />
-                <span>Share</span>
-              </button>
-
-              {shareDropdownOpen && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    right: 0,
-                    top: '36px',
-                    backgroundColor: '#FFFFFF',
-                    borderRadius: '12px',
-                    boxShadow: '0 12px 30px rgba(0,0,0,0.18)',
-                    border: '1.5px solid #E2E8F0',
-                    width: '210px',
-                    zIndex: 100,
-                    overflow: 'hidden',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    padding: '6px',
-                  }}
-                >
-                  <button
-                    type="button"
-                    onClick={shareViaWhatsApp}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      padding: '8px 12px',
-                      background: 'none',
-                      border: 'none',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                      fontSize: '0.8rem',
-                      fontWeight: 600,
-                      color: '#047857',
-                      textAlign: 'left',
-                    }}
-                  >
-                    <span style={{ fontSize: '1rem' }}>💬</span> Share on WhatsApp
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={shareViaEmail}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      padding: '8px 12px',
-                      background: 'none',
-                      border: 'none',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                      fontSize: '0.8rem',
-                      fontWeight: 600,
-                      color: '#1E40AF',
-                      textAlign: 'left',
-                    }}
-                  >
-                    <Mail size={15} /> Send via Email
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleNativeShare}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      padding: '8px 12px',
-                      background: 'none',
-                      border: 'none',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                      fontSize: '0.8rem',
-                      fontWeight: 600,
-                      color: '#0F172A',
-                      textAlign: 'left',
-                    }}
-                  >
-                    <Share2 size={15} /> Social Media / More...
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleCopySummary}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      padding: '8px 12px',
-                      background: 'none',
-                      border: 'none',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                      fontSize: '0.8rem',
-                      fontWeight: 600,
-                      color: '#475569',
-                      textAlign: 'left',
-                      borderTop: '1px solid #F1F5F9',
-                    }}
-                  >
-                    {copied ? <Check size={15} style={{ color: '#10B981' }} /> : <Copy size={15} />}
-                    <span>{copied ? 'Copied Link!' : 'Copy Summary Link'}</span>
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      ) : null}
 
       {/* Main Container: Form Editor vs Live A4 Watermarked Invoice */}
       {!showPreview ? (
@@ -1189,35 +975,6 @@ export function InvoiceDocumentGenerator({
               </div>
             </div>
 
-            {/* Clean, compact Payment Method & UTR Reference row */}
-            <div className="form-grid-2" style={{ marginTop: '8px' }}>
-              <div className="form-group">
-                <label className="form-label">Payment Method</label>
-                <select
-                  className="form-select"
-                  value={paymentMethod}
-                  onChange={(e) => setPaymentMethod(e.target.value)}
-                >
-                  <option value="upi">UPI / Instant QR</option>
-                  <option value="bank_transfer">NEFT / RTGS / Bank Transfer</option>
-                  <option value="card">Credit / Debit Card</option>
-                  <option value="cash">Cash Showroom Receipt</option>
-                  <option value="cheque">Demand Draft / Cheque</option>
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Transaction / Bank UTR Reference</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={utrReference}
-                  onChange={(e) => setUtrReference(e.target.value)}
-                  placeholder="e.g. UTR / Txn Reference (Optional)"
-                />
-              </div>
-            </div>
-
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 0 10px 0' }}>
               <input
                 type="checkbox"
@@ -1275,35 +1032,59 @@ export function InvoiceDocumentGenerator({
             </div>
           </div>
 
-          {/* Modal Bottom Actions Bar */}
+          {/* Form Bottom Actions Bar - Clean right aligned buttons, no cancel button */}
           <div
-            className="unique-modal-footer-bar"
-            style={{ marginTop: '12px', paddingTop: '16px', borderTop: '1px solid #E2E8F0' }}
+            style={{
+              marginTop: '16px',
+              paddingTop: '16px',
+              borderTop: '1px solid #E2E8F0',
+              display: 'flex',
+              justifyContent: 'flex-end',
+              alignItems: 'center',
+              gap: '12px',
+            }}
           >
-            {onClose && (
-              <button type="button" className="unique-btn-cancel" onClick={onClose}>
-                <ChevronLeft size={16} /> Cancel
-              </button>
-            )}
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button
-                type="button"
-                className="unique-lead-submit-btn"
-                onClick={() => setShowPreview(true)}
-                style={{ backgroundColor: '#1E443B' }}
-              >
-                <Eye size={15} />
-                <span className="btn-text">Preview Watermarked A4</span>
-              </button>
-              <button
-                type="button"
-                className="unique-lead-submit-btn"
-                onClick={handleSave}
-              >
-                <span className="btn-text">Save & Issue Invoice</span>
-                <CheckCircle2 size={15} className="btn-arrow-icon" />
-              </button>
-            </div>
+            <button
+              type="button"
+              className="unique-lead-submit-btn"
+              onClick={() => setShowPreview(true)}
+              style={{
+                backgroundColor: '#1E443B',
+                color: '#FFFFFF',
+                borderRadius: '10px',
+                padding: '9px 18px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                fontSize: '0.84rem',
+                fontWeight: 700,
+                border: 'none',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <Eye size={15} />
+              <span>Preview Watermarked A4</span>
+            </button>
+            <button
+              type="button"
+              className="unique-lead-submit-btn"
+              onClick={handleSave}
+              style={{
+                borderRadius: '10px',
+                padding: '9px 20px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                fontSize: '0.84rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <span>Save & Issue Invoice</span>
+              <CheckCircle2 size={15} />
+            </button>
           </div>
         </div>
       ) : (
