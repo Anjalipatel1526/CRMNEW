@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api-client';
 import { Modal } from '@/components/ui/Modal';
+import { StatCard } from '@/components/ui/StatCard';
 import {
   Trophy,
   BarChart3,
@@ -545,78 +546,35 @@ export default function DashboardPage() {
       </div>
 
       {/* ====== 3. OPERATIONAL METRIC TILES ====== */}
-      <div className="grid-4">
-        {/* Metric 1 */}
-        <div className="card" style={{ padding: '18px 20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Vehicle Stockyard
-            </span>
-            <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--well)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Car size={16} style={{ color: 'var(--text)' }} />
-            </div>
-          </div>
-          <div style={{ fontSize: '1.65rem', fontWeight: 800, color: 'var(--text)', letterSpacing: '-0.02em' }}>
-            {vehicles.filter(v => v.status === 'available').length} Available
-          </div>
-          <div style={{ fontSize: '0.8rem', color: 'var(--muted)', marginTop: '2px' }}>
-            Valuation: ₹{(totalStockValue / 10000000).toFixed(2)} Cr ({vehicles.length} total units)
-          </div>
-        </div>
-
-        {/* Metric 2 */}
-        <div className="card" style={{ padding: '18px 20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Active Inquiries
-            </span>
-            <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--well)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Users size={16} style={{ color: 'var(--tomato)' }} />
-            </div>
-          </div>
-          <div style={{ fontSize: '1.65rem', fontWeight: 800, color: 'var(--text)', letterSpacing: '-0.02em' }}>
-            {leads.length} Leads
-          </div>
-          <div style={{ fontSize: '0.8rem', color: 'var(--muted)', marginTop: '2px' }}>
-            {leads.filter(l => (l.score || 0) >= 80).length} high-intent purchase prospects
-          </div>
-        </div>
-
-        {/* Metric 3 */}
-        <div className="card" style={{ padding: '18px 20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Workshop Throughput
-            </span>
-            <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--well)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Wrench size={16} style={{ color: 'var(--pine)' }} />
-            </div>
-          </div>
-          <div style={{ fontSize: '1.65rem', fontWeight: 800, color: 'var(--text)', letterSpacing: '-0.02em' }}>
-            {jobCards.length} In-Service
-          </div>
-          <div style={{ fontSize: '0.8rem', color: 'var(--muted)', marginTop: '2px' }}>
-            98.5% on-time turnaround rate
-          </div>
-        </div>
-
-        {/* Metric 4 */}
-        <div className="card" style={{ padding: '18px 20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Advance Collections
-            </span>
-            <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--well)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Briefcase size={16} style={{ color: 'var(--color-blue)' }} />
-            </div>
-          </div>
-          <div style={{ fontSize: '1.65rem', fontWeight: 800, color: 'var(--text)', letterSpacing: '-0.02em' }}>
-            ₹{(totalDeposits / 100000).toFixed(2)} Lakh
-          </div>
-          <div style={{ fontSize: '0.8rem', color: 'var(--muted)', marginTop: '2px' }}>
-            Bank reconciled tokens received
-          </div>
-        </div>
+      <div className="grid-4" style={{ marginBottom: '20px' }}>
+        <StatCard
+          title="Vehicle Stockyard"
+          value={`${vehicles.filter(v => v.status === 'available').length} Available`}
+          sub={`Valuation: ₹${(totalStockValue / 10000000).toFixed(2)} Cr (${vehicles.length} total units)`}
+          icon={<Car size={18} />}
+          accentColor="indigo"
+        />
+        <StatCard
+          title="Active Inquiries"
+          value={`${leads.length} Leads`}
+          sub={`${leads.filter(l => (l.score || 0) >= 80).length} high-intent purchase prospects`}
+          icon={<Users size={18} />}
+          accentColor="red"
+        />
+        <StatCard
+          title="Workshop Throughput"
+          value={`${jobCards.length} In-Service`}
+          sub="98.5% on-time turnaround rate"
+          icon={<Wrench size={18} />}
+          accentColor="green"
+        />
+        <StatCard
+          title="Advance Collections"
+          value={`₹${(totalDeposits / 100000).toFixed(2)} Lakh`}
+          sub="Bank reconciled tokens received"
+          icon={<Briefcase size={18} />}
+          accentColor="blue"
+        />
       </div>
 
       {/* ====== 4. SHOWROOM LEADS & HANDOVER CLEARANCE GATES ====== */}
