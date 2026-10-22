@@ -1,0 +1,207 @@
+'use client';
+
+import React, { useState } from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { useAuth } from '@/lib/auth-context';
+import { Settings, Bell, LogOut } from 'lucide-react';
+
+/* Primary Top Navigation Tabs — Covering all primary dealership operational modules */
+const TOP_TABS = [
+  { label: 'Overview', href: '/' },
+  { label: 'Pipeline', href: '/crm/leads' },
+  { label: 'Customers', href: '/crm/customers' },
+  { label: 'Appointments', href: '/crm/appointments' },
+  { label: 'Inventory', href: '/vehicles' },
+  { label: 'Procurement', href: '/vehicles/procurement' },
+  { label: 'Deals', href: '/sales/deals' },
+  { label: 'Quotations', href: '/sales/quotations' },
+  { label: 'Finance', href: '/finance' },
+  { label: 'Workshop', href: '/service' },
+  { label: 'Documents', href: '/documents' },
+  { label: 'Reports', href: '/reports' },
+];
+
+export function Shell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const { userContext, activeRole, logout } = useAuth();
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+
+  // Active top tab resolution
+  const activeTab = (() => {
+    if (pathname === '/') return '/';
+    let best = '';
+    for (const tab of TOP_TABS) {
+      if (tab.href !== '/' && pathname.startsWith(tab.href) && tab.href.length > best.length) {
+        best = tab.href;
+      }
+    }
+    return best || '/';
+  })();
+
+  const userInitials = (userContext?.user?.fullName || 'Vikram Singhania')
+    .split(' ')
+    .map((n: string) => n[0])
+    .join('')
+    .slice(0, 2);
+
+  return (
+    <div className="app-shell" style={{ display: 'block', minHeight: '100vh', width: '100%' }}>
+      {/* ====== Main Content Canvas ====== */}
+      <div className="app-main">
+        {/* Unified Top Navigation Bar (Single Sleek Row: Brand, Nav Tabs filling space, Bell, Settings, Profile Avatar) */}
+        <header className="top-bar">
+          {/* Left: Brand Title */}
+          <Link href="/" className="brand-link" title="Apex Motors Dashboard">
+            <div className="brand-badge">A</div>
+            <span className="brand-title">Apex Motors</span>
+          </Link>
+
+          {/* Center: Horizontal Capsule Nav Tabs (Spans across to fill space with balanced alignment) */}
+          <nav className="nav-pills" aria-label="Dealership Navigation">
+            {TOP_TABS.map((tab) => (
+              <Link
+                key={tab.href}
+                href={tab.href}
+                className={`nav-pill ${activeTab === tab.href ? 'active' : ''}`}
+              >
+                {tab.label}
+              </Link>
+            ))}
+          </nav>
+
+          {/* Right: Bell Icon, Settings, and Profile Avatar (Removed name from top nav as requested) */}
+          <div className="top-bar__right">
+            {/* Dealership Notifications Bell */}
+            <button className="icon-circle-btn" title="Dealership Alerts">
+              <Bell size={16} />
+              <span className="bell-badge" />
+            </button>
+
+            {/* Settings Option Button */}
+            <Link
+              href="/settings"
+              className={`pill-btn ${pathname === '/settings' ? 'active' : ''}`}
+              title="Dealership Settings"
+            >
+              <Settings size={15} style={{ color: pathname === '/settings' ? '#FFFFFF' : 'var(--pearl-green)' }} />
+              <span className="pill-btn__label">Settings</span>
+            </Link>
+
+            {/* Profile Avatar Button with Account Dropdown */}
+            <div style={{ position: 'relative' }}>
+              <button
+                onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+                className="icon-circle-btn profile-avatar-btn"
+                title="Profile & Account Menu"
+                aria-expanded={profileDropdownOpen}
+              >
+                <div className="avatar-circle">
+                  {userInitials}
+                </div>
+              </button>
+
+              {/* Clean Profile Dropdown Menu (Branch and Persona sections removed as requested) */}
+              {profileDropdownOpen && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: 'calc(100% + 8px)',
+                    right: 0,
+                    width: '240px',
+                    backgroundColor: 'var(--solid)',
+                    border: '1px solid var(--line-2)',
+                    borderRadius: 'var(--r-tile)',
+                    boxShadow: 'var(--shadow-pop)',
+                    zIndex: 75,
+                    padding: '14px',
+                  }}
+                >
+                  {/* User Profile Info */}
+                  <div style={{ paddingBottom: '12px', borderBottom: '1px solid var(--line)', marginBottom: '12px' }}>
+                    <div style={{ fontWeight: 800, fontSize: '0.94rem', color: 'var(--text)' }}>
+                      {userContext?.user?.fullName || 'Vikram Singhania'}
+                    </div>
+                    <div style={{ fontSize: '0.76rem', color: 'var(--muted)', marginTop: '2px' }}>
+                      {userContext?.user?.email || 'admin@apexmotors.com'}
+                    </div>
+                    <div style={{ display: 'inline-flex', marginTop: '8px' }} className="badge badge-green">
+                      {(activeRole || 'tenant_admin').replace('_', ' ')}
+                    </div>
+                  </div>
+
+                  {/* Settings & Logout Links */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                    <Link
+                      href="/settings"
+                      onClick={() => setProfileDropdownOpen(false)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '7px 8px',
+                        borderRadius: '6px',
+                        fontSize: '0.82rem',
+                        fontWeight: 600,
+                        color: 'var(--text)',
+                        textDecoration: 'none',
+                        transition: 'var(--transition-fast)',
+                      }}
+                    >
+                      <Settings size={14} style={{ color: 'var(--pearl-green)' }} />
+                      <span>Platform Settings</span>
+                    </Link>
+
+                    <button
+                      onClick={() => {
+                        setProfileDropdownOpen(false);
+                        logout();
+                      }}
+                      style={{
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '7px 8px',
+                        borderRadius: '6px',
+                        fontSize: '0.82rem',
+                        fontWeight: 600,
+                        color: 'var(--tomato)',
+                        background: 'transparent',
+                        border: 'none',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        transition: 'var(--transition-fast)',
+                      }}
+                    >
+                      <LogOut size={14} />
+                      <span>Sign Out</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </header>
+
+        {/* Global Dropdown Dismiss Overlay */}
+        {profileDropdownOpen && (
+          <div
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              zIndex: 65,
+            }}
+            onClick={() => setProfileDropdownOpen(false)}
+          />
+        )}
+
+        {/* Page Content */}
+        <main>{children}</main>
+      </div>
+    </div>
+  );
+}

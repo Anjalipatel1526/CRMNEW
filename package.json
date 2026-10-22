@@ -1,0 +1,22 @@
+{
+  "name": "car-dealership-crm",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Universal Car Dealership CRM and Enterprise Management Platform",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspaces --if-present",
+    "dev:web": "npm run dev --workspace=apps/web",
+    "dev:api": "npm run dev --workspace=apps/api",
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "seed": "npm run seed --workspace=apps/api"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  }
+}
