@@ -19,6 +19,9 @@ import {
   GripVertical,
   CheckCircle2,
   HelpCircle,
+  ChevronLeft,
+  ChevronRight,
+  ShieldCheck,
 } from 'lucide-react';
 import { WordFadeIn } from '@/components/ui/WordFadeIn';
 
@@ -682,65 +685,74 @@ export default function LeadsPage() {
       {(() => {
         const currentStageConfig = stages.find((s) => s.key === formStage) || stages[0];
         const currentStageQuestions = STAGE_QUESTION_MAP[formStage];
+        const stageIndex = stages.findIndex((s) => s.key === formStage);
 
         return (
           <Modal
             isOpen={isNewLeadModalOpen}
             onClose={() => setIsNewLeadModalOpen(false)}
+            maxWidth="840px"
             title={
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span>{currentStageQuestions?.stageTitle || 'Create New Lead'}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '1.2rem', fontWeight: 700, color: '#0F172A', letterSpacing: '-0.02em' }}>
+                  {currentStageQuestions?.stageTitle || 'Create New Lead'}
+                </span>
                 <span
                   style={{
                     fontSize: '0.74rem',
                     fontWeight: 700,
-                    padding: '2px 9px',
+                    padding: '3px 11px',
                     borderRadius: '999px',
                     backgroundColor: currentStageConfig.badgeBg,
                     color: currentStageConfig.badgeText,
-                    border: `1px solid ${currentStageConfig.border}`,
+                    border: `1.5px solid ${currentStageConfig.border}`,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '5px',
                   }}
                 >
+                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: currentStageConfig.accent }} />
                   Stage: {currentStageConfig.label}
                 </span>
               </div>
             }
           >
-            <form onSubmit={handleCreateLead}>
+            <form onSubmit={handleCreateLead} className="inspo-form-wrapper">
               {/* Target Pipeline Stage Gate Selector */}
-              <div style={{ marginBottom: '14px' }}>
-                <label className="form-label" style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--muted)', marginBottom: '6px' }}>
-                  Target Pipeline Stage
-                </label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                  {stages.map((s) => (
-                    <button
-                      key={s.key}
-                      type="button"
-                      onClick={() => setFormStage(s.key)}
-                      style={{
-                        padding: '4px 11px',
-                        borderRadius: '999px',
-                        fontSize: '0.76rem',
-                        fontWeight: 700,
-                        border: '1px solid',
-                        borderColor: formStage === s.key ? s.accent : 'var(--line-2)',
-                        backgroundColor: formStage === s.key ? s.accent : '#FFFFFF',
-                        color: formStage === s.key ? '#FFFFFF' : 'var(--muted)',
-                        cursor: 'pointer',
-                        transition: 'all 0.15s ease',
-                      }}
-                    >
-                      {s.label}
-                    </button>
-                  ))}
+              <div className="target-stage-selector-wrap">
+                <div className="target-stage-label">
+                  <span>Target Pipeline Stage</span>
+                  <span style={{ fontSize: '0.72rem', color: '#94A3B8', textTransform: 'none', fontWeight: 500 }}>
+                    Select stage to load dedicated intake questionnaire
+                  </span>
+                </div>
+                <div className="target-stage-pills">
+                  {stages.map((s) => {
+                    const isActive = formStage === s.key;
+                    return (
+                      <button
+                        key={s.key}
+                        type="button"
+                        onClick={() => setFormStage(s.key)}
+                        className={`target-stage-pill ${isActive ? 'is-active' : ''}`}
+                        style={{
+                          ['--pill-accent' as any]: s.accent,
+                          ['--pill-glow' as any]: s.glow,
+                        }}
+                      >
+                        {s.label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
-              {/* Customer & Branch */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '1rem' }}>
+              {/* Customer Profile & Branch Destination */}
+              <div className="form-grid-2">
                 <div className="form-group">
-                  <label className="form-label">Customer Profile</label>
+                  <label className="form-label">
+                    Customer Profile <span className="req-star">*</span>
+                  </label>
                   <select
                     className="form-select"
                     value={formData.customerId}
@@ -771,25 +783,31 @@ export default function LeadsPage() {
                 </div>
               </div>
 
-              {/* Preferred Make, Model, Fuel */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+              {/* Preferred Make, Model, Fuel Type */}
+              <div className="form-grid-3">
                 <div className="form-group">
-                  <label className="form-label">Preferred Make</label>
+                  <label className="form-label">
+                    Preferred Make <span className="req-star">*</span>
+                  </label>
                   <input
                     type="text"
                     className="form-input"
                     value={formData.preferredMake}
                     onChange={(e) => setFormData({ ...formData, preferredMake: e.target.value })}
+                    placeholder="e.g. Mahindra"
                     required
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Preferred Model</label>
+                  <label className="form-label">
+                    Preferred Model <span className="req-star">*</span>
+                  </label>
                   <input
                     type="text"
                     className="form-input"
                     value={formData.preferredModel}
                     onChange={(e) => setFormData({ ...formData, preferredModel: e.target.value })}
+                    placeholder="e.g. XUV700"
                     required
                   />
                 </div>
@@ -808,8 +826,8 @@ export default function LeadsPage() {
                 </div>
               </div>
 
-              {/* Budget */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              {/* Budget Range */}
+              <div className="form-grid-2">
                 <div className="form-group">
                   <label className="form-label">Budget Min (₹)</label>
                   <input
@@ -817,6 +835,7 @@ export default function LeadsPage() {
                     className="form-input"
                     value={formData.budgetMin}
                     onChange={(e) => setFormData({ ...formData, budgetMin: e.target.value })}
+                    placeholder="e.g. 2000000"
                   />
                 </div>
                 <div className="form-group">
@@ -826,11 +845,12 @@ export default function LeadsPage() {
                     className="form-input"
                     value={formData.budgetMax}
                     onChange={(e) => setFormData({ ...formData, budgetMax: e.target.value })}
+                    placeholder="e.g. 2500000"
                   />
                 </div>
               </div>
 
-              {/* Pipeline Stage Intake & Specific Questions */}
+              {/* Pipeline Stage Intake & Specific Questions Container */}
               {currentStageQuestions && (
                 <div
                   className="stage-intake-box"
@@ -841,25 +861,27 @@ export default function LeadsPage() {
                   }}
                 >
                   <div className="stage-intake-header">
-                    <Sparkles size={16} style={{ color: currentStageConfig.accent }} />
+                    <Sparkles size={17} style={{ color: currentStageConfig.accent }} />
                     <span>{currentStageQuestions.stageTitle}</span>
                   </div>
                   <div className="stage-intake-desc">
                     {currentStageQuestions.stageSubtitle}
                   </div>
 
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '11px' }}>
+                  <div className="stage-intake-grid">
                     {currentStageQuestions.questions.map((q) => (
-                      <div key={q.id} className="form-group" style={{ marginBottom: 0 }}>
-                        <label className="form-label" style={{ fontWeight: 600, fontSize: '0.81rem', marginBottom: '3px' }}>
-                          {q.label} {q.required && <span style={{ color: 'var(--tomato)' }}>*</span>}
+                      <div
+                        key={q.id}
+                        className={`form-group ${q.type === 'textarea' ? 'full-span' : ''}`}
+                      >
+                        <label className="form-label">
+                          {q.label} {q.required && <span className="req-star">*</span>}
                         </label>
                         {q.type === 'select' ? (
                           <select
                             className="form-select"
                             value={stageQuestions[q.id] || q.options?.[0] || ''}
                             onChange={(e) => setStageQuestions({ ...stageQuestions, [q.id]: e.target.value })}
-                            style={{ backgroundColor: '#FFFFFF' }}
                           >
                             {q.options?.map((opt) => (
                               <option key={opt} value={opt}>
@@ -875,7 +897,6 @@ export default function LeadsPage() {
                             onChange={(e) => setStageQuestions({ ...stageQuestions, [q.id]: e.target.value })}
                             placeholder={q.placeholder}
                             required={q.required}
-                            style={{ backgroundColor: '#FFFFFF' }}
                           />
                         ) : (
                           <input
@@ -885,7 +906,6 @@ export default function LeadsPage() {
                             onChange={(e) => setStageQuestions({ ...stageQuestions, [q.id]: e.target.value })}
                             placeholder={q.placeholder}
                             required={q.required}
-                            style={{ backgroundColor: '#FFFFFF' }}
                           />
                         )}
                       </div>
@@ -894,6 +914,7 @@ export default function LeadsPage() {
                 </div>
               )}
 
+              {/* Initial Notes & Requirements */}
               <div className="form-group">
                 <label className="form-label">Initial Notes & Requirements</label>
                 <textarea
@@ -903,28 +924,46 @@ export default function LeadsPage() {
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                   placeholder="e.g. Customer is considering top variant, requires auto transmission..."
                 />
+                <div className="form-helper">
+                  Optional notes captured during initial consultation or intake.
+                </div>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.25rem' }}>
+              {/* Form Navigation Bar (Matching Image 1) */}
+              <div className="inspo-form-nav">
                 <button
                   type="button"
-                  className="btn btn-secondary"
+                  className="inspo-btn-back"
                   onClick={() => setIsNewLeadModalOpen(false)}
                 >
-                  Cancel
+                  <ChevronLeft size={16} /> Cancel
                 </button>
+
+                <div className="inspo-step-badge">
+                  <span style={{ fontWeight: 700, color: '#0F172A' }}>{stageIndex + 1} / {stages.length}</span>
+                  <span style={{ opacity: 0.4 }}>•</span>
+                  <span style={{ color: currentStageConfig.accent, fontWeight: 700 }}>
+                    {currentStageConfig.label}
+                  </span>
+                </div>
+
                 <button
                   type="submit"
-                  className="btn btn-primary"
+                  className="inspo-btn-next"
                   style={{
                     backgroundColor: currentStageConfig.accent,
                     borderColor: currentStageConfig.accent,
-                    borderRadius: '999px',
-                    padding: '0.5rem 1.35rem',
                   }}
                 >
-                  Create Lead in {currentStageConfig.label}
+                  <span>Create Lead in {currentStageConfig.label}</span>
+                  <ChevronRight size={16} />
                 </button>
+              </div>
+
+              {/* Privacy & Compliance Footer */}
+              <div className="inspo-footer-compliance">
+                <ShieldCheck size={14} style={{ color: '#16A34A' }} />
+                <span>© 2026 UNAI CRM · All data is encrypted per our Enterprise Security Policy</span>
               </div>
             </form>
           </Modal>
