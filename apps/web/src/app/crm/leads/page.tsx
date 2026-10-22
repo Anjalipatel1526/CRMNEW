@@ -17,8 +17,306 @@ import {
   Filter,
   Car,
   GripVertical,
+  CheckCircle2,
+  HelpCircle,
 } from 'lucide-react';
 import { WordFadeIn } from '@/components/ui/WordFadeIn';
+
+interface StageQuestionItem {
+  id: string;
+  label: string;
+  type: 'text' | 'textarea' | 'select' | 'number';
+  placeholder?: string;
+  options?: string[];
+  required?: boolean;
+}
+
+interface StageQuestionConfig {
+  stageKey: LeadStatus;
+  stageTitle: string;
+  stageSubtitle: string;
+  questions: StageQuestionItem[];
+}
+
+const STAGE_QUESTION_MAP: Partial<Record<LeadStatus, StageQuestionConfig>> = {
+  new: {
+    stageKey: 'new',
+    stageTitle: 'New Inquiries Intake Checklist',
+    stageSubtitle: 'Capture inbound inquiry details, purchase timeline, and customer question.',
+    questions: [
+      {
+        id: 'timeline',
+        label: 'Purchase Timeline & Urgency',
+        type: 'select',
+        options: [
+          'Immediate (Within 7 days)',
+          'Within 15-30 days',
+          'Exploring / Next 2-3 months',
+          'Future purchase planning',
+        ],
+      },
+      {
+        id: 'sourceChannel',
+        label: 'Primary Inbound Source',
+        type: 'select',
+        options: [
+          'Google Search Ads',
+          'Walk-in Showroom',
+          'Website Direct',
+          'Cardekho / CarWale',
+          'Referral',
+          'Meta / Instagram',
+        ],
+      },
+      {
+        id: 'inquiryQuestion',
+        label: 'Customer Initial Question & Vehicle Requirement',
+        type: 'textarea',
+        placeholder: 'e.g. Inquiring about AX7L diesel AWD ready stock, delivery timeline, and warranty...',
+        required: true,
+      },
+    ],
+  },
+  contacted: {
+    stageKey: 'contacted',
+    stageTitle: 'Contacted Stage Intake & Call Checklist',
+    stageSubtitle: 'Log first contact outcome, customer disposition, and follow-up plan.',
+    questions: [
+      {
+        id: 'contactMode',
+        label: 'Communication Channel',
+        type: 'select',
+        options: [
+          'Phone Call (Showroom Desk)',
+          'WhatsApp Official Chat',
+          'In-Person Showroom Visit',
+          'Email Consultation',
+        ],
+      },
+      {
+        id: 'disposition',
+        label: 'Customer Engagement Level',
+        type: 'select',
+        options: [
+          'Highly Interested & Engaged',
+          'Requested Detailed Quotation',
+          'Wants Showroom Visit Demo',
+          'Requested Callback Later',
+          'Price Comparison Shopping',
+        ],
+      },
+      {
+        id: 'customerQuestion',
+        label: 'Specific Questions Customer Raised on Call',
+        type: 'textarea',
+        placeholder: 'e.g. Customer asked about fuel efficiency in city traffic, exchange value for old car, and waiting period...',
+        required: true,
+      },
+      {
+        id: 'followupSlot',
+        label: 'Next Scheduled Follow-up',
+        type: 'text',
+        placeholder: 'e.g. Tomorrow at 3:00 PM',
+      },
+    ],
+  },
+  qualified: {
+    stageKey: 'qualified',
+    stageTitle: 'Lead Qualification & Gate Check',
+    stageSubtitle: 'Validate budget authority, trade-in exchange, and financing readiness.',
+    questions: [
+      {
+        id: 'budgetReadiness',
+        label: 'Budget & Financing Readiness',
+        type: 'select',
+        options: [
+          'Pre-approved Bank Loan Sanctioned',
+          'Self-Funded / Full Cash Payment',
+          'Requires Dealership Loan Assistance',
+          'Corporate Fleet Lease Eligibility',
+        ],
+      },
+      {
+        id: 'tradeIn',
+        label: 'Used Car Exchange / Trade-in',
+        type: 'select',
+        options: [
+          'No Exchange Required (Fresh Purchase)',
+          'Has Old Car for Evaluation & Trade-in',
+          'Exchange Value Critical for Deal',
+        ],
+      },
+      {
+        id: 'decisionMaker',
+        label: 'Decision-Making Authority',
+        type: 'select',
+        options: [
+          'Self / Sole Decision Maker',
+          'Family Joint Decision (Spouse / Parents)',
+          'Corporate Fleet Board Approval',
+        ],
+      },
+      {
+        id: 'qualificationNotes',
+        label: 'Core Qualification Notes & Must-Have Features',
+        type: 'textarea',
+        placeholder: 'e.g. Customer budget confirmed up to ₹24 Lakhs. Requires 7-seater with ADAS safety features...',
+        required: true,
+      },
+    ],
+  },
+  appointment_set: {
+    stageKey: 'appointment_set',
+    stageTitle: 'Showroom Appointment & Demo Booking',
+    stageSubtitle: 'Reserve consultation slot, test vehicle, and assign host.',
+    questions: [
+      {
+        id: 'appointmentSlot',
+        label: 'Appointment Date & Slot',
+        type: 'text',
+        placeholder: 'e.g. Saturday 24th Oct, 11:30 AM',
+        required: true,
+      },
+      {
+        id: 'visitType',
+        label: 'Appointment Format',
+        type: 'select',
+        options: [
+          'Showroom Demo & Test Drive',
+          'Family Walkaround & Feature Demo',
+          'VIP Private Viewing Lounge',
+          'Doorstep Home Consultation',
+        ],
+      },
+      {
+        id: 'assignedHost',
+        label: 'Assigned Showroom Consultant',
+        type: 'select',
+        options: [
+          'Rajesh Patil (Senior Sales Desk)',
+          'Kavita Chawla',
+          'John Fernandes',
+        ],
+      },
+      {
+        id: 'demoRequirements',
+        label: 'Special Preparation & Features to Showcase',
+        type: 'textarea',
+        placeholder: 'e.g. Keep Midnight Black demo car clean and charged. Focus demonstration on rear seat comfort and ADAS...',
+      },
+    ],
+  },
+  test_drive: {
+    stageKey: 'test_drive',
+    stageTitle: 'Test Drive Scheduling & Route',
+    stageSubtitle: 'Route assignment, driver license verification, and evaluation goals.',
+    questions: [
+      {
+        id: 'testRoute',
+        label: 'Test Drive Route Preference',
+        type: 'select',
+        options: [
+          'Dealership Expressway Loop (12 km)',
+          'City Traffic & Bumper-to-Bumper Route (5 km)',
+          'Off-Road & Rough Road Suspension Test',
+          'Home Doorstep Test Drive',
+        ],
+      },
+      {
+        id: 'licenseStatus',
+        label: 'Driving License Status',
+        type: 'select',
+        options: [
+          'Valid Driving License Verified',
+          'Digital DL Verified via DigiLocker',
+          'Will Present Physical License at Desk',
+        ],
+      },
+      {
+        id: 'drivingFocus',
+        label: 'Vehicle Dynamics Customer Wants to Test',
+        type: 'textarea',
+        placeholder: 'e.g. Customer wants to evaluate automatic gearbox smoothness, cabin quietness (NVH), and high-speed braking...',
+        required: true,
+      },
+    ],
+  },
+  negotiation: {
+    stageKey: 'negotiation',
+    stageTitle: 'Price & Offer Negotiation Intake',
+    stageSubtitle: 'Record customer counter-offers, accessory bundles, and closing terms.',
+    questions: [
+      {
+        id: 'targetPrice',
+        label: 'Customer Expected On-Road Price (₹)',
+        type: 'number',
+        placeholder: 'e.g. 2420000',
+        required: true,
+      },
+      {
+        id: 'incentivesDiscussed',
+        label: 'Deal Scheme / Incentive Proposed',
+        type: 'select',
+        options: [
+          'Corporate Discount + Insurance Price Match',
+          'Accessories Pack (₹35,000 value)',
+          'Extended 5-Year Warranty Free',
+          'Zero Depreciation Insurance Waiver',
+          'Exchange Bonus Match',
+        ],
+      },
+      {
+        id: 'competitorModel',
+        label: 'Alternative Vehicle Being Considered',
+        type: 'text',
+        placeholder: 'e.g. Tata Safari Adventure+, Hyundai Creta SX(O)',
+      },
+      {
+        id: 'closingCondition',
+        label: 'Deal Closing Condition / Action Needed',
+        type: 'textarea',
+        placeholder: 'e.g. Ready to book if ready delivery can be guaranteed before Diwali festival...',
+      },
+    ],
+  },
+  converted: {
+    stageKey: 'converted',
+    stageTitle: 'Converted Won Deal & Booking Receipt',
+    stageSubtitle: 'Record token advance payment, allotted VIN, and delivery target.',
+    questions: [
+      {
+        id: 'tokenAmount',
+        label: 'Booking Token Advance Received (₹)',
+        type: 'number',
+        placeholder: 'e.g. 50000',
+        required: true,
+      },
+      {
+        id: 'paymentMode',
+        label: 'Payment Method',
+        type: 'select',
+        options: [
+          'UPI / QR Code Transfer',
+          'Credit / Debit Card POS Swipe',
+          'Direct Bank IMPS / RTGS',
+          'Showroom Account Cheque',
+        ],
+      },
+      {
+        id: 'targetDeliveryDate',
+        label: 'Target Handover / Delivery Date',
+        type: 'text',
+        placeholder: 'e.g. 2026-10-27',
+      },
+      {
+        id: 'conversionChecklist',
+        label: 'KYC & Booking Compliance Notes',
+        type: 'textarea',
+        placeholder: 'e.g. Form 20 signed. Token receipt #RCP-9042 issued. Loan sanction letter attached...',
+      },
+    ],
+  },
+};
 
 export default function LeadsPage() {
   const [mounted, setMounted] = useState(false);
@@ -37,7 +335,9 @@ export default function LeadsPage() {
     setMounted(true);
   }, []);
 
-  // Form state
+  // Form state & stage questionnaire
+  const [formStage, setFormStage] = useState<LeadStatus>('new');
+  const [stageQuestions, setStageQuestions] = useState<Record<string, string>>({});
   const [formData, setFormData] = useState({
     customerId: customers[0]?.id || '',
     branchId: branches[0]?.id || '',
@@ -50,10 +350,41 @@ export default function LeadsPage() {
     notes: '',
   });
 
+  const openStageModal = (stageKey: LeadStatus) => {
+    setFormStage(stageKey);
+    setStageQuestions({});
+    setIsNewLeadModalOpen(true);
+  };
+
   const handleCreateLead = (e: React.FormEvent) => {
     e.preventDefault();
-    const created = api.addLead(formData);
+    const currentQ = STAGE_QUESTION_MAP[formStage];
+    const targetStageConfig = stages.find((s) => s.key === formStage) || stages[0];
+
+    const qSummary = currentQ?.questions
+      .map((q) => {
+        const val = stageQuestions[q.id];
+        return val ? `• ${q.label}: ${val}` : null;
+      })
+      .filter(Boolean)
+      .join('\n');
+
+    const combinedNotes = [
+      formData.notes ? `Initial Requirements: ${formData.notes}` : null,
+      qSummary ? `[${targetStageConfig.label} Stage Intake]:\n${qSummary}` : null,
+    ]
+      .filter(Boolean)
+      .join('\n\n');
+
+    const created = api.addLead({
+      ...formData,
+      status: formStage,
+      notes: combinedNotes,
+    });
+
     setLeads([...api.getLeads()]);
+    setRecentlyMovedId(created.id);
+    setTimeout(() => setRecentlyMovedId(null), 1500);
     setIsNewLeadModalOpen(false);
   };
 
@@ -232,15 +563,29 @@ export default function LeadsPage() {
                     <span className="kanban-col-dot" style={{ backgroundColor: stage.accent }} />
                     <span className="kanban-col-title">{stage.label}</span>
                   </div>
-                  <span
-                    className="kanban-col-badge"
-                    style={{
-                      backgroundColor: stage.badgeBg,
-                      color: stage.badgeText,
-                    }}
-                  >
-                    {stageLeads.length}
-                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span
+                      className="kanban-col-badge"
+                      style={{
+                        backgroundColor: stage.badgeBg,
+                        color: stage.badgeText,
+                      }}
+                    >
+                      {stageLeads.length}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openStageModal(stage.key);
+                      }}
+                      className="kanban-col-add-btn"
+                      title={`Add lead in ${stage.label}`}
+                      aria-label={`Add lead to ${stage.label}`}
+                    >
+                      <Plus size={13} />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Cards Body */}
@@ -333,143 +678,258 @@ export default function LeadsPage() {
           })}
         </div>
 
-      {/* New Lead Modal */}
-      <Modal
-        isOpen={isNewLeadModalOpen}
-        onClose={() => setIsNewLeadModalOpen(false)}
-        title="Create New Customer Lead"
-      >
-        <form onSubmit={handleCreateLead}>
-          <div className="form-group">
-            <label className="form-label">Customer Profile</label>
-            <select
-              className="form-select"
-              value={formData.customerId}
-              onChange={(e) => setFormData({ ...formData, customerId: e.target.value })}
-              required
-            >
-              {customers.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.firstName} {c.lastName} ({c.phone})
-                </option>
-              ))}
-            </select>
-          </div>
+      {/* New Lead Modal with Pipeline Questionnaire */}
+      {(() => {
+        const currentStageConfig = stages.find((s) => s.key === formStage) || stages[0];
+        const currentStageQuestions = STAGE_QUESTION_MAP[formStage];
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <div className="form-group">
-              <label className="form-label">Branch Destination</label>
-              <select
-                className="form-select"
-                value={formData.branchId}
-                onChange={(e) => setFormData({ ...formData, branchId: e.target.value })}
-              >
-                {branches.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="form-group">
-              <label className="form-label">Lead Source</label>
-              <select
-                className="form-select"
-                value={formData.source}
-                onChange={(e) => setFormData({ ...formData, source: e.target.value })}
-              >
-                <option value="Google Search Ads">Google Search Ads</option>
-                <option value="Walk-in Showroom">Walk-in Showroom</option>
-                <option value="Website Direct">Website Direct</option>
-                <option value="Cardekho / CarWale">Cardekho / CarWale</option>
-                <option value="Referral">Referral</option>
-                <option value="Meta / Instagram">Meta / Instagram</option>
-              </select>
-            </div>
-          </div>
+        return (
+          <Modal
+            isOpen={isNewLeadModalOpen}
+            onClose={() => setIsNewLeadModalOpen(false)}
+            title={
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span>{currentStageQuestions?.stageTitle || 'Create New Lead'}</span>
+                <span
+                  style={{
+                    fontSize: '0.74rem',
+                    fontWeight: 700,
+                    padding: '2px 9px',
+                    borderRadius: '999px',
+                    backgroundColor: currentStageConfig.badgeBg,
+                    color: currentStageConfig.badgeText,
+                    border: `1px solid ${currentStageConfig.border}`,
+                  }}
+                >
+                  Stage: {currentStageConfig.label}
+                </span>
+              </div>
+            }
+          >
+            <form onSubmit={handleCreateLead}>
+              {/* Target Pipeline Stage Gate Selector */}
+              <div style={{ marginBottom: '14px' }}>
+                <label className="form-label" style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--muted)', marginBottom: '6px' }}>
+                  Target Pipeline Stage
+                </label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                  {stages.map((s) => (
+                    <button
+                      key={s.key}
+                      type="button"
+                      onClick={() => setFormStage(s.key)}
+                      style={{
+                        padding: '4px 11px',
+                        borderRadius: '999px',
+                        fontSize: '0.76rem',
+                        fontWeight: 700,
+                        border: '1px solid',
+                        borderColor: formStage === s.key ? s.accent : 'var(--line-2)',
+                        backgroundColor: formStage === s.key ? s.accent : '#FFFFFF',
+                        color: formStage === s.key ? '#FFFFFF' : 'var(--muted)',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
-            <div className="form-group">
-              <label className="form-label">Preferred Make</label>
-              <input
-                type="text"
-                className="form-input"
-                value={formData.preferredMake}
-                onChange={(e) => setFormData({ ...formData, preferredMake: e.target.value })}
-                required
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Preferred Model</label>
-              <input
-                type="text"
-                className="form-input"
-                value={formData.preferredModel}
-                onChange={(e) => setFormData({ ...formData, preferredModel: e.target.value })}
-                required
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Fuel Type</label>
-              <select
-                className="form-select"
-                value={formData.preferredFuelType}
-                onChange={(e) => setFormData({ ...formData, preferredFuelType: e.target.value })}
-              >
-                <option value="Petrol">Petrol</option>
-                <option value="Diesel">Diesel</option>
-                <option value="Electric">Electric</option>
-                <option value="Hybrid">Hybrid</option>
-              </select>
-            </div>
-          </div>
+              {/* Customer & Branch */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '1rem' }}>
+                <div className="form-group">
+                  <label className="form-label">Customer Profile</label>
+                  <select
+                    className="form-select"
+                    value={formData.customerId}
+                    onChange={(e) => setFormData({ ...formData, customerId: e.target.value })}
+                    required
+                  >
+                    {customers.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.firstName} {c.lastName} ({c.phone})
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <div className="form-group">
-              <label className="form-label">Budget Min (₹)</label>
-              <input
-                type="number"
-                className="form-input"
-                value={formData.budgetMin}
-                onChange={(e) => setFormData({ ...formData, budgetMin: e.target.value })}
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Budget Max (₹)</label>
-              <input
-                type="number"
-                className="form-input"
-                value={formData.budgetMax}
-                onChange={(e) => setFormData({ ...formData, budgetMax: e.target.value })}
-              />
-            </div>
-          </div>
+                <div className="form-group">
+                  <label className="form-label">Branch Destination</label>
+                  <select
+                    className="form-select"
+                    value={formData.branchId}
+                    onChange={(e) => setFormData({ ...formData, branchId: e.target.value })}
+                  >
+                    {branches.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
 
-          <div className="form-group">
-            <label className="form-label">Initial Notes & Requirements</label>
-            <textarea
-              className="form-textarea"
-              rows={3}
-              value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              placeholder="e.g. Customer is considering top variant, requires auto transmission..."
-            />
-          </div>
+              {/* Preferred Make, Model, Fuel */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+                <div className="form-group">
+                  <label className="form-label">Preferred Make</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={formData.preferredMake}
+                    onChange={(e) => setFormData({ ...formData, preferredMake: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Preferred Model</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={formData.preferredModel}
+                    onChange={(e) => setFormData({ ...formData, preferredModel: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Fuel Type</label>
+                  <select
+                    className="form-select"
+                    value={formData.preferredFuelType}
+                    onChange={(e) => setFormData({ ...formData, preferredFuelType: e.target.value })}
+                  >
+                    <option value="Petrol">Petrol</option>
+                    <option value="Diesel">Diesel</option>
+                    <option value="Electric">Electric</option>
+                    <option value="Hybrid">Hybrid</option>
+                  </select>
+                </div>
+              </div>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.5rem' }}>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={() => setIsNewLeadModalOpen(false)}
-            >
-              Cancel
-            </button>
-            <button type="submit" className="btn btn-primary">
-              Create Lead
-            </button>
-          </div>
-        </form>
-      </Modal>
+              {/* Budget */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="form-group">
+                  <label className="form-label">Budget Min (₹)</label>
+                  <input
+                    type="number"
+                    className="form-input"
+                    value={formData.budgetMin}
+                    onChange={(e) => setFormData({ ...formData, budgetMin: e.target.value })}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Budget Max (₹)</label>
+                  <input
+                    type="number"
+                    className="form-input"
+                    value={formData.budgetMax}
+                    onChange={(e) => setFormData({ ...formData, budgetMax: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              {/* Pipeline Stage Intake & Specific Questions */}
+              {currentStageQuestions && (
+                <div
+                  className="stage-intake-box"
+                  style={{
+                    ['--box-accent' as any]: currentStageConfig.accent,
+                    ['--box-bg' as any]: currentStageConfig.lightBg,
+                    ['--box-border' as any]: currentStageConfig.border,
+                  }}
+                >
+                  <div className="stage-intake-header">
+                    <Sparkles size={16} style={{ color: currentStageConfig.accent }} />
+                    <span>{currentStageQuestions.stageTitle}</span>
+                  </div>
+                  <div className="stage-intake-desc">
+                    {currentStageQuestions.stageSubtitle}
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '11px' }}>
+                    {currentStageQuestions.questions.map((q) => (
+                      <div key={q.id} className="form-group" style={{ marginBottom: 0 }}>
+                        <label className="form-label" style={{ fontWeight: 600, fontSize: '0.81rem', marginBottom: '3px' }}>
+                          {q.label} {q.required && <span style={{ color: 'var(--tomato)' }}>*</span>}
+                        </label>
+                        {q.type === 'select' ? (
+                          <select
+                            className="form-select"
+                            value={stageQuestions[q.id] || q.options?.[0] || ''}
+                            onChange={(e) => setStageQuestions({ ...stageQuestions, [q.id]: e.target.value })}
+                            style={{ backgroundColor: '#FFFFFF' }}
+                          >
+                            {q.options?.map((opt) => (
+                              <option key={opt} value={opt}>
+                                {opt}
+                              </option>
+                            ))}
+                          </select>
+                        ) : q.type === 'textarea' ? (
+                          <textarea
+                            className="form-textarea"
+                            rows={2}
+                            value={stageQuestions[q.id] || ''}
+                            onChange={(e) => setStageQuestions({ ...stageQuestions, [q.id]: e.target.value })}
+                            placeholder={q.placeholder}
+                            required={q.required}
+                            style={{ backgroundColor: '#FFFFFF' }}
+                          />
+                        ) : (
+                          <input
+                            type={q.type}
+                            className="form-input"
+                            value={stageQuestions[q.id] || ''}
+                            onChange={(e) => setStageQuestions({ ...stageQuestions, [q.id]: e.target.value })}
+                            placeholder={q.placeholder}
+                            required={q.required}
+                            style={{ backgroundColor: '#FFFFFF' }}
+                          />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="form-group">
+                <label className="form-label">Initial Notes & Requirements</label>
+                <textarea
+                  className="form-textarea"
+                  rows={2}
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  placeholder="e.g. Customer is considering top variant, requires auto transmission..."
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.25rem' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setIsNewLeadModalOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  style={{
+                    backgroundColor: currentStageConfig.accent,
+                    borderColor: currentStageConfig.accent,
+                    borderRadius: '999px',
+                    padding: '0.5rem 1.35rem',
+                  }}
+                >
+                  Create Lead in {currentStageConfig.label}
+                </button>
+              </div>
+            </form>
+          </Modal>
+        );
+      })()}
 
       {/* Lead Detail & Stage Transition Drawer/Modal */}
       {selectedLead && (
