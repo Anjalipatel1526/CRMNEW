@@ -1,35 +1,40 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { Settings, Bell, LogOut } from 'lucide-react';
-
-/* Primary Top Navigation Tabs — Covering all primary dealership operational modules */
-const TOP_TABS = [
-  { label: 'Overview', href: '/' },
-  { label: 'Pipeline', href: '/crm/leads' },
-  { label: 'Customers', href: '/crm/customers' },
-  { label: 'Appointments', href: '/crm/appointments' },
-  { label: 'Inventory', href: '/vehicles' },
-  { label: 'Procurement', href: '/vehicles/procurement' },
-  { label: 'Deals', href: '/sales/deals' },
-  { label: 'Finance', href: '/finance' },
-  { label: 'Documents', href: '/documents' },
-  { label: 'Reports', href: '/reports' },
-];
+import { getModules, DealershipModule } from '@/lib/modules-registry';
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { userContext, activeRole, logout } = useAuth();
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+  const [modules, setModules] = useState<DealershipModule[]>([]);
+
+  useEffect(() => {
+    // Initial load
+    setModules(getModules());
+
+    const handleModulesChanged = () => {
+      setModules(getModules());
+    };
+
+    window.addEventListener('crm-modules-changed', handleModulesChanged);
+    return () => {
+      window.removeEventListener('crm-modules-changed', handleModulesChanged);
+    };
+  }, []);
+
+  // Only display plugged-in (active) modules in the top navigation bar
+  const activeNavTabs = modules.filter((m) => m.isPluggedIn);
 
   // Active top tab resolution
   const activeTab = (() => {
     if (pathname === '/') return '/';
     let best = '';
-    for (const tab of TOP_TABS) {
+    for (const tab of activeNavTabs) {
       if (tab.href !== '/' && pathname.startsWith(tab.href) && tab.href.length > best.length) {
         best = tab.href;
       }
@@ -57,11 +62,12 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
           {/* Center: Horizontal Capsule Nav Tabs (Spans across to fill space with balanced alignment) */}
           <nav className="nav-pills" aria-label="Dealership Navigation">
-            {TOP_TABS.map((tab) => (
+            {activeNavTabs.map((tab) => (
               <Link
-                key={tab.href}
+                key={tab.id}
                 href={tab.href}
                 className={`nav-pill ${activeTab === tab.href ? 'active' : ''}`}
+                title={tab.description}
               >
                 {tab.label}
               </Link>

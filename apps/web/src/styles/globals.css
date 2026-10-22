@@ -3470,3 +3470,154 @@ input.no-spinner {
   }
 }
 
+/* ========================================================
+   UNIQUE SETTINGS & DEALERSHIP PLUGIN MANAGER STYLES
+   ======================================================== */
+.settings-tabs-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #FFFFFF;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 14px;
+  padding: 6px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+  margin-bottom: 20px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.settings-tabs-wrap::-webkit-scrollbar {
+  display: none;
+}
+
+.settings-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 18px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: #64748B;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  text-decoration: none;
+}
+.settings-tab-btn:hover {
+  background: #F1F5F9;
+  color: #0F172A;
+}
+.settings-tab-btn.active {
+  background: #173830;
+  color: #FFFFFF !important;
+  box-shadow: 0 4px 14px rgba(23, 56, 48, 0.25);
+}
+.settings-tab-btn.active .tab-counter-badge {
+  background: rgba(255, 255, 255, 0.22);
+  color: #FFFFFF;
+}
+
+.tab-counter-badge {
+  font-size: 0.72rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #E2E8F0;
+  color: #475569;
+  font-weight: 800;
+  transition: all 0.2s ease;
+}
+
+/* Plugin Grid & Cards */
+.plugin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 16px;
+}
+
+.plugin-card {
+  background: #FFFFFF;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 16px;
+  padding: 20px;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+  display: flex;
+  flex-direction: column;
+  justifyContent: space-between;
+  position: relative;
+  overflow: hidden;
+}
+.plugin-card:hover {
+  border-color: #94A3B8;
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.06);
+}
+.plugin-card.active-plugin {
+  border-color: rgba(16, 185, 129, 0.4);
+  box-shadow: 0 4px 20px rgba(16, 185, 129, 0.08);
+}
+.plugin-card.deactivated-plugin {
+  background: #FAFAFA;
+  opacity: 0.82;
+}
+
+/* Modern iOS Style Switch Toggle */
+.plugin-switch {
+  position: relative;
+  display: inline-block;
+  width: 48px;
+  height: 26px;
+}
+.plugin-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.plugin-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #CBD5E1;
+  transition: 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  border-radius: 34px;
+}
+.plugin-slider:before {
+  position: absolute;
+  content: "";
+  height: 20px;
+  width: 20px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+.plugin-switch input:checked + .plugin-slider {
+  background-color: #10B981;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.35);
+}
+.plugin-switch input:checked + .plugin-slider:before {
+  transform: translateX(22px);
+}
+
+/* Credentials pill badge */
+.credential-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-family: monospace;
+  font-size: 0.78rem;
+  color: #334155;
+}
+
