@@ -15,6 +15,8 @@ import {
   Users,
   Target,
   Send,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 export default function MarketingPage() {
@@ -187,6 +189,7 @@ export default function MarketingPage() {
             alert('Campaign launched across WhatsApp & SMS gateway!');
             setIsCampaignModalOpen(false);
           }}
+          className="inspo-form-wrapper"
         >
           <div className="form-group">
             <label className="form-label">Campaign Title</label>
@@ -219,12 +222,17 @@ export default function MarketingPage() {
               required
             />
           </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.5rem' }}>
-            <button type="button" className="btn btn-secondary" onClick={() => setIsCampaignModalOpen(false)}>
-              Cancel
+          <div className="unique-modal-footer-bar" style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #E2E8F0' }}>
+            <button
+              type="button"
+              className="unique-btn-cancel"
+              onClick={() => setIsCampaignModalOpen(false)}
+            >
+              <ChevronLeft size={16} /> Cancel
             </button>
-            <button type="submit" className="btn btn-primary">
-              <Send size={15} /> Launch Campaign
+            <button type="submit" className="unique-lead-submit-btn">
+              <span className="btn-text">Launch Campaign</span>
+              <ChevronRight size={15} className="btn-arrow-icon" />
             </button>
           </div>
         </form>

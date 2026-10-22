@@ -15,6 +15,8 @@ import {
   CheckCircle,
   Clock,
   Sparkles,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { WordFadeIn } from '@/components/ui/WordFadeIn';
 
@@ -304,6 +306,7 @@ export default function SettingsPage() {
             alert('Branch configured successfully!');
             setIsBranchModalOpen(false);
           }}
+          className="inspo-form-wrapper"
         >
           <div className="form-group">
             <label className="form-label">Branch Code</label>
@@ -317,12 +320,17 @@ export default function SettingsPage() {
             <label className="form-label">Physical Address</label>
             <input type="text" className="form-input" defaultValue="Ghatkopar East Highway Junction, Mumbai" required />
           </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.5rem' }}>
-            <button type="button" className="btn btn-secondary" onClick={() => setIsBranchModalOpen(false)}>
-              Cancel
+          <div className="unique-modal-footer-bar" style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #E2E8F0' }}>
+            <button
+              type="button"
+              className="unique-btn-cancel"
+              onClick={() => setIsBranchModalOpen(false)}
+            >
+              <ChevronLeft size={16} /> Cancel
             </button>
-            <button type="submit" className="btn btn-primary">
-              Register Branch
+            <button type="submit" className="unique-lead-submit-btn">
+              <span className="btn-text">Register Branch</span>
+              <ChevronRight size={15} className="btn-arrow-icon" />
             </button>
           </div>
         </form>
@@ -340,6 +348,7 @@ export default function SettingsPage() {
             alert('Invitation dispatched to staff email!');
             setIsUserModalOpen(false);
           }}
+          className="inspo-form-wrapper"
         >
           <div className="form-group">
             <label className="form-label">Full Name</label>
@@ -358,12 +367,17 @@ export default function SettingsPage() {
               <option value="finance_manager">Finance & Accounts Manager</option>
             </select>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.5rem' }}>
-            <button type="button" className="btn btn-secondary" onClick={() => setIsUserModalOpen(false)}>
-              Cancel
+          <div className="unique-modal-footer-bar" style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #E2E8F0' }}>
+            <button
+              type="button"
+              className="unique-btn-cancel"
+              onClick={() => setIsUserModalOpen(false)}
+            >
+              <ChevronLeft size={16} /> Cancel
             </button>
-            <button type="submit" className="btn btn-primary">
-              Send Staff Invite
+            <button type="submit" className="unique-lead-submit-btn">
+              <span className="btn-text">Send Staff Invite</span>
+              <ChevronRight size={15} className="btn-arrow-icon" />
             </button>
           </div>
         </form>

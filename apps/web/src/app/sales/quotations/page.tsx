@@ -15,6 +15,8 @@ import {
   ShieldAlert,
   CheckCircle,
   Building,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 interface LineItemInput {
@@ -213,7 +215,7 @@ export default function QuotationsPage() {
         title="Interactive Dealership Quotation Builder"
         maxWidth="840px"
       >
-        <form onSubmit={handleSaveQuotation}>
+        <form onSubmit={handleSaveQuotation} className="inspo-form-wrapper">
           {/* Customer & Vehicle Header */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.25rem' }}>
             <div className="form-group" style={{ margin: 0 }}>
@@ -415,16 +417,17 @@ export default function QuotationsPage() {
             </div>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+          <div className="unique-modal-footer-bar" style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #E2E8F0' }}>
             <button
               type="button"
-              className="btn btn-secondary"
+              className="unique-btn-cancel"
               onClick={() => setIsBuilderOpen(false)}
             >
-              Cancel
+              <ChevronLeft size={16} /> Cancel
             </button>
-            <button type="submit" className="btn btn-primary">
-              Issue Official Quotation
+            <button type="submit" className="unique-lead-submit-btn">
+              <span className="btn-text">Issue Official Quotation</span>
+              <ChevronRight size={15} className="btn-arrow-icon" />
             </button>
           </div>
         </form>

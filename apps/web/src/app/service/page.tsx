@@ -15,6 +15,8 @@ import {
   AlertCircle,
   ShieldAlert,
   Car,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 export default function ServicePage() {
@@ -259,6 +261,7 @@ export default function ServicePage() {
             alert('Job card created and technician dispatched!');
             setIsJobCardModalOpen(false);
           }}
+          className="inspo-form-wrapper"
         >
           <div className="form-group">
             <label className="form-label">Customer Name</label>
@@ -287,12 +290,17 @@ export default function ServicePage() {
               required
             />
           </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.5rem' }}>
-            <button type="button" className="btn btn-secondary" onClick={() => setIsJobCardModalOpen(false)}>
-              Cancel
+          <div className="unique-modal-footer-bar" style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #E2E8F0' }}>
+            <button
+              type="button"
+              className="unique-btn-cancel"
+              onClick={() => setIsJobCardModalOpen(false)}
+            >
+              <ChevronLeft size={16} /> Cancel
             </button>
-            <button type="submit" className="btn btn-primary">
-              Issue Workshop Card
+            <button type="submit" className="unique-lead-submit-btn">
+              <span className="btn-text">Issue Workshop Card</span>
+              <ChevronRight size={15} className="btn-arrow-icon" />
             </button>
           </div>
         </form>
