@@ -1275,12 +1275,13 @@ html, body {
   position: relative;
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+  cursor: pointer;
 }
 
 .unique-deal-card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 12px 28px -4px rgba(30, 68, 59, 0.12);
-  border-color: rgba(30, 68, 59, 0.28);
+  box-shadow: 0 12px 28px -4px rgba(30, 68, 59, 0.16);
+  border-color: rgba(30, 68, 59, 0.35);
 }
 
 .unique-deal-header {
@@ -1289,39 +1290,29 @@ html, body {
   justify-content: space-between;
 }
 
-.unique-deal-badge {
+.unique-deal-tag {
   font-size: 0.72rem;
   font-weight: 700;
-  padding: 3px 8px;
+  color: var(--pearl-green);
+  background: rgba(30, 68, 59, 0.06);
+  padding: 2px 8px;
   border-radius: var(--r-ctl);
+  border: 1px solid rgba(30, 68, 59, 0.14);
+}
+
+.unique-deal-link {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--pearl-green);
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  letter-spacing: 0.01em;
+  gap: 3px;
+  transition: transform 0.2s ease;
 }
 
-.unique-deal-badge--velocity {
-  background: rgba(30, 68, 59, 0.08);
-  color: var(--pearl-green);
-  border: 1px solid rgba(30, 68, 59, 0.15);
-}
-
-.unique-deal-badge--hot {
-  background: rgba(200, 67, 31, 0.08);
-  color: var(--tomato);
-  border: 1px solid rgba(200, 67, 31, 0.2);
-}
-
-.unique-deal-badge--loan {
-  background: rgba(15, 118, 110, 0.08);
-  color: #0F766E;
-  border: 1px solid rgba(15, 118, 110, 0.2);
-}
-
-.unique-deal-badge--delivery {
-  background: rgba(46, 125, 106, 0.1);
-  color: #1E443B;
-  border: 1px solid rgba(30, 68, 59, 0.25);
+.unique-deal-card:hover .unique-deal-link {
+  transform: translateX(2px);
+  color: var(--dock);
 }
 
 .unique-deal-date {
@@ -1453,6 +1444,133 @@ html, body {
 .unique-deal-avatar:first-child {
   margin-left: 0;
 }
+
+/* ========================================================
+   MODAL & DEAL DOSSIER STYLES
+   ======================================================== */
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(5px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+  padding: 20px;
+}
+
+.modal-content {
+  background: #FFFFFF;
+  border-radius: var(--r-card);
+  box-shadow: 0 24px 48px -12px rgba(15, 23, 42, 0.25), 0 1px 3px rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--line);
+  width: 100%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: modalPop 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalPop {
+  0% {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.modal-header {
+  padding: 16px 22px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--float);
+}
+
+.modal-body {
+  padding: 22px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.modal-footer {
+  padding: 14px 22px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  background: var(--float);
+}
+
+/* Deal Dossier Layout */
+.dossier-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 768px) {
+  .dossier-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dossier-card {
+  background: #F8FAF9;
+  border: 1px solid var(--line);
+  border-radius: var(--r-tile);
+  padding: 16px;
+}
+
+.dossier-card__title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dossier-card__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(30, 68, 59, 0.05);
+  font-size: 0.83rem;
+}
+
+.dossier-card__row:last-child {
+  border-bottom: none;
+}
+
+.dossier-gate-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 12px;
+  background: #FFFFFF;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  margin-bottom: 6px;
+  font-size: 0.82rem;
+}
+
 
 
 

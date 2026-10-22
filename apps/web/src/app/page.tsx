@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api-client';
+import { Modal } from '@/components/ui/Modal';
 import {
   Trophy,
   BarChart3,
@@ -18,6 +19,10 @@ import {
   CheckCircle,
   FileText,
   Calendar,
+  ShieldCheck,
+  CreditCard,
+  CheckCircle2,
+  AlertCircle,
 } from 'lucide-react';
 
 import { WordFadeIn } from '@/components/ui/WordFadeIn';
@@ -49,17 +54,39 @@ const REVENUE_DATA_6M = [
 const HOT_DEALS = [
   {
     id: 'hd-1',
+    dealNumber: 'DL-2024-001',
     vehicle: 'Mahindra XUV700 AX7L',
-    variant: 'Diesel AWD Luxury',
+    variant: 'Diesel AWD Luxury (7-Seater)',
+    vin: 'MAH700AX7L20240981',
+    fuel: 'Diesel mHawk 2.2L',
+    transmission: 'Automatic 6-Speed',
+    color: 'Midnight Black Metallic',
     customer: 'Vikram Singhania',
-    branch: 'Downtown',
+    phone: '+91 98201 44552',
+    email: 'vikram.singhania@apexcorp.in',
+    city: 'Mumbai, Maharashtra',
+    advisor: 'Rajesh Patil (Senior Sales Desk)',
+    branch: 'Downtown Flagship',
     value: 2480000,
+    basePrice: 2050000,
+    rtoRoadTax: 246000,
+    insurance: 94000,
+    accessories: 45000,
+    tokenPaid: 250000,
+    loanApproved: 2000000,
+    financier: 'HDFC Bank Auto Loan (8.25% p.a.)',
+    balanceDue: 230000,
     prob: 95,
-    badge: '⚡ High Velocity',
-    badgeType: 'velocity',
     date: 'Closes Oct 27',
-    stages: ['Token', 'KYC', 'Loan', 'PDI'],
-    currentStage: 2,
+    stages: ['Token Paid', 'KYC Verified', 'Loan Sanctioned', 'PDI Passed', 'Ready for Delivery'],
+    currentStage: 3,
+    gateDetails: [
+      { name: 'Booking Token Paid', status: 'cleared', date: '2026-10-14', note: '₹2,50,000 via NEFT received & receipted' },
+      { name: 'KYC & Form 20 Verification', status: 'cleared', date: '2026-10-16', note: 'PAN & Aadhaar e-verified, RTO draft generated' },
+      { name: 'Financier Loan Disbursal', status: 'cleared', date: '2026-10-19', note: 'HDFC Sanction Letter received for ₹20.0 Lakh' },
+      { name: '140-Point PDI Technical Inspection', status: 'cleared', date: '2026-10-21', note: 'Clearance certificate #PDI-8849 generated' },
+      { name: 'RTO Security Gate Pass & Handover', status: 'pending', date: '2026-10-27', note: 'Scheduled handover ceremony with ribbon kit' },
+    ],
     avatars: [
       { text: 'VS', bg: 'var(--tomato)' },
       { text: 'AP', bg: 'var(--pine)' },
@@ -67,17 +94,39 @@ const HOT_DEALS = [
   },
   {
     id: 'hd-2',
+    dealNumber: 'DL-2024-002',
     vehicle: 'Tata Safari Gold+',
-    variant: 'Dark Edition 6-Str',
+    variant: 'Dark Edition 6-Str Captain Seats',
+    vin: 'TATASAFDARK2024102',
+    fuel: 'Diesel Kryotec 2.0L',
+    transmission: 'Automatic 6-Speed',
+    color: 'Oberon Black Sheen',
     customer: 'Amit Patel',
-    branch: 'Westside',
+    phone: '+91 99304 88120',
+    email: 'amit.patel@patelchem.com',
+    city: 'Ahmedabad / Mumbai',
+    advisor: 'Amit Patel (Branch Lead)',
+    branch: 'Westside Depot',
     value: 2550000,
+    basePrice: 2110000,
+    rtoRoadTax: 252000,
+    insurance: 98000,
+    accessories: 50000,
+    tokenPaid: 300000,
+    loanApproved: 2000000,
+    financier: 'State Bank of India (Car Prime)',
+    balanceDue: 250000,
     prob: 90,
-    badge: '🔥 Hot Closing',
-    badgeType: 'hot',
     date: 'Closes Nov 15',
-    stages: ['Token', 'KYC', 'Loan', 'PDI'],
+    stages: ['Token Paid', 'KYC Verified', 'Loan Sanctioned', 'PDI Passed', 'Ready for Delivery'],
     currentStage: 3,
+    gateDetails: [
+      { name: 'Booking Token Paid', status: 'cleared', date: '2026-10-15', note: '₹3,00,000 advance RTGS received' },
+      { name: 'KYC & Form 20 Verification', status: 'cleared', date: '2026-10-17', note: 'GST invoice matching company PAN verified' },
+      { name: 'Financier Loan Disbursal', status: 'cleared', date: '2026-10-20', note: 'SBI auto loan disbursal release processed' },
+      { name: '140-Point PDI Technical Inspection', status: 'in_progress', date: '2026-10-22', note: 'Accessory fitment in workshop bay #2' },
+      { name: 'RTO Security Gate Pass & Handover', status: 'pending', date: '2026-11-15', note: 'Scheduled handover ceremony' },
+    ],
     avatars: [
       { text: 'AP', bg: 'var(--color-blue)' },
       { text: 'RK', bg: 'var(--violet)' },
@@ -85,17 +134,39 @@ const HOT_DEALS = [
   },
   {
     id: 'hd-3',
+    dealNumber: 'DL-2024-003',
     vehicle: 'Hyundai Creta SX',
-    variant: '1.5L Turbo Petrol DCT',
+    variant: '1.5L Turbo Petrol DCT Knight Edition',
+    vin: 'HYUNCRETAS2024551',
+    fuel: 'Petrol Turbo GDi',
+    transmission: '7-Speed Dual Clutch (DCT)',
+    color: 'Titan Grey Matte',
     customer: 'Priya Sharma',
-    branch: 'Flagship',
+    phone: '+91 98450 12890',
+    email: 'priya.sharma@techventures.io',
+    city: 'Bengaluru / Pune',
+    advisor: 'Priya Sharma (Fleet Manager)',
+    branch: 'Flagship Hub',
     value: 1890000,
+    basePrice: 1580000,
+    rtoRoadTax: 188000,
+    insurance: 72000,
+    accessories: 35000,
+    tokenPaid: 200000,
+    loanApproved: 1500000,
+    financier: 'ICICI Bank Custom Auto Plan',
+    balanceDue: 190000,
     prob: 85,
-    badge: '🎯 Loan Approved',
-    badgeType: 'loan',
     date: 'Closes Nov 21',
-    stages: ['Token', 'KYC', 'Loan', 'Delivery'],
+    stages: ['Token Paid', 'KYC Verified', 'Loan Sanctioned', 'PDI Passed', 'Ready for Delivery'],
     currentStage: 2,
+    gateDetails: [
+      { name: 'Booking Token Paid', status: 'cleared', date: '2026-10-18', note: '₹2,00,000 paid via netbanking' },
+      { name: 'KYC & Form 20 Verification', status: 'cleared', date: '2026-10-20', note: 'Aadhaar e-Sign KYC completed' },
+      { name: 'Financier Loan Disbursal', status: 'in_progress', date: '2026-10-22', note: 'Awaiting final bank disbursement release' },
+      { name: '140-Point PDI Technical Inspection', status: 'pending', date: '2026-11-10', note: 'Yard allotment scheduled' },
+      { name: 'RTO Security Gate Pass & Handover', status: 'pending', date: '2026-11-21', note: 'Customer scheduled delivery' },
+    ],
     avatars: [
       { text: 'PS', bg: 'var(--butter)', color: '#17191a' },
       { text: 'VS', bg: 'var(--pine)' },
@@ -103,17 +174,39 @@ const HOT_DEALS = [
   },
   {
     id: 'hd-4',
+    dealNumber: 'DL-2024-004',
     vehicle: 'Honda City ZX',
-    variant: 'e:HEV Hybrid Sedan',
+    variant: 'e:HEV Hybrid Electric Sedan',
+    vin: 'HONDACITY2024883',
+    fuel: 'Hybrid (Petrol + EV Dual Motor)',
+    transmission: 'e-CVT Automatic',
+    color: 'Platinum White Pearl',
     customer: 'Rajesh Nair',
-    branch: 'Downtown',
+    phone: '+91 97110 33499',
+    email: 'rajesh.nair@nairglobal.com',
+    city: 'Kochi / Mumbai',
+    advisor: 'Rajesh Nair (Showroom Specialist)',
+    branch: 'Downtown Flagship',
     value: 1520000,
+    basePrice: 1280000,
+    rtoRoadTax: 135000,
+    insurance: 62000,
+    accessories: 32000,
+    tokenPaid: 1520000,
+    loanApproved: 0,
+    financier: '100% Self Financed (Full Cashier Receipt Cleared)',
+    balanceDue: 0,
     prob: 100,
-    badge: '✨ Delivery Ready',
-    badgeType: 'delivery',
     date: 'Closes Nov 28',
-    stages: ['Token', 'KYC', 'Loan', 'Delivery'],
-    currentStage: 3,
+    stages: ['Token Paid', 'KYC Verified', 'Payment Cleared', 'PDI Passed', 'Ready for Delivery'],
+    currentStage: 4,
+    gateDetails: [
+      { name: 'Booking Token Paid', status: 'cleared', date: '2026-10-10', note: 'Full on-road payment cleared ₹15.20 Lakh' },
+      { name: 'KYC & Form 20 Verification', status: 'cleared', date: '2026-10-12', note: 'RTO registration number MH-02-CP-8902 allotted' },
+      { name: 'Payment Settlement', status: 'cleared', date: '2026-10-14', note: 'Zero balance due, 100% receipt settled' },
+      { name: '140-Point PDI Technical Inspection', status: 'cleared', date: '2026-10-18', note: 'Ceramic coating & accessories applied' },
+      { name: 'RTO Security Gate Pass & Handover', status: 'cleared', date: '2026-10-22', note: 'Security gate clearance pass issued' },
+    ],
     avatars: [
       { text: 'RN', bg: 'var(--pine)' },
     ],
@@ -127,6 +220,7 @@ export default function DashboardPage() {
   const [appointments] = useState(api.getAppointments());
   const [jobCards] = useState(api.getJobCards());
   const [timeRange, setTimeRange] = useState<'6M' | '12M'>('12M');
+  const [selectedDeal, setSelectedDeal] = useState<typeof HOT_DEALS[0] | null>(null);
 
   // Aggregated totals
   const totalStockValue = vehicles.reduce((sum, v) => sum + v.askingPrice, 0);
@@ -357,15 +451,29 @@ export default function DashboardPage() {
                 deal.prob >= 85 ? '#0F766E' : '#C8431F';
 
               return (
-                <div key={deal.id} className="unique-deal-card">
+                <div
+                  key={deal.id}
+                  className="unique-deal-card"
+                  onClick={() => setSelectedDeal(deal)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setSelectedDeal(deal);
+                    }
+                  }}
+                  title="Click to view full deal dossier & gate clearances"
+                >
                   {/* Top Status & Date */}
                   <div className="unique-deal-header">
-                    <span className={`unique-deal-badge unique-deal-badge--${deal.badgeType}`}>
-                      {deal.badge}
-                    </span>
-                    <span className="unique-deal-date">
-                      <Clock size={12} /> {deal.date}
-                    </span>
+                    <span className="unique-deal-tag">Deal #{deal.dealNumber}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span className="unique-deal-date">
+                        <Clock size={12} /> {deal.date}
+                      </span>
+                      <span className="unique-deal-link">Show Details ↗</span>
+                    </div>
                   </div>
 
                   {/* Body: Vehicle Info + Radial Probability Dial */}
@@ -666,6 +774,254 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* ====== 5. COMPREHENSIVE DEAL DOSSIER MODAL ====== */}
+      {selectedDeal && (
+        <Modal
+          isOpen={!!selectedDeal}
+          onClose={() => setSelectedDeal(null)}
+          title={`Deal Dossier · ${selectedDeal.dealNumber}`}
+          maxWidth="840px"
+          footer={
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem', color: 'var(--muted)' }}>
+                <ShieldCheck size={16} style={{ color: 'var(--pine)' }} />
+                <span>RTO compliance & audit verified</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setSelectedDeal(null)}
+                >
+                  Close
+                </button>
+                <Link
+                  href="/sales/deals"
+                  className="btn btn-primary"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                >
+                  Open in Deals Pipeline <ArrowUpRight size={15} />
+                </Link>
+              </div>
+            </div>
+          }
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {/* Top Overview Banner */}
+            <div
+              style={{
+                background: 'linear-gradient(135deg, rgba(30, 68, 59, 0.08) 0%, rgba(30, 68, 59, 0.02) 100%)',
+                border: '1px solid rgba(30, 68, 59, 0.16)',
+                borderRadius: 'var(--r-tile)',
+                padding: '16px 20px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '12px',
+              }}
+            >
+              <div>
+                <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text)' }}>
+                  {selectedDeal.vehicle}
+                </div>
+                <div style={{ fontSize: '0.84rem', color: 'var(--muted)', marginTop: '2px' }}>
+                  {selectedDeal.variant} · {selectedDeal.color}
+                </div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--pearl-green)' }}>
+                  ₹{selectedDeal.value.toLocaleString('en-IN')}
+                </div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--muted)', fontWeight: 600 }}>
+                  Closing Probability: <strong style={{ color: 'var(--text)' }}>{selectedDeal.prob}%</strong> · {selectedDeal.date}
+                </div>
+              </div>
+            </div>
+
+            {/* Dossier 2-Column Grid */}
+            <div className="dossier-grid">
+              {/* Card 1: Customer Profile */}
+              <div className="dossier-card">
+                <div className="dossier-card__title">
+                  <Users size={14} style={{ color: 'var(--pine)' }} />
+                  Customer & Showroom Desk
+                </div>
+                <div className="dossier-card__row">
+                  <span style={{ color: 'var(--muted)' }}>Buyer Name</span>
+                  <span style={{ fontWeight: 700, color: 'var(--text)' }}>{selectedDeal.customer}</span>
+                </div>
+                <div className="dossier-card__row">
+                  <span style={{ color: 'var(--muted)' }}>Phone</span>
+                  <span style={{ fontWeight: 600 }}>{selectedDeal.phone}</span>
+                </div>
+                <div className="dossier-card__row">
+                  <span style={{ color: 'var(--muted)' }}>Email</span>
+                  <span style={{ fontWeight: 600 }}>{selectedDeal.email}</span>
+                </div>
+                <div className="dossier-card__row">
+                  <span style={{ color: 'var(--muted)' }}>Registered City</span>
+                  <span style={{ fontWeight: 600 }}>{selectedDeal.city}</span>
+                </div>
+                <div className="dossier-card__row">
+                  <span style={{ color: 'var(--muted)' }}>Sales Advisor</span>
+                  <span style={{ fontWeight: 700, color: 'var(--pearl-green)' }}>{selectedDeal.advisor}</span>
+                </div>
+              </div>
+
+              {/* Card 2: Vehicle Specs */}
+              <div className="dossier-card">
+                <div className="dossier-card__title">
+                  <Car size={14} style={{ color: 'var(--pine)' }} />
+                  Vehicle Technical Specs
+                </div>
+                <div className="dossier-card__row">
+                  <span style={{ color: 'var(--muted)' }}>VIN / Chassis</span>
+                  <span style={{ fontWeight: 700, fontFamily: 'monospace', letterSpacing: '0.04em' }}>
+                    {selectedDeal.vin}
+                  </span>
+                </div>
+                <div className="dossier-card__row">
+                  <span style={{ color: 'var(--muted)' }}>Powertrain</span>
+                  <span style={{ fontWeight: 600 }}>{selectedDeal.fuel}</span>
+                </div>
+                <div className="dossier-card__row">
+                  <span style={{ color: 'var(--muted)' }}>Transmission</span>
+                  <span style={{ fontWeight: 600 }}>{selectedDeal.transmission}</span>
+                </div>
+                <div className="dossier-card__row">
+                  <span style={{ color: 'var(--muted)' }}>Paint Finish</span>
+                  <span style={{ fontWeight: 600 }}>{selectedDeal.color}</span>
+                </div>
+                <div className="dossier-card__row">
+                  <span style={{ color: 'var(--muted)' }}>Showroom Yard</span>
+                  <span style={{ fontWeight: 600 }}>{selectedDeal.branch}</span>
+                </div>
+              </div>
+
+              {/* Card 3: Financial & Commercial Ledger */}
+              <div className="dossier-card">
+                <div className="dossier-card__title">
+                  <CreditCard size={14} style={{ color: 'var(--pine)' }} />
+                  Commercial Ledger
+                </div>
+                <div className="dossier-card__row">
+                  <span style={{ color: 'var(--muted)' }}>Base Ex-Showroom</span>
+                  <span style={{ fontWeight: 600 }}>₹{selectedDeal.basePrice.toLocaleString('en-IN')}</span>
+                </div>
+                <div className="dossier-card__row">
+                  <span style={{ color: 'var(--muted)' }}>RTO Road Tax & Reg</span>
+                  <span style={{ fontWeight: 600 }}>₹{selectedDeal.rtoRoadTax.toLocaleString('en-IN')}</span>
+                </div>
+                <div className="dossier-card__row">
+                  <span style={{ color: 'var(--muted)' }}>Insurance & Zero Dep</span>
+                  <span style={{ fontWeight: 600 }}>₹{selectedDeal.insurance.toLocaleString('en-IN')}</span>
+                </div>
+                <div className="dossier-card__row">
+                  <span style={{ color: 'var(--muted)' }}>Accessories & Fitments</span>
+                  <span style={{ fontWeight: 600 }}>₹{selectedDeal.accessories.toLocaleString('en-IN')}</span>
+                </div>
+                <div className="dossier-card__row" style={{ fontWeight: 700, borderTop: '1px solid var(--line)', marginTop: '4px', paddingTop: '8px' }}>
+                  <span>Total On-Road Value</span>
+                  <span style={{ color: 'var(--pearl-green)' }}>₹{selectedDeal.value.toLocaleString('en-IN')}</span>
+                </div>
+              </div>
+
+              {/* Card 4: Payment & Loan Clearance */}
+              <div className="dossier-card">
+                <div className="dossier-card__title">
+                  <Briefcase size={14} style={{ color: 'var(--pine)' }} />
+                  Settlement & Financier
+                </div>
+                <div className="dossier-card__row">
+                  <span style={{ color: 'var(--muted)' }}>Token Advance Paid</span>
+                  <span style={{ fontWeight: 700, color: 'var(--pine)' }}>
+                    ₹{selectedDeal.tokenPaid.toLocaleString('en-IN')} ✓
+                  </span>
+                </div>
+                <div className="dossier-card__row">
+                  <span style={{ color: 'var(--muted)' }}>Loan Sanctioned</span>
+                  <span style={{ fontWeight: 700, color: 'var(--color-blue)' }}>
+                    ₹{selectedDeal.loanApproved.toLocaleString('en-IN')}
+                  </span>
+                </div>
+                <div className="dossier-card__row">
+                  <span style={{ color: 'var(--muted)' }}>Financing Partner</span>
+                  <span style={{ fontWeight: 600, fontSize: '0.78rem' }}>{selectedDeal.financier}</span>
+                </div>
+                <div className="dossier-card__row">
+                  <span style={{ color: 'var(--muted)' }}>Balance Pending</span>
+                  <span style={{ fontWeight: 700, color: selectedDeal.balanceDue === 0 ? 'var(--pine)' : 'var(--tomato)' }}>
+                    {selectedDeal.balanceDue === 0 ? 'Fully Cleared (₹0)' : `₹${selectedDeal.balanceDue.toLocaleString('en-IN')}`}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Section: 5-Stage Mandatory Handover Gates */}
+            <div style={{ background: '#FFFFFF', border: '1px solid var(--line)', borderRadius: 'var(--r-tile)', padding: '16px' }}>
+              <div
+                style={{
+                  fontSize: '0.84rem',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.04em',
+                  color: 'var(--muted)',
+                  marginBottom: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
+                <CheckCircle2 size={15} style={{ color: 'var(--pine)' }} />
+                Pre-Delivery Clearance Gates (Mandatory 5-Point Protocol)
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {selectedDeal.gateDetails.map((gate: any, gIdx: number) => {
+                  const isCleared = gate.status === 'cleared';
+                  const isInProgress = gate.status === 'in_progress';
+
+                  return (
+                    <div
+                      key={gIdx}
+                      className="dossier-gate-item"
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        {isCleared ? (
+                          <CheckCircle2 size={18} style={{ color: 'var(--pine)', flexShrink: 0 }} />
+                        ) : isInProgress ? (
+                          <Clock size={18} style={{ color: 'var(--butter)', flexShrink: 0 }} />
+                        ) : (
+                          <AlertCircle size={18} style={{ color: 'var(--muted)', flexShrink: 0 }} />
+                        )}
+                        <div>
+                          <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text)' }}>
+                            {gate.name}
+                          </div>
+                          <div style={{ fontSize: '0.76rem', color: 'var(--muted)' }}>
+                            {gate.note}
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', textAlign: 'right' }}>
+                        <span style={{ fontSize: '0.74rem', color: 'var(--muted)' }}>{gate.date}</span>
+                        <span
+                          className={`badge ${
+                            isCleared ? 'badge-green' : isInProgress ? 'badge-amber' : 'badge-neutral'
+                          }`}
+                        >
+                          {isCleared ? 'Cleared' : isInProgress ? 'In Progress' : 'Pending'}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
