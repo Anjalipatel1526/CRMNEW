@@ -19,7 +19,6 @@ import {
   CheckCircle,
   FileText,
   Calendar,
-  ShieldCheck,
   CreditCard,
   CheckCircle2,
   AlertCircle,
@@ -802,28 +801,13 @@ export default function DashboardPage() {
             </div>
           }
           footer={
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem', color: 'var(--muted)' }}>
-                <ShieldCheck size={16} style={{ color: 'var(--pine)' }} />
-                <span>RTO compliance & audit verified</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-sm"
-                  onClick={() => setSelectedDeal(null)}
-                >
-                  Close Dossier
-                </button>
-                <Link
-                  href="/sales/deals"
-                  className="btn btn-primary btn-sm"
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}
-                >
-                  Open in Deals Pipeline <ArrowUpRight size={13} />
-                </Link>
-              </div>
-            </div>
+            <Link
+              href="/sales/deals"
+              className="btn btn-primary btn-sm"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}
+            >
+              Open in Deals Pipeline <ArrowUpRight size={13} />
+            </Link>
           }
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
