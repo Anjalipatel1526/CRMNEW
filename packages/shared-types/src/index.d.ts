@@ -245,6 +245,7 @@ export interface Vehicle {
     updatedAt: string;
     branchName?: string;
     imageUrl?: string;
+    images?: string[];
 }
 export interface VehicleCost {
     id: UUID;

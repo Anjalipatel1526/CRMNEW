@@ -326,6 +326,7 @@ export interface Vehicle {
 
   branchName?: string;
   imageUrl?: string;
+  images?: string[];
 }
 
 export interface VehicleCost {

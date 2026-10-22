@@ -364,6 +364,11 @@ const initialData: DataStore = {
       minimumPrice: 1900000,
       status: 'available' as const,
       imageUrl: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=600&q=80',
+      images: [
+        'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=600&q=80',
+      ],
       version: 1,
       createdAt: '2026-10-10T10:00:00Z',
       updatedAt: '2026-10-10T10:00:00Z',
@@ -391,6 +396,11 @@ const initialData: DataStore = {
       minimumPrice: 1630000,
       status: 'available' as const,
       imageUrl: 'https://images.unsplash.com/photo-1590362891988-f778047831d6?auto=format&fit=crop&w=600&q=80',
+      images: [
+        'https://images.unsplash.com/photo-1590362891988-f778047831d6?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1563720223185-11003d516935?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?auto=format&fit=crop&w=600&q=80',
+      ],
       version: 1,
       createdAt: '2026-10-11T12:00:00Z',
       updatedAt: '2026-10-11T12:00:00Z',
@@ -418,6 +428,11 @@ const initialData: DataStore = {
       minimumPrice: 2430000,
       status: 'reserved' as const,
       imageUrl: 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=600&q=80',
+      images: [
+        'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1502877338535-766e1452684a?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1508974239320-0a029497e820?auto=format&fit=crop&w=600&q=80',
+      ],
       version: 1,
       createdAt: '2026-10-12T14:00:00Z',
       updatedAt: '2026-10-19T10:00:00Z',
@@ -445,6 +460,11 @@ const initialData: DataStore = {
       minimumPrice: 5450000,
       status: 'available' as const,
       imageUrl: 'https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&w=600&q=80',
+      images: [
+        'https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1580273916550-e323be2ae537?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1556189250-72ba954cfc2b?auto=format&fit=crop&w=600&q=80',
+      ],
       version: 1,
       createdAt: '2026-10-13T16:00:00Z',
       updatedAt: '2026-10-13T16:00:00Z',
@@ -472,6 +492,10 @@ const initialData: DataStore = {
       minimumPrice: 3600000,
       status: 'inspection' as const,
       imageUrl: 'https://images.unsplash.com/photo-1519641471654-76ce0107ad1b?auto=format&fit=crop&w=600&q=80',
+      images: [
+        'https://images.unsplash.com/photo-1519641471654-76ce0107ad1b?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=600&q=80',
+      ],
       version: 1,
       createdAt: '2026-10-14T11:00:00Z',
       updatedAt: '2026-10-14T11:00:00Z',
@@ -499,6 +523,10 @@ const initialData: DataStore = {
       minimumPrice: 1480000,
       status: 'sold' as const,
       imageUrl: 'https://images.unsplash.com/photo-1605559424843-9e4c228bf1c2?auto=format&fit=crop&w=600&q=80',
+      images: [
+        'https://images.unsplash.com/photo-1605559424843-9e4c228bf1c2?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1511919884226-fd3cad34687c?auto=format&fit=crop&w=600&q=80',
+      ],
       version: 1,
       createdAt: '2026-10-08T09:00:00Z',
       updatedAt: '2026-10-18T14:00:00Z',
@@ -930,6 +958,13 @@ class DataService {
   }
 
   addVehicle(vData: any): Vehicle {
+    const imagesList: string[] = Array.isArray(vData.images) && vData.images.length > 0
+      ? vData.images
+      : vData.imageUrl
+      ? [vData.imageUrl]
+      : [];
+    const primaryImg = imagesList[0] || vData.imageUrl || '';
+
     const newVeh: Vehicle = {
       id: 'veh-' + Date.now(),
       tenantId: 't-apex-001',
@@ -951,26 +986,23 @@ class DataService {
       askingPrice: Number(vData.askingPrice) || 1000000,
       minimumPrice: Number(vData.minimumPrice) || 950000,
       status: vData.status || 'available',
-      imageUrl: vData.imageUrl || '',
-      photos: vData.imageUrl
-        ? [
-            {
-              id: 'p-' + Date.now(),
-              tenantId: 't-apex-001',
-              vehicleId: 'veh-' + Date.now(),
-              storageKey: 'photo-01',
-              url: vData.imageUrl,
-              displayOrder: 1,
-              isPrimary: true,
-              createdAt: new Date().toISOString(),
-            },
-          ]
-        : [],
+      imageUrl: primaryImg,
+      images: imagesList,
+      photos: imagesList.map((url, idx) => ({
+        id: `p-${Date.now()}-${idx}`,
+        tenantId: 't-apex-001',
+        vehicleId: 'veh-' + Date.now(),
+        storageKey: `photo-0${idx + 1}`,
+        url,
+        displayOrder: idx + 1,
+        isPrimary: idx === 0,
+        createdAt: new Date().toISOString(),
+      })),
       version: 1,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       branchName: 'Apex Downtown Flagship',
-    } as any;
+    };
     this.data.vehicles.unshift(newVeh);
     this.persist();
     return newVeh;
