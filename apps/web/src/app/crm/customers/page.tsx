@@ -180,7 +180,7 @@ export default function CustomersPage() {
       <div className="page-header">
         <div>
           <h1 className="page-title">
-            <WordFadeIn text="Customer 360 Directory" />
+            <WordFadeIn text="Customer Management" />
           </h1>
           <p className="page-desc">
             <WordFadeIn
@@ -314,104 +314,77 @@ export default function CustomersPage() {
         </div>
       </div>
 
-      {/* Customer Cards Grid with Different Colors */}
+      {/* Table-Wise Card Rows (Customer details as card with different colors) */}
       {filteredCustomers.length > 0 ? (
-        <div className="customer-cards-grid">
-          {filteredCustomers.map((customer, index) => {
-            const palette = CUSTOMER_CARD_PALETTES[index % CUSTOMER_CARD_PALETTES.length];
-            const isBusiness = customer.type === 'business';
-            const hasKyc = Boolean(customer.panNumber || customer.gstin);
-            const initials = getInitials(customer.firstName, customer.lastName);
+        <div>
+          {/* Table Header */}
+          <div className="customer-table-header">
+            <div>Customer Profile</div>
+            <div>Contact Info</div>
+            <div>Category</div>
+            <div>KYC & Tax ID</div>
+            <div>Consent</div>
+            <div style={{ textAlign: 'right' }}>Actions</div>
+          </div>
 
-            return (
-              <div
-                key={customer.id}
-                className="customer-card"
-                style={{
-                  ['--theme-accent' as any]: palette.accent,
-                  ['--theme-light-bg' as any]: palette.lightBg,
-                  ['--theme-border' as any]: palette.border,
-                  ['--theme-badge-bg' as any]: palette.badgeBg,
-                  ['--theme-badge-text' as any]: palette.badgeText,
-                  ['--theme-glow' as any]: palette.glow,
-                }}
-              >
-                {/* Header */}
-                <div className="customer-card-header">
-                  <div className="customer-card-avatar">
-                    {isBusiness ? <Building2 size={20} /> : initials}
-                  </div>
-                  <div className="customer-card-title-wrap">
-                    <h3 className="customer-card-name">
-                      {customer.firstName} {customer.lastName}
-                    </h3>
-                    <div className="customer-card-category-row">
-                      <span className="customer-category-pill">
-                        {isBusiness ? <Building2 size={11} /> : <User size={11} />}
-                        {isBusiness ? 'Corporate Fleet' : 'Individual'}
+          {/* Table-Wise Cards Stack */}
+          <div className="customer-cards-list">
+            {filteredCustomers.map((customer, index) => {
+              const palette = CUSTOMER_CARD_PALETTES[index % CUSTOMER_CARD_PALETTES.length];
+              const isBusiness = customer.type === 'business';
+              const hasKyc = Boolean(customer.panNumber || customer.gstin);
+              const initials = getInitials(customer.firstName, customer.lastName);
+
+              return (
+                <div
+                  key={customer.id}
+                  className="customer-row-card"
+                  style={{
+                    ['--theme-accent' as any]: palette.accent,
+                    ['--theme-light-bg' as any]: palette.lightBg,
+                    ['--theme-border' as any]: palette.border,
+                    ['--theme-badge-bg' as any]: palette.badgeBg,
+                    ['--theme-badge-text' as any]: palette.badgeText,
+                    ['--theme-glow' as any]: palette.glow,
+                  }}
+                >
+                  {/* Column 1: Customer Profile & Avatar */}
+                  <div className="customer-row-cell-profile">
+                    <div className="customer-row-avatar">
+                      {isBusiness ? <Building2 size={18} /> : initials}
+                    </div>
+                    <div className="customer-row-name-wrap">
+                      <span className="customer-row-name">
+                        {customer.firstName} {customer.lastName}
                       </span>
-                      {customer.companyName && (
-                        <span
-                          style={{
-                            fontSize: '0.74rem',
-                            color: '#475569',
-                            fontWeight: 600,
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                          }}
-                        >
-                          • {customer.companyName}
-                        </span>
-                      )}
+                      <span className="customer-row-subtext">
+                        {customer.companyName ? `🏢 ${customer.companyName}` : 'Individual Retail Client'}
+                      </span>
                     </div>
                   </div>
-                </div>
 
-                {/* Body Details */}
-                <div className="customer-card-body">
-                  {/* KYC & Identity Bar */}
-                  <div className="customer-id-row">
-                    <div className="pan-tax-chip">
-                      {customer.panNumber || customer.gstin || 'Tax ID Pending'}
-                    </div>
-                    {hasKyc ? (
-                      <span className="kyc-badge-verified">
-                        <ShieldCheck size={12} /> Verified
-                      </span>
-                    ) : (
-                      <span className="kyc-badge-pending">
-                        <AlertCircle size={12} /> Pending KYC
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="customer-card-section-divider" />
-
-                  {/* Contact List */}
-                  <div className="customer-contact-list">
+                  {/* Column 2: Contact Info */}
+                  <div className="customer-row-cell-contact">
                     <a
                       href={`tel:${customer.phone}`}
-                      className="customer-contact-item"
+                      className="customer-row-contact-phone"
                       title="Call customer"
                     >
-                      <Phone size={14} className="customer-contact-icon" />
-                      <span style={{ fontWeight: 600 }}>{customer.phone}</span>
+                      <Phone size={13} style={{ color: palette.accent }} />
+                      <span>{customer.phone}</span>
                     </a>
                     {customer.email && (
                       <a
                         href={`mailto:${customer.email}`}
-                        className="customer-contact-item"
+                        className="customer-row-contact-email"
                         title="Send email"
                       >
-                        <Mail size={14} className="customer-contact-icon" />
-                        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {customer.email}
-                        </span>
+                        <Mail size={12} />
+                        <span>{customer.email}</span>
                       </a>
                     )}
-                    <div className="customer-contact-item">
-                      <MapPin size={14} className="customer-contact-icon" />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.73rem', color: '#94A3B8' }}>
+                      <MapPin size={11} />
                       <span>
                         {customer.address?.city || 'Mumbai'}
                         {customer.address?.pincode ? `, ${customer.address.pincode}` : ''}
@@ -419,14 +392,40 @@ export default function CustomersPage() {
                     </div>
                   </div>
 
-                  {/* Digital Consent Indicators */}
-                  <div className="customer-consent-bar">
-                    <span>Consent:</span>
+                  {/* Column 3: Category */}
+                  <div>
+                    <span className="customer-category-pill">
+                      {isBusiness ? <Building2 size={11} /> : <User size={11} />}
+                      {isBusiness ? 'Corporate Fleet' : 'Individual'}
+                    </span>
+                  </div>
+
+                  {/* Column 4: KYC & Tax ID */}
+                  <div className="customer-row-cell-kyc">
+                    <div className="pan-tax-chip">
+                      {customer.panNumber || customer.gstin || 'Tax ID Pending'}
+                    </div>
+                    <div>
+                      {hasKyc ? (
+                        <span className="kyc-badge-verified">
+                          <ShieldCheck size={11} /> Verified
+                        </span>
+                      ) : (
+                        <span className="kyc-badge-pending">
+                          <AlertCircle size={11} /> Pending KYC
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Column 5: Consent */}
+                  <div>
                     <div className="consent-chips">
                       <span
                         className={`consent-chip ${
                           customer.consent?.whatsapp ? 'is-active' : 'is-inactive'
                         }`}
+                        title="WhatsApp Consent"
                       >
                         WA ✓
                       </span>
@@ -434,6 +433,7 @@ export default function CustomersPage() {
                         className={`consent-chip ${
                           customer.consent?.sms ? 'is-active' : 'is-inactive'
                         }`}
+                        title="SMS Consent"
                       >
                         SMS ✓
                       </span>
@@ -441,16 +441,15 @@ export default function CustomersPage() {
                         className={`consent-chip ${
                           customer.consent?.email ? 'is-active' : 'is-inactive'
                         }`}
+                        title="Email Consent"
                       >
                         Email ✓
                       </span>
                     </div>
                   </div>
-                </div>
 
-                {/* Card Footer Actions */}
-                <div className="customer-card-footer">
-                  <div className="customer-quick-links">
+                  {/* Column 6: Actions */}
+                  <div className="customer-row-cell-actions">
                     <a
                       href={`https://wa.me/${customer.phone.replace(/[^0-9]/g, '')}`}
                       target="_blank"
@@ -458,28 +457,29 @@ export default function CustomersPage() {
                       className="customer-icon-btn"
                       title="Open WhatsApp chat"
                     >
-                      <MessageSquare size={15} style={{ color: '#16A34A' }} />
+                      <MessageSquare size={14} style={{ color: '#16A34A' }} />
                     </a>
                     <a
                       href={`tel:${customer.phone}`}
                       className="customer-icon-btn"
                       title="Call phone"
                     >
-                      <Phone size={15} style={{ color: palette.accent }} />
+                      <Phone size={14} style={{ color: palette.accent }} />
                     </a>
+                    <button
+                      type="button"
+                      className="customer-action-btn"
+                      onClick={() => setSelectedCustomer(customer)}
+                      title="View customer profile"
+                    >
+                      <span>Details</span>
+                      <ChevronRight size={13} />
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    className="customer-action-btn"
-                    onClick={() => setSelectedCustomer(customer)}
-                  >
-                    <span>Customer 360</span>
-                    <ChevronRight size={14} />
-                  </button>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       ) : (
         /* Empty State */
@@ -514,7 +514,7 @@ export default function CustomersPage() {
             No matching customers found
           </h3>
           <p style={{ margin: 0, fontSize: '0.84rem', color: '#64748B', maxWidth: '380px' }}>
-            We couldn't find any customers matching &ldquo;{searchQuery}&rdquo;. Try adjusting your search query or reset the filters.
+            We couldn&apos;t find any customers matching &ldquo;{searchQuery}&rdquo;. Try adjusting your search query or reset the filters.
           </p>
           <button
             type="button"
@@ -680,31 +680,34 @@ export default function CustomersPage() {
             </div>
           </div>
 
-          <div className="inspo-form-nav">
+          <div className="unique-modal-footer-bar" style={{ marginTop: '12px', paddingTop: '16px', borderTop: '1px solid #E2E8F0' }}>
             <button
               type="button"
-              className="inspo-btn-back"
+              className="unique-btn-cancel"
               onClick={() => setIsModalOpen(false)}
             >
               <ChevronLeft size={16} /> Cancel
             </button>
             <button
               type="submit"
-              className="inspo-btn-submit"
+              className="unique-lead-submit-btn"
             >
-              <span>Register Customer</span>
-              <ChevronRight size={16} />
+              <span className="btn-icon-pod">
+                <Sparkles size={13} />
+              </span>
+              <span className="btn-text">Register Customer</span>
+              <ChevronRight size={15} className="btn-arrow-icon" />
             </button>
           </div>
         </form>
       </Modal>
 
-      {/* Customer 360 Detail Dossier Modal */}
+      {/* Customer Detail Dossier Modal (Without redundant bottom Close button) */}
       {selectedCustomer && (
         <Modal
           isOpen={!!selectedCustomer}
           onClose={() => setSelectedCustomer(null)}
-          title={`Customer 360: ${selectedCustomer.firstName} ${selectedCustomer.lastName}`}
+          title={`Customer Profile: ${selectedCustomer.firstName} ${selectedCustomer.lastName}`}
           maxWidth="760px"
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
@@ -876,16 +879,6 @@ export default function CustomersPage() {
                   </div>
                 </div>
               </div>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '4px' }}>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => setSelectedCustomer(null)}
-              >
-                Close
-              </button>
             </div>
           </div>
         </Modal>
