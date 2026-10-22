@@ -32,19 +32,22 @@ export default function FinancePage() {
   const [selectedReceipt, setSelectedReceipt] = useState<Payment | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const [formData, setFormData] = useState({
-    customerId: customers[0]?.id || '',
+  const emptyPaymentForm = {
+    customerId: '',
     method: 'upi' as any,
-    amount: '100000',
+    amount: '',
     referenceNumber: '',
-    notes: 'Advance booking token',
-  });
+    notes: '',
+  };
+
+  const [formData, setFormData] = useState(emptyPaymentForm);
 
   const handleRecordPayment = (e: React.FormEvent) => {
     e.preventDefault();
     api.recordPayment(formData);
     setPayments([...api.getPayments()]);
     setIsPaymentModalOpen(false);
+    setFormData(emptyPaymentForm);
   };
 
   const totalCollected = payments.reduce((sum, p) => sum + p.amount, 0);
@@ -77,7 +80,10 @@ export default function FinancePage() {
           </p>
         </div>
         <button
-          onClick={() => setIsPaymentModalOpen(true)}
+          onClick={() => {
+            setFormData(emptyPaymentForm);
+            setIsPaymentModalOpen(true);
+          }}
           className="btn btn-primary btn-sm"
           style={{
             borderRadius: '999px',
@@ -432,6 +438,7 @@ export default function FinancePage() {
               onChange={(e) => setFormData({ ...formData, customerId: e.target.value })}
               required
             >
+              <option value="">Select Customer...</option>
               {customers.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.firstName} {c.lastName} ({c.phone})
@@ -466,6 +473,7 @@ export default function FinancePage() {
                 className="form-input"
                 value={formData.amount}
                 onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                placeholder="Enter amount (₹)"
                 required
               />
             </div>
@@ -478,7 +486,7 @@ export default function FinancePage() {
               className="form-input"
               value={formData.referenceNumber}
               onChange={(e) => setFormData({ ...formData, referenceNumber: e.target.value })}
-              placeholder="e.g. UPI/2024/99102849"
+              placeholder="Enter transaction or UTR reference"
             />
           </div>
 
@@ -489,6 +497,7 @@ export default function FinancePage() {
               className="form-input"
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              placeholder="Enter notes (e.g. Booking token, balance payment)"
             />
           </div>
 

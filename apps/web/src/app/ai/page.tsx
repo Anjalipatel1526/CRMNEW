@@ -20,10 +20,10 @@ export default function AiIntelligencePage() {
 
   // AI Valuation tool state
   const [valuationInput, setValuationInput] = useState({
-    make: 'Hyundai',
-    model: 'Creta',
-    year: '2021',
-    mileageKm: '38000',
+    make: '',
+    model: '',
+    year: '',
+    mileageKm: '',
     condition: 'Excellent',
   });
 
@@ -106,6 +106,7 @@ export default function AiIntelligencePage() {
                     className="form-input"
                     value={valuationInput.make}
                     onChange={(e) => setValuationInput({ ...valuationInput, make: e.target.value })}
+                    placeholder="Enter make (e.g. Hyundai)"
                   />
                 </div>
                 <div className="form-group">
@@ -115,6 +116,7 @@ export default function AiIntelligencePage() {
                     className="form-input"
                     value={valuationInput.model}
                     onChange={(e) => setValuationInput({ ...valuationInput, model: e.target.value })}
+                    placeholder="Enter model (e.g. Creta)"
                   />
                 </div>
               </div>
@@ -127,6 +129,7 @@ export default function AiIntelligencePage() {
                     className="form-input"
                     value={valuationInput.year}
                     onChange={(e) => setValuationInput({ ...valuationInput, year: e.target.value })}
+                    placeholder="e.g. 2021"
                   />
                 </div>
                 <div className="form-group">
@@ -136,6 +139,7 @@ export default function AiIntelligencePage() {
                     className="form-input"
                     value={valuationInput.mileageKm}
                     onChange={(e) => setValuationInput({ ...valuationInput, mileageKm: e.target.value })}
+                    placeholder="Enter odometer (km)"
                   />
                 </div>
                 <div className="form-group">

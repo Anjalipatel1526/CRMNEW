@@ -112,7 +112,7 @@ export default function CustomersPage() {
     email: '',
     phone: '',
     panNumber: '',
-    city: 'Mumbai',
+    city: '',
   };
 
   const [formData, setFormData] = useState(emptyCustomerForm);
@@ -629,7 +629,7 @@ export default function CustomersPage() {
                 className="form-input"
                 value={formData.companyName}
                 onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
-                placeholder="e.g. Nexa Logistics Pvt Ltd"
+                placeholder="Enter company name"
                 required
               />
             </div>
@@ -645,7 +645,7 @@ export default function CustomersPage() {
                 className="form-input"
                 value={formData.firstName}
                 onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                placeholder="e.g. Rajesh"
+                placeholder="Enter first name"
                 required
               />
             </div>
@@ -656,7 +656,7 @@ export default function CustomersPage() {
                 className="form-input"
                 value={formData.lastName}
                 onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                placeholder="e.g. Sharma"
+                placeholder="Enter last name"
               />
             </div>
           </div>
@@ -671,7 +671,7 @@ export default function CustomersPage() {
                 className="form-input"
                 value={formData.phone}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                placeholder="+91 98000 00000"
+                placeholder="Enter phone number"
                 required
               />
               <div className="form-helper">WhatsApp messaging will be enabled by default.</div>
@@ -683,7 +683,7 @@ export default function CustomersPage() {
                 className="form-input"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                placeholder="e.g. client@example.com"
+                placeholder="Enter email address"
               />
             </div>
           </div>
@@ -696,7 +696,7 @@ export default function CustomersPage() {
                 className="form-input"
                 value={formData.panNumber}
                 onChange={(e) => setFormData({ ...formData, panNumber: e.target.value.toUpperCase() })}
-                placeholder="e.g. ABCPS1234M"
+                placeholder="Enter PAN number"
               />
             </div>
             <div className="form-group">
@@ -706,7 +706,7 @@ export default function CustomersPage() {
                 className="form-input"
                 value={formData.city}
                 onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                placeholder="e.g. Mumbai"
+                placeholder="Enter city"
               />
             </div>
           </div>

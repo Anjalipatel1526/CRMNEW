@@ -343,7 +343,7 @@ export default function LeadsPage() {
   const emptyLeadForm = {
     customerId: '',
     branchId: '',
-    source: 'Walk-in Showroom',
+    source: '',
     preferredMake: '',
     preferredModel: '',
     preferredFuelType: '',
@@ -881,7 +881,7 @@ export default function LeadsPage() {
                     className="form-input"
                     value={formData.preferredMake}
                     onChange={(e) => setFormData({ ...formData, preferredMake: e.target.value })}
-                    placeholder="e.g. Mahindra"
+                    placeholder="Enter preferred make"
                     required
                   />
                 </div>
@@ -894,7 +894,7 @@ export default function LeadsPage() {
                     className="form-input"
                     value={formData.preferredModel}
                     onChange={(e) => setFormData({ ...formData, preferredModel: e.target.value })}
-                    placeholder="e.g. XUV700"
+                    placeholder="Enter preferred model"
                     required
                   />
                 </div>
@@ -923,7 +923,7 @@ export default function LeadsPage() {
                     className="form-input"
                     value={formData.budgetMin}
                     onChange={(e) => setFormData({ ...formData, budgetMin: e.target.value })}
-                    placeholder="e.g. 2000000"
+                    placeholder="Enter minimum budget (₹)"
                   />
                 </div>
                 <div className="form-group">
@@ -933,7 +933,7 @@ export default function LeadsPage() {
                     className="form-input"
                     value={formData.budgetMax}
                     onChange={(e) => setFormData({ ...formData, budgetMax: e.target.value })}
-                    placeholder="e.g. 2500000"
+                    placeholder="Enter maximum budget (₹)"
                   />
                 </div>
               </div>

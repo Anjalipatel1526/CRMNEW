@@ -193,12 +193,13 @@ export default function MarketingPage() {
         >
           <div className="form-group">
             <label className="form-label">Campaign Title</label>
-            <input type="text" className="form-input" defaultValue="Weekend SUV Carnival — Exchange & Free Insurance" required />
+            <input type="text" className="form-input" placeholder="Enter campaign title" required />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div className="form-group">
               <label className="form-label">Broadcast Channel</label>
               <select className="form-select">
+                <option value="">Select Broadcast Channel...</option>
                 <option value="whatsapp">WhatsApp Business API</option>
                 <option value="sms">Transactional SMS (DLT Approved)</option>
                 <option value="email">Rich Email HTML Newsletter</option>
@@ -207,6 +208,7 @@ export default function MarketingPage() {
             <div className="form-group">
               <label className="form-label">Audience Segment</label>
               <select className="form-select">
+                <option value="">Select Target Segment...</option>
                 <option value="leads">Unconverted Inquiries (Last 60 Days)</option>
                 <option value="owners">Existing Owners 3+ Years Old (Upgrade)</option>
                 <option value="all">Entire Dealership Database</option>
@@ -218,7 +220,7 @@ export default function MarketingPage() {
             <textarea
               className="form-textarea"
               rows={3}
-              defaultValue="Exclusive festival offer! Upgrade your vehicle this weekend at Apex Motors and enjoy a ₹50,000 exchange bonus + zero depreciation insurance on us. Reply 'DRIVE' to book your priority test drive!"
+              placeholder="Enter campaign message template..."
               required
             />
           </div>

@@ -37,20 +37,20 @@ export default function VehiclesPage() {
   const [activeFilter, setActiveFilter] = useState<string>('all');
 
   const emptyFormData = {
-    branchId: branches[0]?.id || '',
+    branchId: '',
     vin: '',
     registrationNumber: '',
-    make: 'Hyundai',
-    model: 'Creta',
-    variant: 'SX (O) 1.5 Turbo',
-    year: '2024',
-    color: 'Abyss Black',
-    mileageKm: '3500',
-    fuelType: 'Petrol',
-    transmission: 'Automatic',
-    acquisitionCost: '1750000',
-    askingPrice: '1950000',
-    minimumPrice: '1900000',
+    make: '',
+    model: '',
+    variant: '',
+    year: '',
+    color: '',
+    mileageKm: '',
+    fuelType: '',
+    transmission: '',
+    acquisitionCost: '',
+    askingPrice: '',
+    minimumPrice: '',
     status: 'available' as VehicleStatus,
   };
 
@@ -459,6 +459,7 @@ export default function VehiclesPage() {
                 onChange={(e) => setFormData({ ...formData, branchId: e.target.value })}
                 required
               >
+                <option value="">Select Dealership Branch...</option>
                 {branches.map((b) => (
                   <option key={b.id} value={b.id}>
                     {b.name} ({b.city})
@@ -475,7 +476,7 @@ export default function VehiclesPage() {
                 className="form-input"
                 value={formData.vin}
                 onChange={(e) => setFormData({ ...formData, vin: e.target.value.toUpperCase() })}
-                placeholder="MALC851CLPM..."
+                placeholder="Enter 17-digit VIN"
                 required
               />
             </div>
@@ -491,6 +492,7 @@ export default function VehiclesPage() {
                 className="form-input"
                 value={formData.make}
                 onChange={(e) => setFormData({ ...formData, make: e.target.value })}
+                placeholder="Enter make"
                 required
               />
             </div>
@@ -503,6 +505,7 @@ export default function VehiclesPage() {
                 className="form-input"
                 value={formData.model}
                 onChange={(e) => setFormData({ ...formData, model: e.target.value })}
+                placeholder="Enter model"
                 required
               />
             </div>
@@ -515,6 +518,7 @@ export default function VehiclesPage() {
                 className="form-input"
                 value={formData.variant}
                 onChange={(e) => setFormData({ ...formData, variant: e.target.value })}
+                placeholder="Enter variant"
                 required
               />
             </div>
@@ -530,6 +534,7 @@ export default function VehiclesPage() {
                 className="form-input"
                 value={formData.year}
                 onChange={(e) => setFormData({ ...formData, year: e.target.value })}
+                placeholder="e.g. 2024"
                 required
               />
             </div>
@@ -542,6 +547,7 @@ export default function VehiclesPage() {
                 className="form-input"
                 value={formData.color}
                 onChange={(e) => setFormData({ ...formData, color: e.target.value })}
+                placeholder="Enter color"
                 required
               />
             </div>
@@ -554,6 +560,7 @@ export default function VehiclesPage() {
                 className="form-input"
                 value={formData.mileageKm}
                 onChange={(e) => setFormData({ ...formData, mileageKm: e.target.value })}
+                placeholder="Enter odometer (km)"
                 required
               />
             </div>
@@ -567,6 +574,7 @@ export default function VehiclesPage() {
                 value={formData.fuelType}
                 onChange={(e) => setFormData({ ...formData, fuelType: e.target.value })}
               >
+                <option value="">Select Fuel Type...</option>
                 <option value="Petrol">Petrol</option>
                 <option value="Diesel">Diesel</option>
                 <option value="Electric">Electric</option>
@@ -580,6 +588,7 @@ export default function VehiclesPage() {
                 value={formData.transmission}
                 onChange={(e) => setFormData({ ...formData, transmission: e.target.value })}
               >
+                <option value="">Select Transmission...</option>
                 <option value="Automatic">Automatic</option>
                 <option value="Manual">Manual</option>
               </select>
@@ -596,6 +605,7 @@ export default function VehiclesPage() {
                 className="form-input"
                 value={formData.acquisitionCost}
                 onChange={(e) => setFormData({ ...formData, acquisitionCost: e.target.value })}
+                placeholder="Enter cost (₹)"
                 required
               />
             </div>
@@ -608,6 +618,7 @@ export default function VehiclesPage() {
                 className="form-input"
                 value={formData.askingPrice}
                 onChange={(e) => setFormData({ ...formData, askingPrice: e.target.value })}
+                placeholder="Enter asking price (₹)"
                 required
               />
             </div>
@@ -620,6 +631,7 @@ export default function VehiclesPage() {
                 className="form-input"
                 value={formData.minimumPrice}
                 onChange={(e) => setFormData({ ...formData, minimumPrice: e.target.value })}
+                placeholder="Enter minimum price (₹)"
                 required
               />
             </div>

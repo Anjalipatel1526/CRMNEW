@@ -35,11 +35,11 @@ export default function AppointmentsPage() {
   const [activeFilter, setActiveFilter] = useState<'all' | 'test_drive' | 'showroom_visit' | 'confirmed' | 'completed'>('all');
 
   const emptyFormData = {
-    customerId: customers[0]?.id || '',
-    vehicleId: vehicles[0]?.id || '',
-    appointmentType: 'test_drive' as any,
-    scheduledAt: new Date(Date.now() + 86400000).toISOString().slice(0, 16),
-    durationMinutes: '45',
+    customerId: '',
+    vehicleId: '',
+    appointmentType: '' as any,
+    scheduledAt: '',
+    durationMinutes: '',
     notes: '',
   };
 
@@ -390,6 +390,7 @@ export default function AppointmentsPage() {
               onChange={(e) => setFormData({ ...formData, customerId: e.target.value })}
               required
             >
+              <option value="">Select Customer...</option>
               {customers.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.firstName} {c.lastName} ({c.phone})
@@ -408,6 +409,7 @@ export default function AppointmentsPage() {
               onChange={(e) => setFormData({ ...formData, vehicleId: e.target.value })}
               required
             >
+              <option value="">Select Vehicle...</option>
               {vehicles.map((v) => (
                 <option key={v.id} value={v.id}>
                   {v.year} {v.make} {v.model} ({v.variant}) — {v.color}
@@ -424,6 +426,7 @@ export default function AppointmentsPage() {
                 value={formData.appointmentType}
                 onChange={(e) => setFormData({ ...formData, appointmentType: e.target.value })}
               >
+                <option value="">Select Type...</option>
                 <option value="test_drive">Test Drive Highway/City</option>
                 <option value="showroom_visit">Showroom Consultation</option>
                 <option value="document_pickup">Document Signing</option>
@@ -437,6 +440,7 @@ export default function AppointmentsPage() {
                 value={formData.durationMinutes}
                 onChange={(e) => setFormData({ ...formData, durationMinutes: e.target.value })}
               >
+                <option value="">Select Duration...</option>
                 <option value="30">30 Minutes</option>
                 <option value="45">45 Minutes</option>
                 <option value="60">60 Minutes</option>
@@ -464,7 +468,7 @@ export default function AppointmentsPage() {
               rows={2}
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              placeholder="e.g. Test drive on coastal highway to demonstrate ADAS and cruise control..."
+              placeholder="Enter special route or customer instructions..."
             />
           </div>
 

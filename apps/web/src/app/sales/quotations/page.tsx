@@ -36,35 +36,10 @@ export default function QuotationsPage() {
   const [previewQuote, setPreviewQuote] = useState<Quotation | null>(null);
 
   // Builder State
-  const [selectedCustomerId, setSelectedCustomerId] = useState(customers[0]?.id || '');
-  const [selectedVehicleId, setSelectedVehicleId] = useState(vehicles[0]?.id || '');
-  const [items, setItems] = useState<LineItemInput[]>([
-    {
-      itemType: 'vehicle',
-      description: 'Vehicle Base Showroom Price',
-      quantity: 1,
-      unitPrice: 1950000,
-      discountAmount: 25000,
-      taxRatePercent: 18,
-    },
-    {
-      itemType: 'fee',
-      description: 'RTO Registration, Road Tax & Handling',
-      quantity: 1,
-      unitPrice: 35000,
-      discountAmount: 0,
-      taxRatePercent: 0,
-    },
-    {
-      itemType: 'insurance',
-      description: 'Zero Depreciation 1-Year Comprehensive Insurance',
-      quantity: 1,
-      unitPrice: 42000,
-      discountAmount: 5000,
-      taxRatePercent: 18,
-    },
-  ]);
-  const [quoteNotes, setQuoteNotes] = useState('Includes 3 years manufacturer warranty & RSA roadside assistance.');
+  const [selectedCustomerId, setSelectedCustomerId] = useState('');
+  const [selectedVehicleId, setSelectedVehicleId] = useState('');
+  const [items, setItems] = useState<LineItemInput[]>([]);
+  const [quoteNotes, setQuoteNotes] = useState('');
 
   // Live Pricing Calculation
   const totals = PricingEngine.calculateQuotationTotals(items);
@@ -141,7 +116,13 @@ export default function QuotationsPage() {
           </p>
         </div>
         <button
-          onClick={() => setIsBuilderOpen(true)}
+          onClick={() => {
+            setSelectedCustomerId('');
+            setSelectedVehicleId('');
+            setItems([]);
+            setQuoteNotes('');
+            setIsBuilderOpen(true);
+          }}
           className="btn btn-primary btn-sm"
         >
           <Plus size={16} /> New Quotation Builder
@@ -225,6 +206,7 @@ export default function QuotationsPage() {
                 value={selectedCustomerId}
                 onChange={(e) => setSelectedCustomerId(e.target.value)}
               >
+                <option value="">Select Customer...</option>
                 {customers.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.firstName} {c.lastName} ({c.phone})
@@ -239,6 +221,7 @@ export default function QuotationsPage() {
                 value={selectedVehicleId}
                 onChange={(e) => handleVehicleSelect(e.target.value)}
               >
+                <option value="">Select Showroom Vehicle...</option>
                 {vehicles.map((v) => (
                   <option key={v.id} value={v.id}>
                     {v.year} {v.make} {v.model} — ₹{(v.askingPrice / 100000).toFixed(2)}L

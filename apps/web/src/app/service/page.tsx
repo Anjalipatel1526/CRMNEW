@@ -265,20 +265,20 @@ export default function ServicePage() {
         >
           <div className="form-group">
             <label className="form-label">Customer Name</label>
-            <input type="text" className="form-input" defaultValue="Priya Nair" required />
+            <input type="text" className="form-input" placeholder="Enter customer name" required />
           </div>
           <div className="form-group">
             <label className="form-label">Vehicle (Model & Reg Number)</label>
-            <input type="text" className="form-input" defaultValue="Tata Nexon EV (MH02FD1928)" required />
+            <input type="text" className="form-input" placeholder="Enter vehicle model & registration number" required />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div className="form-group">
               <label className="form-label">Intake Odometer (km)</label>
-              <input type="number" className="form-input" defaultValue="12550" required />
+              <input type="number" className="form-input" placeholder="Enter intake odometer (km)" required />
             </div>
             <div className="form-group">
               <label className="form-label">Fuel / Battery Level</label>
-              <input type="text" className="form-input" defaultValue="88%" required />
+              <input type="text" className="form-input" placeholder="e.g. 80% or 1/2 Tank" required />
             </div>
           </div>
           <div className="form-group">
@@ -286,7 +286,7 @@ export default function ServicePage() {
             <textarea
               className="form-textarea"
               rows={3}
-              defaultValue="Periodic 15,000 km general electrical & mechanical health checkup"
+              placeholder="Describe customer complaints or work scope..."
               required
             />
           </div>

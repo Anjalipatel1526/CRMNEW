@@ -310,15 +310,15 @@ export default function SettingsPage() {
         >
           <div className="form-group">
             <label className="form-label">Branch Code</label>
-            <input type="text" className="form-input" defaultValue="ES-03" required />
+            <input type="text" className="form-input" placeholder="Enter branch code (e.g. ES-03)" required />
           </div>
           <div className="form-group">
             <label className="form-label">Branch Name</label>
-            <input type="text" className="form-input" defaultValue="Apex Eastside Flagship" required />
+            <input type="text" className="form-input" placeholder="Enter branch name" required />
           </div>
           <div className="form-group">
             <label className="form-label">Physical Address</label>
-            <input type="text" className="form-input" defaultValue="Ghatkopar East Highway Junction, Mumbai" required />
+            <input type="text" className="form-input" placeholder="Enter physical address" required />
           </div>
           <div className="unique-modal-footer-bar" style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #E2E8F0' }}>
             <button
@@ -352,15 +352,16 @@ export default function SettingsPage() {
         >
           <div className="form-group">
             <label className="form-label">Full Name</label>
-            <input type="text" className="form-input" defaultValue="Rahul Mehra" required />
+            <input type="text" className="form-input" placeholder="Enter full name" required />
           </div>
           <div className="form-group">
             <label className="form-label">Corporate Email</label>
-            <input type="email" className="form-input" defaultValue="rahul.m@apexmotors.com" required />
+            <input type="email" className="form-input" placeholder="Enter corporate email" required />
           </div>
           <div className="form-group">
             <label className="form-label">Assigned Role</label>
             <select className="form-select">
+              <option value="">Select Role...</option>
               <option value="sales_executive">Sales Executive</option>
               <option value="branch_manager">Branch Manager</option>
               <option value="service_advisor">Service Advisor</option>

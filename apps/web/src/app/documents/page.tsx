@@ -461,6 +461,7 @@ export default function DocumentsPage() {
               Document Classification <span className="req-star">*</span>
             </label>
             <select className="form-select">
+              <option value="">Select Document Classification...</option>
               <option value="kyc">Customer KYC (PAN / Aadhaar / Passport)</option>
               <option value="rc">Vehicle RC / Fitness Certificate</option>
               <option value="insurance">Insurance Policy Certificate</option>
@@ -472,7 +473,7 @@ export default function DocumentsPage() {
             <label className="form-label">
               Document Label / Title <span className="req-star">*</span>
             </label>
-            <input type="text" className="form-input" defaultValue="Customer Address Proof" required />
+            <input type="text" className="form-input" placeholder="Enter document title" required />
           </div>
           <div className="form-group">
             <label className="form-label">Attach File (PDF, PNG, JPG up to 10MB)</label>

@@ -466,7 +466,7 @@ export default function ProcurementPage() {
             <input
               type="text"
               className="form-input"
-              defaultValue="Hyundai Motor India Central Depot"
+              placeholder="Enter authorized supplier"
               required
             />
           </div>
@@ -477,7 +477,7 @@ export default function ProcurementPage() {
             <textarea
               className="form-textarea"
               rows={3}
-              defaultValue="Hyundai Creta SX (O) 1.5 Turbo DCT - Abyss Black (1 unit)"
+              placeholder="Enter vehicle description and quantities"
               required
             />
           </div>
@@ -488,7 +488,7 @@ export default function ProcurementPage() {
             <input
               type="number"
               className="form-input"
-              defaultValue="1780000"
+              placeholder="Enter expected net cost (₹)"
               required
             />
           </div>
@@ -532,26 +532,26 @@ export default function ProcurementPage() {
             <label className="form-label">
               Customer Name <span className="req-star">*</span>
             </label>
-            <input type="text" className="form-input" defaultValue="Priya Nair" required />
+            <input type="text" className="form-input" placeholder="Enter customer name" required />
           </div>
           <div className="form-group">
             <label className="form-label">
               Existing Vehicle (Make, Model, Year, Variant) <span className="req-star">*</span>
             </label>
-            <input type="text" className="form-input" defaultValue="2018 Maruti Baleno Alpha 1.2" required />
+            <input type="text" className="form-input" placeholder="Enter vehicle make, model, year, variant" required />
           </div>
           <div className="form-grid-2">
             <div className="form-group">
               <label className="form-label">
                 Odometer (km) <span className="req-star">*</span>
               </label>
-              <input type="number" className="form-input" defaultValue="54000" required />
+              <input type="number" className="form-input" placeholder="Enter odometer (km)" required />
             </div>
             <div className="form-group">
               <label className="form-label">
                 Offered Exchange Value (₹) <span className="req-star">*</span>
               </label>
-              <input type="number" className="form-input" defaultValue="525000" required />
+              <input type="number" className="form-input" placeholder="Enter offered exchange value (₹)" required />
             </div>
           </div>
 

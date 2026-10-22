@@ -9,8 +9,8 @@ import { Shield, Lock, Mail, ArrowRight, CheckCircle2 } from 'lucide-react';
 export default function LoginPage() {
   const router = useRouter();
   const { switchRole } = useAuth();
-  const [email, setEmail] = useState('admin@apexmotors.com');
-  const [password, setPassword] = useState('Admin@12345');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleLogin = (e: React.FormEvent) => {
@@ -99,6 +99,7 @@ export default function LoginPage() {
                 style={{ paddingLeft: '36px' }}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter work email"
                 required
               />
             </div>
@@ -123,6 +124,7 @@ export default function LoginPage() {
                 style={{ paddingLeft: '36px' }}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter password"
                 required
               />
             </div>
