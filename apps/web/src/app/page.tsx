@@ -22,6 +22,104 @@ import {
 
 import { WordFadeIn } from '@/components/ui/WordFadeIn';
 
+const REVENUE_DATA_12M = [
+  { month: 'Nov', revenue: 142000, target: 156700 },
+  { month: 'Dec', revenue: 168000, target: 156700 },
+  { month: 'Jan', revenue: 152000, target: 156700 },
+  { month: 'Feb', revenue: 174000, target: 156700 },
+  { month: 'Mar', revenue: 188000, target: 156700 },
+  { month: 'Apr', revenue: 138000, target: 156700 },
+  { month: 'May', revenue: 165000, target: 156700 },
+  { month: 'Jun', revenue: 178000, target: 156700 },
+  { month: 'Jul', revenue: 145000, target: 156700 },
+  { month: 'Aug', revenue: 190000, target: 156700 },
+  { month: 'Sep', revenue: 182000, target: 156700 },
+  { month: 'Oct', revenue: 196000, target: 156700 },
+];
+
+const REVENUE_DATA_6M = [
+  { month: 'May', revenue: 165000, target: 156700 },
+  { month: 'Jun', revenue: 178000, target: 156700 },
+  { month: 'Jul', revenue: 145000, target: 156700 },
+  { month: 'Aug', revenue: 190000, target: 156700 },
+  { month: 'Sep', revenue: 182000, target: 156700 },
+  { month: 'Oct', revenue: 196000, target: 156700 },
+];
+
+const HOT_DEALS = [
+  {
+    id: 'hd-1',
+    vehicle: 'Mahindra XUV700 AX7L',
+    variant: 'Diesel AWD Luxury',
+    customer: 'Vikram Singhania',
+    branch: 'Downtown',
+    value: 2480000,
+    prob: 95,
+    badge: '⚡ High Velocity',
+    badgeType: 'velocity',
+    date: 'Closes Oct 27',
+    stages: ['Token', 'KYC', 'Loan', 'PDI'],
+    currentStage: 2,
+    avatars: [
+      { text: 'VS', bg: 'var(--tomato)' },
+      { text: 'AP', bg: 'var(--pine)' },
+    ],
+  },
+  {
+    id: 'hd-2',
+    vehicle: 'Tata Safari Gold+',
+    variant: 'Dark Edition 6-Str',
+    customer: 'Amit Patel',
+    branch: 'Westside',
+    value: 2550000,
+    prob: 90,
+    badge: '🔥 Hot Closing',
+    badgeType: 'hot',
+    date: 'Closes Nov 15',
+    stages: ['Token', 'KYC', 'Loan', 'PDI'],
+    currentStage: 3,
+    avatars: [
+      { text: 'AP', bg: 'var(--color-blue)' },
+      { text: 'RK', bg: 'var(--violet)' },
+    ],
+  },
+  {
+    id: 'hd-3',
+    vehicle: 'Hyundai Creta SX',
+    variant: '1.5L Turbo Petrol DCT',
+    customer: 'Priya Sharma',
+    branch: 'Flagship',
+    value: 1890000,
+    prob: 85,
+    badge: '🎯 Loan Approved',
+    badgeType: 'loan',
+    date: 'Closes Nov 21',
+    stages: ['Token', 'KYC', 'Loan', 'Delivery'],
+    currentStage: 2,
+    avatars: [
+      { text: 'PS', bg: 'var(--butter)', color: '#17191a' },
+      { text: 'VS', bg: 'var(--pine)' },
+    ],
+  },
+  {
+    id: 'hd-4',
+    vehicle: 'Honda City ZX',
+    variant: 'e:HEV Hybrid Sedan',
+    customer: 'Rajesh Nair',
+    branch: 'Downtown',
+    value: 1520000,
+    prob: 100,
+    badge: '✨ Delivery Ready',
+    badgeType: 'delivery',
+    date: 'Closes Nov 28',
+    stages: ['Token', 'KYC', 'Loan', 'Delivery'],
+    currentStage: 3,
+    avatars: [
+      { text: 'RN', bg: 'var(--pine)' },
+    ],
+  },
+];
+
 export default function DashboardPage() {
   const [vehicles] = useState(api.getVehicles());
   const [leads] = useState(api.getLeads());
@@ -35,6 +133,10 @@ export default function DashboardPage() {
   const totalDealValue = deals.reduce((sum, d) => sum + d.grandTotal, 0);
   const totalDeposits = deals.reduce((sum, d) => sum + d.amountPaid, 0);
 
+  const activeRevenueData = timeRange === '12M' ? REVENUE_DATA_12M : REVENUE_DATA_6M;
+  const activeWonTotal = timeRange === '12M' ? '₹1,014,640' : '₹564,200';
+  const targetMetCount = activeRevenueData.filter(d => d.revenue >= d.target).length;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       {/* ====== 1. RAPPORT STYLE HERO HEADER ====== */}
@@ -45,7 +147,7 @@ export default function DashboardPage() {
           </h1>
           <p className="hero-subtitle">
             <WordFadeIn
-              text="Apex Motors Group · Real-time pipeline velocity, stockyard valuation & delivery gates"
+              text="UNAI CRM · Real-time pipeline velocity, stockyard valuation & delivery gates"
               baseDelay={0.18}
               staggerDelay={0.035}
             />
@@ -54,11 +156,8 @@ export default function DashboardPage() {
 
         {/* Horizontal Stat Capsules */}
         <div className="hero-stats-row">
-          {/* Stat 1: Won This Month */}
+          {/* Stat 1: Won This Month (Removed trophy icon as requested) */}
           <div className="hero-stat-badge">
-            <div className="hero-stat-icon">
-              <Trophy size={20} style={{ color: 'var(--butter)' }} />
-            </div>
             <div className="hero-stat-content">
               <div className="hero-stat-value">
                 ₹1,12,560
@@ -94,9 +193,9 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ====== 2. TOP HERO 2-COLUMN GRID (REVENUE & HOT DEALS) ====== */}
+      {/* ====== 2. TOP HERO 2-COLUMN GRID (REVENUE BAR CHART & HOT DEALS) ====== */}
       <div className="dash-hero-grid">
-        {/* Left Card: Revenue & Target Wave Chart */}
+        {/* Left Card: Revenue Interactive Bar Chart */}
         <div className="card">
           <div className="card-header">
             <h2 className="card-title">Revenue</h2>
@@ -126,18 +225,22 @@ export default function DashboardPage() {
           <div style={{ marginBottom: '16px' }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
               <span style={{ fontSize: '2.5rem', fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--text)' }}>
-                ₹1,014,640
+                {activeWonTotal}
               </span>
               <span style={{ fontSize: '0.9rem', color: 'var(--muted)', fontWeight: 500 }}>
-                won in 12 months · <strong>8 of 12</strong> at target
+                won in {timeRange === '12M' ? '12' : '6'} months · <strong>{targetMetCount} of {activeRevenueData.length}</strong> at target
               </span>
             </div>
 
             {/* Chart Legend */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '18px', marginTop: '6px' }}>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', fontWeight: 600, color: 'var(--muted)' }}>
-                <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--tomato)' }} />
-                Won revenue
+                <span style={{ width: '10px', height: '10px', borderRadius: '3px', background: 'linear-gradient(180deg, #26554A 0%, #1E443B 100%)' }} />
+                Target met (₹156.7K+)
+              </span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', fontWeight: 600, color: 'var(--muted)' }}>
+                <span style={{ width: '10px', height: '10px', borderRadius: '3px', background: 'linear-gradient(180deg, #E06341 0%, #C8431F 100%)' }} />
+                Below target
               </span>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', fontWeight: 600, color: 'var(--muted)' }}>
                 <span style={{ width: '14px', height: '2px', borderTop: '2px dashed var(--muted)' }} />
@@ -146,61 +249,38 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* SVG Smooth Curved Area Wave Chart */}
-          <div style={{ width: '100%', height: '220px', position: 'relative', marginTop: '14px' }}>
-            <svg
-              viewBox="0 0 600 200"
-              style={{ width: '100%', height: '100%', overflow: 'visible' }}
-              preserveAspectRatio="none"
-            >
-              <defs>
-                <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#c8431f" stopOpacity="0.28" />
-                  <stop offset="100%" stopColor="#c8431f" stopOpacity="0.0" />
-                </linearGradient>
-              </defs>
+          {/* Modern Interactive Revenue Bar Chart */}
+          <div className="rev-bar-chart">
+            {/* Target Threshold Dashed Line */}
+            <div className="rev-target-line" style={{ top: '22%' }}>
+              <span className="rev-target-badge">Target ₹156.7K</span>
+            </div>
 
-              {/* Horizontal Reference Grid Lines */}
-              <line x1="0" y1="30" x2="600" y2="30" stroke="rgba(23, 25, 26, 0.08)" strokeDasharray="3 3" />
-              <text x="0" y="24" fill="var(--faint)" fontSize="11" fontWeight="600">₹200K</text>
+            {activeRevenueData.map((d) => {
+              const maxVal = 200000;
+              const fillPct = Math.min(100, Math.max(8, (d.revenue / maxVal) * 100));
+              const isMet = d.revenue >= d.target;
 
-              {/* Monthly Target Dashed Line */}
-              <line x1="0" y1="75" x2="600" y2="75" stroke="#17191a" strokeWidth="1.8" strokeDasharray="6 5" />
-
-              <line x1="0" y1="130" x2="600" y2="130" stroke="rgba(23, 25, 26, 0.08)" strokeDasharray="3 3" />
-              <text x="0" y="124" fill="var(--faint)" fontSize="11" fontWeight="600">₹100K</text>
-
-              <line x1="0" y1="180" x2="600" y2="180" stroke="rgba(23, 25, 26, 0.08)" />
-              <text x="0" y="174" fill="var(--faint)" fontSize="11" fontWeight="600">₹0</text>
-
-              {/* Area Gradient Fill */}
-              <path
-                d="M 20 150 Q 80 190 140 145 T 260 160 T 360 195 T 440 140 T 520 160 T 590 145 L 590 180 L 20 180 Z"
-                fill="url(#revenueGradient)"
-              />
-
-              {/* Smooth Spline Curve Line */}
-              <path
-                d="M 20 150 Q 80 190 140 145 T 260 160 T 360 195 T 440 140 T 520 160 T 590 145"
-                fill="none"
-                stroke="#c8431f"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-              />
-
-              {/* X Axis Month Labels */}
-              <text x="25" y="196" fill="var(--muted)" fontSize="11" fontWeight="600">Nov</text>
-              <text x="110" y="196" fill="var(--muted)" fontSize="11" fontWeight="600">Jan</text>
-              <text x="200" y="196" fill="var(--muted)" fontSize="11" fontWeight="600">Mar</text>
-              <text x="290" y="196" fill="var(--muted)" fontSize="11" fontWeight="600">May</text>
-              <text x="380" y="196" fill="var(--muted)" fontSize="11" fontWeight="600">Jul</text>
-              <text x="470" y="196" fill="var(--muted)" fontSize="11" fontWeight="600">Sep</text>
-              <text x="560" y="196" fill="var(--muted)" fontSize="11" fontWeight="600">Oct</text>
-            </svg>
+              return (
+                <div key={d.month} className="rev-bar-track" title={`${d.month}: ₹${d.revenue.toLocaleString('en-IN')}`}>
+                  <div
+                    className={`rev-bar-fill ${isMet ? 'rev-bar-fill--met' : 'rev-bar-fill--miss'}`}
+                    style={{ height: `${fillPct}%` }}
+                  />
+                  <div className="rev-bar-tooltip">
+                    <div>₹{(d.revenue / 1000).toFixed(1)}K · {d.month}</div>
+                    <div style={{ fontSize: '0.65rem', color: isMet ? '#86EFAC' : '#FCA5A5' }}>
+                      {isMet ? 'Target Met ✓' : 'Below Target'}
+                    </div>
+                  </div>
+                  <span className="rev-bar-label">{d.month}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
 
-        {/* Right Card: Hot Deals (2x2 Dark Cards) */}
+        {/* Right Card: Hot Deals (Unique Cockpit / Telemetry Design) */}
         <div className="card">
           <div className="card-header">
             <h2 className="card-title">Hot deals</h2>
@@ -215,94 +295,92 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* 2x2 Dark Deal Cards Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-            {/* Dark Deal Card 1 */}
-            <div className="deal-card">
-              <div className="deal-card__top">
-                <span className="deal-card__date">Closes Oct 27</span>
-                <button className="deal-card__more"><MoreHorizontal size={14} /></button>
-              </div>
-              <div>
-                <div className="deal-card__title">Mahindra XUV700</div>
-                <div className="deal-card__sub">Vikram Singhania · Downtown</div>
-              </div>
-              <div className="deal-card__bottom">
-                <div>
-                  <div className="deal-card__value">₹24,80,000</div>
-                  <div className="deal-card__prob">Closing · 90%</div>
-                </div>
-                <div className="deal-card__avatars">
-                  <div className="deal-avatar" style={{ backgroundColor: 'var(--tomato)' }}>VS</div>
-                  <div className="deal-avatar" style={{ backgroundColor: 'var(--pine)' }}>AP</div>
-                </div>
-              </div>
-            </div>
+          {/* Unique Hot Deals Grid */}
+          <div className="unique-deals-grid">
+            {HOT_DEALS.map((deal) => {
+              const strokeDash = `${deal.prob}, 100`;
+              const strokeColor =
+                deal.prob >= 95 ? '#1E443B' :
+                deal.prob >= 90 ? '#26554A' :
+                deal.prob >= 85 ? '#0F766E' : '#C8431F';
 
-            {/* Dark Deal Card 2 */}
-            <div className="deal-card">
-              <div className="deal-card__top">
-                <span className="deal-card__date">Closes Nov 15</span>
-                <button className="deal-card__more"><MoreHorizontal size={14} /></button>
-              </div>
-              <div>
-                <div className="deal-card__title">Tata Safari Gold+</div>
-                <div className="deal-card__sub">Amit Patel · Westside</div>
-              </div>
-              <div className="deal-card__bottom">
-                <div>
-                  <div className="deal-card__value">₹25,50,000</div>
-                  <div className="deal-card__prob">Closing · 90%</div>
-                </div>
-                <div className="deal-card__avatars">
-                  <div className="deal-avatar" style={{ backgroundColor: 'var(--color-blue)' }}>AP</div>
-                  <div className="deal-avatar" style={{ backgroundColor: 'var(--violet)' }}>RK</div>
-                </div>
-              </div>
-            </div>
+              return (
+                <div key={deal.id} className="unique-deal-card">
+                  {/* Top Status & Date */}
+                  <div className="unique-deal-header">
+                    <span className={`unique-deal-badge unique-deal-badge--${deal.badgeType}`}>
+                      {deal.badge}
+                    </span>
+                    <span className="unique-deal-date">
+                      <Clock size={12} /> {deal.date}
+                    </span>
+                  </div>
 
-            {/* Dark Deal Card 3 */}
-            <div className="deal-card">
-              <div className="deal-card__top">
-                <span className="deal-card__date">Closes Nov 21</span>
-                <button className="deal-card__more"><MoreHorizontal size={14} /></button>
-              </div>
-              <div>
-                <div className="deal-card__title">Hyundai Creta SX</div>
-                <div className="deal-card__sub">Priya Sharma · Flagship</div>
-              </div>
-              <div className="deal-card__bottom">
-                <div>
-                  <div className="deal-card__value">₹18,90,000</div>
-                  <div className="deal-card__prob">Closing · 85%</div>
-                </div>
-                <div className="deal-card__avatars">
-                  <div className="deal-avatar" style={{ backgroundColor: 'var(--butter)', color: '#17191a' }}>PS</div>
-                  <div className="deal-avatar" style={{ backgroundColor: 'var(--pine)' }}>VS</div>
-                </div>
-              </div>
-            </div>
+                  {/* Body: Vehicle Info + Radial Probability Dial */}
+                  <div className="unique-deal-body">
+                    <div className="unique-deal-info">
+                      <div className="unique-deal-title">{deal.vehicle}</div>
+                      <div className="unique-deal-sub">{deal.customer} · {deal.branch}</div>
+                    </div>
 
-            {/* Dark Deal Card 4 */}
-            <div className="deal-card">
-              <div className="deal-card__top">
-                <span className="deal-card__date">Closes Nov 28</span>
-                <button className="deal-card__more"><MoreHorizontal size={14} /></button>
-              </div>
-              <div>
-                <div className="deal-card__title">Honda City ZX</div>
-                <div className="deal-card__sub">Rajesh Nair · Downtown</div>
-              </div>
-              <div className="deal-card__bottom">
-                <div>
-                  <div className="deal-card__value">₹15,20,000</div>
-                  <div className="deal-card__prob">Delivered · 100%</div>
+                    {/* Radial Dial */}
+                    <div className="unique-dial-wrap" title={`Closing Probability: ${deal.prob}%`}>
+                      <svg viewBox="0 0 36 36" className="unique-dial-svg">
+                        <path
+                          d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                          fill="none"
+                          stroke="rgba(30, 68, 59, 0.12)"
+                          strokeWidth="3.2"
+                        />
+                        <path
+                          d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                          fill="none"
+                          stroke={strokeColor}
+                          strokeWidth="3.2"
+                          strokeDasharray={strokeDash}
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                      <span className="unique-dial-pct">{deal.prob}%</span>
+                    </div>
+                  </div>
+
+                  {/* 4-Stage Progress Tracker */}
+                  <div className="unique-deal-stages">
+                    {deal.stages.map((stage, sIdx) => {
+                      const isDone = sIdx < deal.currentStage;
+                      const isActive = sIdx === deal.currentStage;
+                      return (
+                        <div
+                          key={stage}
+                          className={`unique-stage-step ${isDone ? 'done' : ''} ${isActive ? 'active' : ''}`}
+                        >
+                          {isDone ? `✓ ${stage}` : stage}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Footer: Value + Avatars */}
+                  <div className="unique-deal-footer">
+                    <div>
+                      <div className="unique-deal-value">₹{(deal.value).toLocaleString('en-IN')}</div>
+                    </div>
+                    <div className="unique-deal-avatars">
+                      {deal.avatars.map((av, avIdx) => (
+                        <div
+                          key={avIdx}
+                          className="unique-deal-avatar"
+                          style={{ backgroundColor: av.bg, color: av.color || '#FFFFFF' }}
+                        >
+                          {av.text}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
-                <div className="deal-card__avatars">
-                  <div className="deal-avatar" style={{ backgroundColor: 'var(--pine)' }}>RN</div>
-                </div>
-              </div>
-            </div>
+              );
+            })}
           </div>
         </div>
       </div>

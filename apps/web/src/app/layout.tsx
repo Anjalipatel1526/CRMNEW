@@ -4,7 +4,7 @@ import { AuthProvider } from '@/lib/auth-context';
 import { Shell } from '@/components/layout/Shell';
 
 export const metadata: Metadata = {
-  title: 'Apex Motors — Enterprise Dealership CRM & Management Platform',
+  title: 'UNAI CRM — Enterprise Dealership CRM & Management Platform',
   description: 'Complete multi-tenant car dealership CRM, vehicle inventory, sales desk, finance, delivery, and after-sales platform.',
 };
 

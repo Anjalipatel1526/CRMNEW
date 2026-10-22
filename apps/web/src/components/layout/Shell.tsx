@@ -50,9 +50,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
         {/* Unified Top Navigation Bar (Single Sleek Row: Brand, Nav Tabs filling space, Bell, Settings, Profile Avatar) */}
         <header className="top-bar">
           {/* Left: Brand Title */}
-          <Link href="/" className="brand-link" title="Apex Motors Dashboard">
-            <div className="brand-badge">A</div>
-            <span className="brand-title">Apex Motors</span>
+          <Link href="/" className="brand-link" title="UNAI CRM">
+            <div className="brand-badge">U</div>
+            <span className="brand-title">UNAI CRM</span>
           </Link>
 
           {/* Center: Horizontal Capsule Nav Tabs (Spans across to fill space with balanced alignment) */}
