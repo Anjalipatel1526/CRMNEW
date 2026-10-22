@@ -1,15 +1,17 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
-  title: string;
+  title?: string | React.ReactNode;
   children: React.ReactNode;
   footer?: React.ReactNode;
   maxWidth?: string;
+  headerContent?: React.ReactNode;
 }
 
 export function Modal({
@@ -18,8 +20,15 @@ export function Modal({
   title,
   children,
   footer,
-  maxWidth = '640px',
+  maxWidth = '780px',
+  headerContent,
 }: ModalProps) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -34,33 +43,38 @@ export function Modal({
     };
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
 
-  return (
-    <div className="modal-overlay" onClick={onClose}>
+  return createPortal(
+    <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true">
       <div
         className="modal-content"
         style={{ maxWidth }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="modal-header">
-          <h3 className="card-title" style={{ fontSize: '1.125rem' }}>
-            {title}
-          </h3>
+          {headerContent ? (
+            headerContent
+          ) : (
+            <h3 className="card-title" style={{ fontSize: '1.125rem' }}>
+              {title}
+            </h3>
+          )}
           <button
             onClick={onClose}
+            className="tool-round-btn"
             style={{
-              color: 'var(--color-text-muted)',
               padding: '0.25rem',
-              borderRadius: 'var(--radius-sm)',
             }}
+            aria-label="Close modal"
           >
-            <X size={20} />
+            <X size={18} />
           </button>
         </div>
         <div className="modal-body">{children}</div>
         {footer && <div className="modal-footer">{footer}</div>}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api-client';
+import { Modal } from '@/components/ui/Modal';
 import {
   Trophy,
   BarChart3,
@@ -428,296 +429,119 @@ export default function DashboardPage() {
 
         {/* Right Card: Hot Deals (Unique Cockpit / Telemetry Design) */}
         {/* Right Card: Hot Deals (Unique Cockpit / Telemetry Design) */}
-        <div className="card hero-deals-card">
-          {selectedDeal ? (
-            /* ====== IN-HERO DEAL DOSSIER VIEW (APPEARS UPWARD IN HERO SECTION ONLY) ====== */
-            <div className="hero-deal-dossier-panel">
-              {/* Dossier Header */}
-              <div className="hero-dossier-header">
-                <button
-                  type="button"
-                  className="hero-back-btn"
-                  onClick={() => setSelectedDeal(null)}
-                >
-                  ← Back to Deals
-                </button>
-                <div className="hero-dossier-title">
-                  <span>Deal Dossier</span>
-                  <span className="unique-deal-tag">#{selectedDeal.dealNumber}</span>
-                </div>
-                <button
-                  type="button"
-                  className="tool-round-btn"
-                  onClick={() => setSelectedDeal(null)}
-                  title="Close Details"
-                >
-                  <X size={15} />
-                </button>
-              </div>
-
-              {/* Quick Deal Switcher Tabs */}
-              <div className="hero-dossier-switcher">
-                {HOT_DEALS.map((d) => (
-                  <button
-                    key={d.id}
-                    type="button"
-                    className={`hero-switcher-btn ${selectedDeal.id === d.id ? 'active' : ''}`}
-                    onClick={() => setSelectedDeal(d)}
-                  >
-                    {d.vehicle.split(' ')[0]} {d.vehicle.split(' ')[1]}
-                  </button>
-                ))}
-              </div>
-
-              {/* Vehicle & Price Highlight Banner */}
-              <div className="hero-dossier-banner">
-                <div>
-                  <div className="hero-dossier-vehicle">{selectedDeal.vehicle}</div>
-                  <div className="hero-dossier-sub">
-                    {selectedDeal.variant} · {selectedDeal.color}
-                  </div>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div className="hero-dossier-price">
-                    ₹{selectedDeal.value.toLocaleString('en-IN')}
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px', marginTop: '2px' }}>
-                    <span className="badge badge-green" style={{ fontSize: '0.72rem', padding: '1px 6px' }}>
-                      {selectedDeal.prob}% Win Prob
-                    </span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--muted)', fontWeight: 600 }}>
-                      {selectedDeal.date}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* 2-Column Quick Info Grid */}
-              <div className="hero-dossier-grid">
-                {/* Tile 1: Customer Profile */}
-                <div className="hero-dossier-tile">
-                  <div className="hero-dossier-tile-head">
-                    <Users size={12} style={{ color: 'var(--pine)' }} />
-                    Customer & Showroom Desk
-                  </div>
-                  <div className="hero-dossier-row">
-                    <span style={{ color: 'var(--muted)' }}>Buyer</span>
-                    <strong>{selectedDeal.customer}</strong>
-                  </div>
-                  <div className="hero-dossier-row">
-                    <span style={{ color: 'var(--muted)' }}>Phone</span>
-                    <span>{selectedDeal.phone}</span>
-                  </div>
-                  <div className="hero-dossier-row">
-                    <span style={{ color: 'var(--muted)' }}>City</span>
-                    <span>{selectedDeal.city}</span>
-                  </div>
-                  <div className="hero-dossier-row">
-                    <span style={{ color: 'var(--muted)' }}>Advisor</span>
-                    <strong style={{ color: 'var(--pearl-green)' }}>{selectedDeal.advisor}</strong>
-                  </div>
-                </div>
-
-                {/* Tile 2: Commercial Ledger */}
-                <div className="hero-dossier-tile">
-                  <div className="hero-dossier-tile-head">
-                    <CreditCard size={12} style={{ color: 'var(--pine)' }} />
-                    Payment & Settlement
-                  </div>
-                  <div className="hero-dossier-row">
-                    <span style={{ color: 'var(--muted)' }}>Token Advance</span>
-                    <strong style={{ color: 'var(--pine)' }}>₹{selectedDeal.tokenPaid.toLocaleString('en-IN')} ✓</strong>
-                  </div>
-                  <div className="hero-dossier-row">
-                    <span style={{ color: 'var(--muted)' }}>Loan Sanction</span>
-                    <strong style={{ color: 'var(--color-blue)' }}>₹{selectedDeal.loanApproved.toLocaleString('en-IN')}</strong>
-                  </div>
-                  <div className="hero-dossier-row">
-                    <span style={{ color: 'var(--muted)' }}>Balance Pending</span>
-                    <strong style={{ color: selectedDeal.balanceDue === 0 ? 'var(--pine)' : 'var(--tomato)' }}>
-                      {selectedDeal.balanceDue === 0 ? 'Fully Cleared (₹0)' : `₹${selectedDeal.balanceDue.toLocaleString('en-IN')}`}
-                    </strong>
-                  </div>
-                  <div className="hero-dossier-row">
-                    <span style={{ color: 'var(--muted)' }}>Chassis VIN</span>
-                    <code style={{ fontSize: '0.72rem', color: 'var(--text)' }}>{selectedDeal.vin}</code>
-                  </div>
-                </div>
-              </div>
-
-              {/* 5-Gate Clearance Protocol */}
-              <div className="hero-dossier-gates-card">
-                <div className="hero-dossier-gates-title">
-                  <CheckCircle2 size={13} style={{ color: 'var(--pine)' }} />
-                  5-Stage Pre-Delivery Clearance Protocol
-                </div>
-                <div className="hero-dossier-gates-list">
-                  {selectedDeal.gateDetails.map((gate: any, gIdx: number) => {
-                    const isCleared = gate.status === 'cleared';
-                    const isInProgress = gate.status === 'in_progress';
-                    return (
-                      <div key={gIdx} className="hero-gate-item">
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          {isCleared ? (
-                            <CheckCircle2 size={14} style={{ color: 'var(--pine)', flexShrink: 0 }} />
-                          ) : isInProgress ? (
-                            <Clock size={14} style={{ color: 'var(--butter)', flexShrink: 0 }} />
-                          ) : (
-                            <AlertCircle size={14} style={{ color: 'var(--muted)', flexShrink: 0 }} />
-                          )}
-                          <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text)' }}>
-                            {gate.name}
-                          </span>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>{gate.date}</span>
-                          <span
-                            className={`badge ${isCleared ? 'badge-green' : isInProgress ? 'badge-amber' : 'badge-neutral'}`}
-                            style={{ fontSize: '0.68rem', padding: '1px 6px' }}
-                          >
-                            {isCleared ? 'Cleared' : isInProgress ? 'In Progress' : 'Pending'}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Dossier Footer Actions */}
-              <div className="hero-dossier-footer">
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-sm"
-                  onClick={() => setSelectedDeal(null)}
-                >
-                  Close Dossier
-                </button>
-                <Link
-                  href="/sales/deals"
-                  className="btn btn-primary btn-sm"
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}
-                >
-                  Open in Deals Pipeline <ArrowUpRight size={13} />
-                </Link>
-              </div>
+        {/* Right Card: Hot Deals (Unique Cockpit / Telemetry Design) */}
+        <div className="card">
+          <div className="card-header">
+            <h2 className="card-title">Hot deals</h2>
+            <div className="card-tools">
+              <span className="seg-btn" style={{ fontSize: '0.78rem' }}>by weighted value</span>
+              <Link href="/sales/deals" className="tool-round-btn" title="Create Deal">
+                <Plus size={15} />
+              </Link>
+              <Link href="/sales/deals" className="tool-round-btn" title="View Pipeline">
+                <ArrowUpRight size={15} />
+              </Link>
             </div>
-          ) : (
-            /* ====== DEFAULT HOT DEALS GRID VIEW ====== */
-            <>
-              <div className="card-header">
-                <h2 className="card-title">Hot deals</h2>
-                <div className="card-tools">
-                  <span className="seg-btn" style={{ fontSize: '0.78rem' }}>by weighted value</span>
-                  <Link href="/sales/deals" className="tool-round-btn" title="Create Deal">
-                    <Plus size={15} />
-                  </Link>
-                  <Link href="/sales/deals" className="tool-round-btn" title="View Pipeline">
-                    <ArrowUpRight size={15} />
-                  </Link>
-                </div>
-              </div>
+          </div>
 
-              {/* Unique Hot Deals Grid */}
-              <div className="unique-deals-grid">
-                {HOT_DEALS.map((deal) => {
-                  const strokeDash = `${deal.prob}, 100`;
-                  const strokeColor =
-                    deal.prob >= 95 ? '#1E443B' :
-                    deal.prob >= 90 ? '#26554A' :
-                    deal.prob >= 85 ? '#0F766E' : '#C8431F';
+          {/* Unique Hot Deals Grid */}
+          <div className="unique-deals-grid">
+            {HOT_DEALS.map((deal) => {
+              const strokeDash = `${deal.prob}, 100`;
+              const strokeColor =
+                deal.prob >= 95 ? '#1E443B' :
+                deal.prob >= 90 ? '#26554A' :
+                deal.prob >= 85 ? '#0F766E' : '#C8431F';
 
-                  return (
-                    <div
-                      key={deal.id}
-                      className="unique-deal-card"
-                      onClick={() => setSelectedDeal(deal)}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          setSelectedDeal(deal);
-                        }
-                      }}
-                      title="Click to view full deal dossier & gate clearances"
-                    >
-                      {/* Top Status & Date (Clean metadata, no Show Details button) */}
-                      <div className="unique-deal-header">
-                        <span className="unique-deal-tag">Deal #{deal.dealNumber}</span>
-                        <span className="unique-deal-date">
-                          <Clock size={12} /> {deal.date}
-                        </span>
-                      </div>
+              return (
+                <div
+                  key={deal.id}
+                  className="unique-deal-card"
+                  onClick={() => setSelectedDeal(deal)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setSelectedDeal(deal);
+                    }
+                  }}
+                  title="Click to view full deal dossier & gate clearances at centre of the page"
+                >
+                  {/* Top Status & Date (Clean metadata, no Show Details button) */}
+                  <div className="unique-deal-header">
+                    <span className="unique-deal-tag">Deal #{deal.dealNumber}</span>
+                    <span className="unique-deal-date">
+                      <Clock size={12} /> {deal.date}
+                    </span>
+                  </div>
 
-                      {/* Body: Vehicle Info + Radial Probability Dial */}
-                      <div className="unique-deal-body">
-                        <div className="unique-deal-info">
-                          <div className="unique-deal-title">{deal.vehicle}</div>
-                          <div className="unique-deal-sub">{deal.customer} · {deal.branch}</div>
-                        </div>
-
-                        {/* Radial Dial */}
-                        <div className="unique-dial-wrap" title={`Closing Probability: ${deal.prob}%`}>
-                          <svg viewBox="0 0 36 36" className="unique-dial-svg">
-                            <path
-                              d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                              fill="none"
-                              stroke="rgba(30, 68, 59, 0.12)"
-                              strokeWidth="3.2"
-                            />
-                            <path
-                              d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                              fill="none"
-                              stroke={strokeColor}
-                              strokeWidth="3.2"
-                              strokeDasharray={strokeDash}
-                              strokeLinecap="round"
-                            />
-                          </svg>
-                          <span className="unique-dial-pct">{deal.prob}%</span>
-                        </div>
-                      </div>
-
-                      {/* Sleek Slender 5-Segment Progress Bar (Replaced clumsy wrapped stage pills) */}
-                      <div className="unique-deal-progress-wrap">
-                        <div className="unique-deal-progress-bars">
-                          {[0, 1, 2, 3, 4].map((step) => (
-                            <div
-                              key={step}
-                              className={`unique-deal-progress-seg ${step < deal.currentStage ? 'filled' : ''}`}
-                            />
-                          ))}
-                        </div>
-                        <div className="unique-deal-stage-label">
-                          <span className="unique-stage-dot" />
-                          Gate {deal.currentStage} of 5: {deal.stages[deal.currentStage - 1] || 'In Progress'}
-                        </div>
-                      </div>
-
-                      {/* Footer: Value + Avatars */}
-                      <div className="unique-deal-footer">
-                        <div>
-                          <div className="unique-deal-value">₹{(deal.value).toLocaleString('en-IN')}</div>
-                        </div>
-                        <div className="unique-deal-avatars">
-                          {deal.avatars.map((av, avIdx) => (
-                            <div
-                              key={avIdx}
-                              className="unique-deal-avatar"
-                              style={{ backgroundColor: av.bg, color: av.color || '#FFFFFF' }}
-                            >
-                              {av.text}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
+                  {/* Body: Vehicle Info + Radial Probability Dial */}
+                  <div className="unique-deal-body">
+                    <div className="unique-deal-info">
+                      <div className="unique-deal-title">{deal.vehicle}</div>
+                      <div className="unique-deal-sub">{deal.customer} · {deal.branch}</div>
                     </div>
-                  );
-                })}
-              </div>
-            </>
-          )}
+
+                    {/* Radial Dial */}
+                    <div className="unique-dial-wrap" title={`Closing Probability: ${deal.prob}%`}>
+                      <svg viewBox="0 0 36 36" className="unique-dial-svg">
+                        <path
+                          d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                          fill="none"
+                          stroke="rgba(30, 68, 59, 0.12)"
+                          strokeWidth="3.2"
+                        />
+                        <path
+                          d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                          fill="none"
+                          stroke={strokeColor}
+                          strokeWidth="3.2"
+                          strokeDasharray={strokeDash}
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                      <span className="unique-dial-pct">{deal.prob}%</span>
+                    </div>
+                  </div>
+
+                  {/* Sleek Slender 5-Segment Progress Bar (Replaced clumsy wrapped stage pills) */}
+                  <div className="unique-deal-progress-wrap">
+                    <div className="unique-deal-progress-bars">
+                      {[0, 1, 2, 3, 4].map((step) => (
+                        <div
+                          key={step}
+                          className={`unique-deal-progress-seg ${step < deal.currentStage ? 'filled' : ''}`}
+                        />
+                      ))}
+                    </div>
+                    <div className="unique-deal-stage-label">
+                      <span className="unique-stage-dot" />
+                      Gate {deal.currentStage} of 5: {deal.stages[deal.currentStage - 1] || 'In Progress'}
+                    </div>
+                  </div>
+
+                  {/* Footer: Value + Avatars */}
+                  <div className="unique-deal-footer">
+                    <div>
+                      <div className="unique-deal-value">₹{(deal.value).toLocaleString('en-IN')}</div>
+                    </div>
+                    <div className="unique-deal-avatars">
+                      {deal.avatars.map((av, avIdx) => (
+                        <div
+                          key={avIdx}
+                          className="unique-deal-avatar"
+                          style={{ backgroundColor: av.bg, color: av.color || '#FFFFFF' }}
+                        >
+                          {av.text}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -950,6 +774,176 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* ====== CENTERED DEAL DOSSIER CARD AT CENTRE OF THE PAGE ====== */}
+      {selectedDeal && (
+        <Modal
+          isOpen={!!selectedDeal}
+          onClose={() => setSelectedDeal(null)}
+          maxWidth="780px"
+          headerContent={
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text)' }}>
+                Deal Dossier
+              </div>
+              <span className="unique-deal-tag">#{selectedDeal.dealNumber}</span>
+              <div className="hero-dossier-switcher" style={{ marginLeft: '8px' }}>
+                {HOT_DEALS.map((d) => (
+                  <button
+                    key={d.id}
+                    type="button"
+                    className={`hero-switcher-btn ${selectedDeal.id === d.id ? 'active' : ''}`}
+                    onClick={() => setSelectedDeal(d)}
+                  >
+                    {d.vehicle.split(' ')[0]} {d.vehicle.split(' ')[1]}
+                  </button>
+                ))}
+              </div>
+            </div>
+          }
+          footer={
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem', color: 'var(--muted)' }}>
+                <ShieldCheck size={16} style={{ color: 'var(--pine)' }} />
+                <span>RTO compliance & audit verified</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => setSelectedDeal(null)}
+                >
+                  Close Dossier
+                </button>
+                <Link
+                  href="/sales/deals"
+                  className="btn btn-primary btn-sm"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}
+                >
+                  Open in Deals Pipeline <ArrowUpRight size={13} />
+                </Link>
+              </div>
+            </div>
+          }
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            {/* Vehicle & Price Highlight Banner */}
+            <div className="hero-dossier-banner">
+              <div>
+                <div className="hero-dossier-vehicle">{selectedDeal.vehicle}</div>
+                <div className="hero-dossier-sub">
+                  {selectedDeal.variant} · {selectedDeal.color}
+                </div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div className="hero-dossier-price">
+                  ₹{selectedDeal.value.toLocaleString('en-IN')}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px', marginTop: '2px' }}>
+                  <span className="badge badge-green" style={{ fontSize: '0.72rem', padding: '1px 6px' }}>
+                    {selectedDeal.prob}% Win Prob
+                  </span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--muted)', fontWeight: 600 }}>
+                    {selectedDeal.date}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* 2-Column Quick Info Grid */}
+            <div className="hero-dossier-grid">
+              {/* Tile 1: Customer Profile */}
+              <div className="hero-dossier-tile">
+                <div className="hero-dossier-tile-head">
+                  <Users size={13} style={{ color: 'var(--pine)' }} />
+                  Customer & Showroom Desk
+                </div>
+                <div className="hero-dossier-row">
+                  <span style={{ color: 'var(--muted)' }}>Buyer</span>
+                  <strong>{selectedDeal.customer}</strong>
+                </div>
+                <div className="hero-dossier-row">
+                  <span style={{ color: 'var(--muted)' }}>Phone</span>
+                  <span>{selectedDeal.phone}</span>
+                </div>
+                <div className="hero-dossier-row">
+                  <span style={{ color: 'var(--muted)' }}>City</span>
+                  <span>{selectedDeal.city}</span>
+                </div>
+                <div className="hero-dossier-row">
+                  <span style={{ color: 'var(--muted)' }}>Advisor</span>
+                  <strong style={{ color: 'var(--pearl-green)' }}>{selectedDeal.advisor}</strong>
+                </div>
+              </div>
+
+              {/* Tile 2: Commercial Ledger */}
+              <div className="hero-dossier-tile">
+                <div className="hero-dossier-tile-head">
+                  <CreditCard size={13} style={{ color: 'var(--pine)' }} />
+                  Payment & Settlement
+                </div>
+                <div className="hero-dossier-row">
+                  <span style={{ color: 'var(--muted)' }}>Token Advance</span>
+                  <strong style={{ color: 'var(--pine)' }}>₹{selectedDeal.tokenPaid.toLocaleString('en-IN')} ✓</strong>
+                </div>
+                <div className="hero-dossier-row">
+                  <span style={{ color: 'var(--muted)' }}>Loan Sanction</span>
+                  <strong style={{ color: 'var(--color-blue)' }}>₹{selectedDeal.loanApproved.toLocaleString('en-IN')}</strong>
+                </div>
+                <div className="hero-dossier-row">
+                  <span style={{ color: 'var(--muted)' }}>Balance Pending</span>
+                  <strong style={{ color: selectedDeal.balanceDue === 0 ? 'var(--pine)' : 'var(--tomato)' }}>
+                    {selectedDeal.balanceDue === 0 ? 'Fully Cleared (₹0)' : `₹${selectedDeal.balanceDue.toLocaleString('en-IN')}`}
+                  </strong>
+                </div>
+                <div className="hero-dossier-row">
+                  <span style={{ color: 'var(--muted)' }}>Chassis VIN</span>
+                  <code style={{ fontSize: '0.72rem', color: 'var(--text)' }}>{selectedDeal.vin}</code>
+                </div>
+              </div>
+            </div>
+
+            {/* 5-Gate Clearance Protocol */}
+            <div className="hero-dossier-gates-card">
+              <div className="hero-dossier-gates-title">
+                <CheckCircle2 size={13} style={{ color: 'var(--pine)' }} />
+                5-Stage Pre-Delivery Clearance Protocol
+              </div>
+              <div className="hero-dossier-gates-list">
+                {selectedDeal.gateDetails.map((gate: any, gIdx: number) => {
+                  const isCleared = gate.status === 'cleared';
+                  const isInProgress = gate.status === 'in_progress';
+                  return (
+                    <div key={gIdx} className="hero-gate-item">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {isCleared ? (
+                          <CheckCircle2 size={14} style={{ color: 'var(--pine)', flexShrink: 0 }} />
+                        ) : isInProgress ? (
+                          <Clock size={14} style={{ color: 'var(--butter)', flexShrink: 0 }} />
+                        ) : (
+                          <AlertCircle size={14} style={{ color: 'var(--muted)', flexShrink: 0 }} />
+                        )}
+                        <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text)' }}>
+                          {gate.name}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '0.74rem', color: 'var(--muted)' }}>{gate.date}</span>
+                        <span
+                          className={`badge ${isCleared ? 'badge-green' : isInProgress ? 'badge-amber' : 'badge-neutral'}`}
+                          style={{ fontSize: '0.7rem', padding: '1px 6px' }}
+                        >
+                          {isCleared ? 'Cleared' : isInProgress ? 'In Progress' : 'Pending'}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
