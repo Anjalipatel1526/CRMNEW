@@ -1726,6 +1726,56 @@ html, body {
   background: #FFFFFF;
 }
 
+.modal-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.modal-header-btn-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  background: #EFF6FF;
+  color: #1D4ED8;
+  border: 1px solid #BFDBFE;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+
+.modal-header-btn-edit:hover {
+  background: #DBEAFE;
+  color: #1E40AF;
+  border-color: #93C5FD;
+  transform: translateY(-1px);
+}
+
+.modal-header-btn-close {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  background: #F8FAFC;
+  color: #475569;
+  border: 1px solid #CBD5E1;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+
+.modal-header-btn-close:hover {
+  background: #F1F5F9;
+  color: #0F172A;
+  border-color: #94A3B8;
+  transform: translateY(-1px);
+}
+
 .modal-body {
   padding: 24px;
   overflow-y: auto;

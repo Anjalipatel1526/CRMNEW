@@ -735,6 +735,18 @@ class DataService {
     return newCust;
   }
 
+  updateCustomer(id: string, customerData: Partial<Customer>): Customer | null {
+    const index = this.data.customers.findIndex((c) => c.id === id);
+    if (index === -1) return null;
+    this.data.customers[index] = {
+      ...this.data.customers[index],
+      ...customerData,
+      updatedAt: new Date().toISOString(),
+    };
+    this.persist();
+    return this.data.customers[index];
+  }
+
   getLeads() {
     return this.data.leads;
   }

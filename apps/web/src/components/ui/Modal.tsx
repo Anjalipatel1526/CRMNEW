@@ -12,6 +12,7 @@ interface ModalProps {
   footer?: React.ReactNode;
   maxWidth?: string;
   headerContent?: React.ReactNode;
+  headerActions?: React.ReactNode;
 }
 
 export function Modal({
@@ -22,6 +23,7 @@ export function Modal({
   footer,
   maxWidth = '780px',
   headerContent,
+  headerActions,
 }: ModalProps) {
   const [mounted, setMounted] = useState(false);
 
@@ -60,16 +62,20 @@ export function Modal({
               {title}
             </h3>
           )}
-          <button
-            onClick={onClose}
-            className="tool-round-btn"
-            style={{
-              padding: '0.25rem',
-            }}
-            aria-label="Close modal"
-          >
-            <X size={18} />
-          </button>
+          {headerActions ? (
+            headerActions
+          ) : (
+            <button
+              onClick={onClose}
+              className="tool-round-btn"
+              style={{
+                padding: '0.25rem',
+              }}
+              aria-label="Close modal"
+            >
+              <X size={18} />
+            </button>
+          )}
         </div>
         <div className="modal-body">{children}</div>
         {footer && <div className="modal-footer">{footer}</div>}

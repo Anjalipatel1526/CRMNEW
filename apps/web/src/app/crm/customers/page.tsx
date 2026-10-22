@@ -17,6 +17,7 @@ import {
   MapPin,
   Search,
   X,
+  Edit3,
   MessageSquare,
   Sparkles,
   ExternalLink,
@@ -115,13 +116,38 @@ export default function CustomersPage() {
   };
 
   const [formData, setFormData] = useState(emptyCustomerForm);
+  const [editingCustomerId, setEditingCustomerId] = useState<string | null>(null);
+
+  const handleStartEditCustomer = (customer: Customer) => {
+    setFormData({
+      firstName: customer.firstName,
+      lastName: customer.lastName,
+      type: customer.type,
+      companyName: customer.companyName || '',
+      email: customer.email || '',
+      phone: customer.phone || '',
+      panNumber: customer.panNumber || '',
+      city: customer.address?.city || 'Mumbai',
+    });
+    setEditingCustomerId(customer.id);
+    setSelectedCustomer(null);
+    setIsModalOpen(true);
+  };
 
   const handleCreateCustomer = (e: React.FormEvent) => {
     e.preventDefault();
-    api.addCustomer({
-      ...formData,
-      address: { city: formData.city },
-    });
+    if (editingCustomerId) {
+      api.updateCustomer(editingCustomerId, {
+        ...formData,
+        address: { city: formData.city },
+      });
+      setEditingCustomerId(null);
+    } else {
+      api.addCustomer({
+        ...formData,
+        address: { city: formData.city },
+      });
+    }
     setCustomers([...api.getCustomers()]);
     setIsModalOpen(false);
     setFormData(emptyCustomerForm);
@@ -192,6 +218,7 @@ export default function CustomersPage() {
         </div>
         <button
           onClick={() => {
+            setEditingCustomerId(null);
             setFormData(emptyCustomerForm);
             setIsModalOpen(true);
           }}
@@ -530,11 +557,15 @@ export default function CustomersPage() {
         </div>
       )}
 
-      {/* Add Customer Modal with Modern Form UI */}
+      {/* Add / Edit Customer Modal with Modern Form UI */}
       <Modal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        title="Register New Customer"
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingCustomerId(null);
+          setFormData(emptyCustomerForm);
+        }}
+        title={editingCustomerId ? 'Edit Customer Profile' : 'Register New Customer'}
         maxWidth="680px"
       >
         <form onSubmit={handleCreateCustomer} className="inspo-form-wrapper">
@@ -692,20 +723,42 @@ export default function CustomersPage() {
               type="submit"
               className="unique-lead-submit-btn"
             >
-              <span className="btn-text">Register Customer</span>
+              <span className="btn-text">{editingCustomerId ? 'Save Customer Changes' : 'Register Customer'}</span>
               <ChevronRight size={15} className="btn-arrow-icon" />
             </button>
           </div>
         </form>
       </Modal>
 
-      {/* Customer Detail Dossier Modal (Without redundant bottom Close button) */}
+      {/* Customer Detail Dossier Modal with Top Edit and Close Buttons */}
       {selectedCustomer && (
         <Modal
           isOpen={!!selectedCustomer}
           onClose={() => setSelectedCustomer(null)}
           title={`Customer Profile: ${selectedCustomer.firstName} ${selectedCustomer.lastName}`}
           maxWidth="760px"
+          headerActions={
+            <div className="modal-header-actions">
+              <button
+                type="button"
+                className="modal-header-btn-edit"
+                onClick={() => handleStartEditCustomer(selectedCustomer)}
+                title="Edit customer details"
+              >
+                <Edit3 size={14} />
+                <span>Edit</span>
+              </button>
+              <button
+                type="button"
+                className="modal-header-btn-close"
+                onClick={() => setSelectedCustomer(null)}
+                title="Close customer profile"
+              >
+                <X size={14} />
+                <span>Close</span>
+              </button>
+            </div>
+          }
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             {/* Quick Profile Summary */}
