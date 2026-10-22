@@ -363,6 +363,7 @@ const initialData: DataStore = {
       askingPrice: 1950000,
       minimumPrice: 1900000,
       status: 'available' as const,
+      imageUrl: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=600&q=80',
       version: 1,
       createdAt: '2026-10-10T10:00:00Z',
       updatedAt: '2026-10-10T10:00:00Z',
@@ -389,6 +390,7 @@ const initialData: DataStore = {
       askingPrice: 1680000,
       minimumPrice: 1630000,
       status: 'available' as const,
+      imageUrl: 'https://images.unsplash.com/photo-1590362891988-f778047831d6?auto=format&fit=crop&w=600&q=80',
       version: 1,
       createdAt: '2026-10-11T12:00:00Z',
       updatedAt: '2026-10-11T12:00:00Z',
@@ -415,6 +417,7 @@ const initialData: DataStore = {
       askingPrice: 2490000,
       minimumPrice: 2430000,
       status: 'reserved' as const,
+      imageUrl: 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=600&q=80',
       version: 1,
       createdAt: '2026-10-12T14:00:00Z',
       updatedAt: '2026-10-19T10:00:00Z',
@@ -441,6 +444,7 @@ const initialData: DataStore = {
       askingPrice: 5650000,
       minimumPrice: 5450000,
       status: 'available' as const,
+      imageUrl: 'https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&w=600&q=80',
       version: 1,
       createdAt: '2026-10-13T16:00:00Z',
       updatedAt: '2026-10-13T16:00:00Z',
@@ -467,6 +471,7 @@ const initialData: DataStore = {
       askingPrice: 3700000,
       minimumPrice: 3600000,
       status: 'inspection' as const,
+      imageUrl: 'https://images.unsplash.com/photo-1519641471654-76ce0107ad1b?auto=format&fit=crop&w=600&q=80',
       version: 1,
       createdAt: '2026-10-14T11:00:00Z',
       updatedAt: '2026-10-14T11:00:00Z',
@@ -493,6 +498,7 @@ const initialData: DataStore = {
       askingPrice: 1520000,
       minimumPrice: 1480000,
       status: 'sold' as const,
+      imageUrl: 'https://images.unsplash.com/photo-1605559424843-9e4c228bf1c2?auto=format&fit=crop&w=600&q=80',
       version: 1,
       createdAt: '2026-10-08T09:00:00Z',
       updatedAt: '2026-10-18T14:00:00Z',
@@ -945,11 +951,26 @@ class DataService {
       askingPrice: Number(vData.askingPrice) || 1000000,
       minimumPrice: Number(vData.minimumPrice) || 950000,
       status: vData.status || 'available',
+      imageUrl: vData.imageUrl || '',
+      photos: vData.imageUrl
+        ? [
+            {
+              id: 'p-' + Date.now(),
+              tenantId: 't-apex-001',
+              vehicleId: 'veh-' + Date.now(),
+              storageKey: 'photo-01',
+              url: vData.imageUrl,
+              displayOrder: 1,
+              isPrimary: true,
+              createdAt: new Date().toISOString(),
+            },
+          ]
+        : [],
       version: 1,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       branchName: 'Apex Downtown Flagship',
-    };
+    } as any;
     this.data.vehicles.unshift(newVeh);
     this.persist();
     return newVeh;

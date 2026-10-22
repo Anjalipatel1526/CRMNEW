@@ -22,6 +22,10 @@ import {
   MapPin,
   CheckCircle2,
   Clock,
+  Camera,
+  Image as ImageIcon,
+  Upload,
+  Trash2,
 } from 'lucide-react';
 import { WordFadeIn } from '@/components/ui/WordFadeIn';
 
@@ -35,6 +39,15 @@ export default function VehiclesPage() {
   // Search and Filter states
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<string>('all');
+
+  const CAR_PHOTO_PRESETS = [
+    { label: 'Mahindra XUV700', url: 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=600&q=80' },
+    { label: 'Tata Nexon EV', url: 'https://images.unsplash.com/photo-1590362891988-f778047831d6?auto=format&fit=crop&w=600&q=80' },
+    { label: 'Hyundai Creta', url: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=600&q=80' },
+    { label: 'BMW 3 Series', url: 'https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&w=600&q=80' },
+    { label: 'Toyota Fortuner', url: 'https://images.unsplash.com/photo-1519641471654-76ce0107ad1b?auto=format&fit=crop&w=600&q=80' },
+    { label: 'Honda City', url: 'https://images.unsplash.com/photo-1605559424843-9e4c228bf1c2?auto=format&fit=crop&w=600&q=80' },
+  ];
 
   const emptyFormData = {
     branchId: '',
@@ -51,10 +64,24 @@ export default function VehiclesPage() {
     acquisitionCost: '',
     askingPrice: '',
     minimumPrice: '',
+    imageUrl: '',
     status: 'available' as VehicleStatus,
   };
 
   const [formData, setFormData] = useState(emptyFormData);
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (typeof reader.result === 'string') {
+          setFormData((prev) => ({ ...prev, imageUrl: reader.result as string }));
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleStartEdit = (v: Vehicle) => {
     setFormData({
@@ -72,6 +99,7 @@ export default function VehiclesPage() {
       acquisitionCost: String(v.acquisitionCost),
       askingPrice: String(v.askingPrice),
       minimumPrice: String(v.minimumPrice),
+      imageUrl: (v as any).imageUrl || v.photos?.[0]?.url || '',
       status: v.status,
     });
     setEditingVehicleId(v.id);
@@ -91,6 +119,7 @@ export default function VehiclesPage() {
           acquisitionCost: Number(formData.acquisitionCost) || existing.acquisitionCost,
           askingPrice: Number(formData.askingPrice) || existing.askingPrice,
           minimumPrice: Number(formData.minimumPrice) || existing.minimumPrice,
+          imageUrl: formData.imageUrl,
         });
       }
       setEditingVehicleId(null);
@@ -316,8 +345,26 @@ export default function VehiclesPage() {
                 >
                   {/* Stock & VIN */}
                   <div className="app-row-cell-main">
-                    <div className="app-row-avatar">
-                      <Car size={18} />
+                    <div
+                      className="app-row-avatar"
+                      style={{
+                        overflow: 'hidden',
+                        padding: 0,
+                        backgroundColor: '#F1F5F9',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      {(v as any).imageUrl || v.photos?.[0]?.url ? (
+                        <img
+                          src={(v as any).imageUrl || v.photos?.[0]?.url}
+                          alt={`${v.make} ${v.model}`}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
+                      ) : (
+                        <Car size={18} />
+                      )}
                     </div>
                     <div className="app-row-title-wrap">
                       <span className="app-row-title" style={{ color: palette.accent }}>{v.stockNumber}</span>
@@ -479,6 +526,213 @@ export default function VehiclesPage() {
                 placeholder="Enter 17-digit VIN"
                 required
               />
+            </div>
+          </div>
+
+          {/* Photo of the Car Upload & Showcase Option */}
+          <div className="form-group" style={{ marginBottom: '16px' }}>
+            <label className="form-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Camera size={15} style={{ color: '#2563EB' }} />
+                <span>Photo of the Car</span>
+              </span>
+              {formData.imageUrl && (
+                <button
+                  type="button"
+                  onClick={() => setFormData((prev) => ({ ...prev, imageUrl: '' }))}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#EF4444',
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}
+                >
+                  <Trash2 size={12} /> Remove Photo
+                </button>
+              )}
+            </label>
+
+            {formData.imageUrl ? (
+              <div
+                style={{
+                  position: 'relative',
+                  width: '100%',
+                  height: '170px',
+                  borderRadius: '14px',
+                  overflow: 'hidden',
+                  border: '2px solid #BFDBFE',
+                  boxShadow: '0 4px 14px -3px rgba(37, 99, 235, 0.15)',
+                  backgroundColor: '#0F172A',
+                }}
+              >
+                <img
+                  src={formData.imageUrl}
+                  alt="Car Preview"
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '10px',
+                    left: '10px',
+                    background: 'rgba(16, 185, 129, 0.9)',
+                    backdropFilter: 'blur(4px)',
+                    color: '#FFFFFF',
+                    padding: '4px 10px',
+                    borderRadius: '8px',
+                    fontSize: '0.74rem',
+                    fontWeight: 700,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                  }}
+                >
+                  <CheckCircle2 size={13} /> Photo Selected
+                </div>
+                <label
+                  htmlFor="car-photo-file-input"
+                  style={{
+                    position: 'absolute',
+                    bottom: '10px',
+                    right: '10px',
+                    background: 'rgba(15, 23, 42, 0.85)',
+                    backdropFilter: 'blur(6px)',
+                    color: '#FFFFFF',
+                    padding: '6px 12px',
+                    borderRadius: '8px',
+                    fontSize: '0.78rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    border: '1px solid rgba(255,255,255,0.2)',
+                  }}
+                >
+                  <Upload size={13} /> Change Photo
+                </label>
+              </div>
+            ) : (
+              <label
+                htmlFor="car-photo-file-input"
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '22px 16px',
+                  border: '2px dashed #CBD5E1',
+                  borderRadius: '14px',
+                  backgroundColor: '#F8FAFC',
+                  cursor: 'pointer',
+                  transition: 'all 0.18s ease',
+                  textAlign: 'center',
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.currentTarget.style.borderColor = '#2563EB';
+                  e.currentTarget.style.backgroundColor = '#EFF6FF';
+                }}
+                onDragLeave={(e) => {
+                  e.currentTarget.style.borderColor = '#CBD5E1';
+                  e.currentTarget.style.backgroundColor = '#F8FAFC';
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.currentTarget.style.borderColor = '#CBD5E1';
+                  e.currentTarget.style.backgroundColor = '#F8FAFC';
+                  const file = e.dataTransfer.files?.[0];
+                  if (file) {
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                      if (typeof reader.result === 'string') {
+                        setFormData((prev) => ({ ...prev, imageUrl: reader.result as string }));
+                      }
+                    };
+                    reader.readAsDataURL(file);
+                  }
+                }}
+              >
+                <div
+                  style={{
+                    width: '42px',
+                    height: '42px',
+                    borderRadius: '12px',
+                    background: '#EFF6FF',
+                    color: '#2563EB',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginBottom: '8px',
+                  }}
+                >
+                  <Camera size={20} />
+                </div>
+                <div style={{ fontSize: '0.86rem', fontWeight: 700, color: '#0F172A' }}>
+                  Click to upload car photo or drag & drop
+                </div>
+                <div style={{ fontSize: '0.74rem', color: '#64748B', marginTop: '2px' }}>
+                  Supports PNG, JPG, WEBP (Local file or choose preset below)
+                </div>
+              </label>
+            )}
+
+            <input
+              id="car-photo-file-input"
+              type="file"
+              accept="image/*"
+              onChange={handlePhotoUpload}
+              style={{ display: 'none' }}
+            />
+
+            {/* Quick Presets and URL bar */}
+            <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '0.74rem', fontWeight: 600, color: '#64748B' }}>Quick Presets:</span>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                  {CAR_PHOTO_PRESETS.map((p) => (
+                    <button
+                      key={p.label}
+                      type="button"
+                      onClick={() => setFormData((prev) => ({ ...prev, imageUrl: p.url }))}
+                      style={{
+                        padding: '3px 9px',
+                        borderRadius: '6px',
+                        border: '1px solid',
+                        borderColor: formData.imageUrl === p.url ? '#2563EB' : '#CBD5E1',
+                        backgroundColor: formData.imageUrl === p.url ? '#EFF6FF' : '#FFFFFF',
+                        color: formData.imageUrl === p.url ? '#1D4ED8' : '#475569',
+                        fontSize: '0.72rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ position: 'relative', width: '100%' }}>
+                <input
+                  type="url"
+                  className="form-input"
+                  value={formData.imageUrl}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, imageUrl: e.target.value }))}
+                  placeholder="Or paste car photo web URL (https://...)"
+                  style={{ fontSize: '0.78rem', paddingLeft: '32px' }}
+                />
+                <ImageIcon
+                  size={14}
+                  style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }}
+                />
+              </div>
             </div>
           </div>
 
@@ -692,6 +946,44 @@ export default function VehiclesPage() {
           }
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+            {/* Vehicle Photo Showcase */}
+            {((selectedVehicle as any).imageUrl || selectedVehicle.photos?.[0]?.url) && (
+              <div
+                style={{
+                  width: '100%',
+                  height: '220px',
+                  borderRadius: '16px',
+                  overflow: 'hidden',
+                  border: '1.5px solid #E2E8F0',
+                  boxShadow: '0 4px 14px -3px rgba(0,0,0,0.08)',
+                  position: 'relative',
+                  backgroundColor: '#0F172A',
+                }}
+              >
+                <img
+                  src={(selectedVehicle as any).imageUrl || selectedVehicle.photos?.[0]?.url}
+                  alt={`${selectedVehicle.make} ${selectedVehicle.model}`}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+                <div
+                  style={{
+                    position: 'absolute',
+                    bottom: '12px',
+                    left: '12px',
+                    background: 'rgba(15, 23, 42, 0.75)',
+                    backdropFilter: 'blur(8px)',
+                    color: '#FFFFFF',
+                    padding: '6px 14px',
+                    borderRadius: '10px',
+                    fontSize: '0.85rem',
+                    fontWeight: 700,
+                  }}
+                >
+                  {selectedVehicle.year} {selectedVehicle.make} {selectedVehicle.model} {selectedVehicle.variant}
+                </div>
+              </div>
+            )}
+
             <div
               style={{
                 display: 'flex',
