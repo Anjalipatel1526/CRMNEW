@@ -726,8 +726,44 @@ export default function LeadsPage() {
                 </span>
               </div>
             }
+            footer={
+              <div className="unique-modal-footer-bar">
+                <button
+                  type="button"
+                  className="unique-btn-cancel"
+                  onClick={() => setIsNewLeadModalOpen(false)}
+                >
+                  <ChevronLeft size={16} />
+                  <span>Cancel</span>
+                </button>
+
+                <div className="unique-stage-counter-pill">
+                  <span className="step-num">{stageIndex + 1} / {stages.length}</span>
+                  <span className="step-dot" style={{ backgroundColor: currentStageConfig.accent }} />
+                  <span className="step-label" style={{ color: currentStageConfig.accent }}>
+                    {currentStageConfig.label}
+                  </span>
+                </div>
+
+                <button
+                  type="submit"
+                  form="new-lead-form"
+                  className="unique-lead-submit-btn"
+                  style={{
+                    ['--btn-accent' as any]: currentStageConfig.accent,
+                    ['--btn-glow' as any]: currentStageConfig.glow,
+                  }}
+                >
+                  <span className="btn-icon-pod">
+                    <Sparkles size={13} />
+                  </span>
+                  <span className="btn-text">Create Lead in {currentStageConfig.label}</span>
+                  <ArrowRight size={15} className="btn-arrow-icon" />
+                </button>
+              </div>
+            }
           >
-            <form onSubmit={handleCreateLead} className="inspo-form-wrapper">
+            <form id="new-lead-form" onSubmit={handleCreateLead} className="inspo-form-wrapper">
               {/* Target Pipeline Stage Gate Selector */}
               <div className="target-stage-selector-wrap">
                 <div className="target-stage-label">
@@ -942,39 +978,8 @@ export default function LeadsPage() {
                 </div>
               </div>
 
-              {/* Form Navigation Bar (Matching Image 1) */}
-              <div className="inspo-form-nav">
-                <button
-                  type="button"
-                  className="inspo-btn-back"
-                  onClick={() => setIsNewLeadModalOpen(false)}
-                >
-                  <ChevronLeft size={16} /> Cancel
-                </button>
-
-                <div className="inspo-step-badge">
-                  <span style={{ fontWeight: 700, color: '#0F172A' }}>{stageIndex + 1} / {stages.length}</span>
-                  <span style={{ opacity: 0.4 }}>•</span>
-                  <span style={{ color: currentStageConfig.accent, fontWeight: 700 }}>
-                    {currentStageConfig.label}
-                  </span>
-                </div>
-
-                <button
-                  type="submit"
-                  className="inspo-btn-next"
-                  style={{
-                    backgroundColor: currentStageConfig.accent,
-                    borderColor: currentStageConfig.accent,
-                  }}
-                >
-                  <span>Create Lead in {currentStageConfig.label}</span>
-                  <ChevronRight size={16} />
-                </button>
-              </div>
-
-              {/* Privacy & Compliance Footer */}
-              <div className="inspo-footer-compliance">
+              {/* Privacy & Compliance Notice */}
+              <div className="inspo-footer-compliance" style={{ margin: '8px 0 0 0' }}>
                 <ShieldCheck size={14} style={{ color: '#16A34A' }} />
                 <span>© 2026 UNAI CRM · All data is encrypted per our Enterprise Security Policy</span>
               </div>
