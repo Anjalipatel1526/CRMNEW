@@ -1571,7 +1571,7 @@ html, body {
 .hero-dossier-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  gap: 12px;
 }
 
 @media (max-width: 600px) {
@@ -1583,30 +1583,34 @@ html, body {
 .hero-dossier-tile {
   background: #F8FAF9;
   border: 1px solid var(--line);
-  border-radius: var(--r-ctl);
-  padding: 8px 12px;
-  font-size: 0.78rem;
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-size: 0.8rem;
+  box-sizing: border-box;
 }
 
 .hero-dossier-tile-head {
   font-size: 0.74rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.04em;
   color: var(--muted);
-  margin-bottom: 6px;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(30, 68, 59, 0.08);
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
 }
 
 .hero-dossier-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 3px 0;
-  border-bottom: 1px solid rgba(30, 68, 59, 0.04);
-  font-size: 0.78rem;
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(30, 68, 59, 0.05);
+  font-size: 0.8rem;
+  gap: 12px;
 }
 
 .hero-dossier-row:last-child {
@@ -1616,36 +1620,40 @@ html, body {
 .hero-dossier-gates-card {
   background: #FFFFFF;
   border: 1px solid var(--line);
-  border-radius: var(--r-tile);
-  padding: 8px 12px;
+  border-radius: 12px;
+  padding: 12px 16px;
+  box-sizing: border-box;
 }
 
 .hero-dossier-gates-title {
   font-size: 0.74rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.04em;
   color: var(--muted);
-  margin-bottom: 6px;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(30, 68, 59, 0.08);
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
 }
 
 .hero-dossier-gates-list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
 .hero-gate-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 8px;
+  padding: 6px 10px;
   background: #F8FAF9;
-  border-radius: 6px;
-  font-size: 0.76rem;
+  border-radius: 8px;
+  border: 1px solid rgba(30, 68, 59, 0.06);
+  font-size: 0.78rem;
 }
 
 .hero-dossier-footer {
