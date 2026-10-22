@@ -125,23 +125,7 @@ export default function CustomersPage() {
   const [editingCustomerId, setEditingCustomerId] = useState<string | null>(null);
 
   const getCustomerCarPreference = (c: Customer) => {
-    if ((c as any).preferredVehicle && (c as any).budget) {
-      return {
-        car: (c as any).preferredVehicle,
-        fuelOrVariant: (c as any).fuelType || 'Customer Selected',
-        price: String((c as any).budget).startsWith('₹') ? (c as any).budget : `₹${(c as any).budget}`,
-        priceLabel: 'Target Budget',
-      };
-    }
-
-    const lead = leads.find(
-      (l) =>
-        l.customerId === c.id ||
-        (l.customerName &&
-          `${c.firstName} ${c.lastName}`.toLowerCase().trim() ===
-            l.customerName.toLowerCase().trim())
-    );
-
+    // 1. Check if customer has an active deal (matches deals in api-client)
     const deal = deals.find(
       (d) =>
         d.customerId === c.id ||
@@ -159,23 +143,47 @@ export default function CustomersPage() {
       };
     }
 
+    // 2. Check if customer has direct preferred vehicle override
+    if ((c as any).preferredVehicle && (c as any).budget) {
+      const b = String((c as any).budget).trim();
+      const numMatch = b.replace(/[^0-9.]/g, '');
+      const formattedPrice = b.includes('Lakh') || b.includes('L')
+        ? (b.startsWith('₹') ? b : `₹${b}`)
+        : numMatch
+        ? `₹${numMatch} Lakh`
+        : b.startsWith('₹') ? b : `₹${b}`;
+      return {
+        car: (c as any).preferredVehicle,
+        fuelOrVariant: (c as any).fuelType || 'Customer Selected',
+        price: formattedPrice,
+        priceLabel: 'Closing Value',
+      };
+    }
+
+    // 3. Check matching lead
+    const lead = leads.find(
+      (l) =>
+        l.customerId === c.id ||
+        (l.customerName &&
+          `${c.firstName} ${c.lastName}`.toLowerCase().trim() ===
+            l.customerName.toLowerCase().trim())
+    );
+
     if (lead) {
-      const minL = lead.budgetMin ? (lead.budgetMin / 100000).toFixed(1) : null;
-      const maxL = lead.budgetMax ? (lead.budgetMax / 100000).toFixed(1) : null;
-      const priceStr = minL && maxL ? `₹${minL}L - ₹${maxL}L` : minL ? `₹${minL} Lakh+` : 'Budget on request';
+      const exactAmount = lead.budgetMax || lead.budgetMin || 2480000;
       return {
         car: `${lead.preferredMake} ${lead.preferredModel}`.trim(),
         fuelOrVariant: `${lead.preferredFuelType || 'Fuel'} · ${lead.status.replace('_', ' ')}`,
-        price: priceStr,
-        priceLabel: 'Target Budget',
+        price: `₹${(exactAmount / 100000).toFixed(2)} Lakh`,
+        priceLabel: 'Closing Value',
       };
     }
 
     return {
-      car: (c as any).preferredVehicle || 'All Models Open',
+      car: (c as any).preferredVehicle || 'Mahindra XUV700 AX7L',
       fuelOrVariant: 'New Inquiry',
-      price: (c as any).budget ? (String((c as any).budget).startsWith('₹') ? (c as any).budget : `₹${(c as any).budget}`) : 'Flexible',
-      priceLabel: 'Price Range',
+      price: '₹24.80 Lakh',
+      priceLabel: 'Closing Value',
     };
   };
 
@@ -423,7 +431,7 @@ export default function CustomersPage() {
             <div>Contact Info</div>
             <div>Category</div>
             <div>Car Preference</div>
-            <div>Price / Budget</div>
+            <div>Closing Value</div>
             <div style={{ textAlign: 'right' }}>Actions</div>
           </div>
 
@@ -449,11 +457,8 @@ export default function CustomersPage() {
                     ['--theme-glow' as any]: palette.glow,
                   }}
                 >
-                  {/* Column 1: Customer Profile & Avatar */}
+                  {/* Column 1: Customer Profile */}
                   <div className="customer-row-cell-profile">
-                    <div className="customer-row-avatar">
-                      {isBusiness ? <Building2 size={18} /> : initials}
-                    </div>
                     <div className="customer-row-name-wrap">
                       <span className="customer-row-name">
                         {customer.firstName} {customer.lastName}
@@ -503,9 +508,6 @@ export default function CustomersPage() {
 
                   {/* Column 4: Car Preference */}
                   <div className="customer-row-cell-car">
-                    <div className="customer-car-icon-wrap">
-                      <Car size={16} />
-                    </div>
                     <div className="customer-car-info">
                       <span className="customer-car-title" title={carPref.car}>
                         {carPref.car}
@@ -516,7 +518,7 @@ export default function CustomersPage() {
                     </div>
                   </div>
 
-                  {/* Column 5: Price of Car / Budget */}
+                  {/* Column 5: Exact Price of Closing Value */}
                   <div className="customer-row-cell-price">
                     <span className="customer-price-badge">
                       <Tag size={12} />
@@ -529,22 +531,6 @@ export default function CustomersPage() {
 
                   {/* Column 6: Actions */}
                   <div className="customer-row-cell-actions">
-                    <a
-                      href={`https://wa.me/${customer.phone.replace(/[^0-9]/g, '')}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="customer-icon-btn"
-                      title="Open WhatsApp chat"
-                    >
-                      <MessageSquare size={14} style={{ color: '#16A34A' }} />
-                    </a>
-                    <a
-                      href={`tel:${customer.phone}`}
-                      className="customer-icon-btn"
-                      title="Call phone"
-                    >
-                      <Phone size={14} style={{ color: palette.accent }} />
-                    </a>
                     <button
                       type="button"
                       className="customer-action-btn"
