@@ -15,9 +15,7 @@ const TOP_TABS = [
   { label: 'Inventory', href: '/vehicles' },
   { label: 'Procurement', href: '/vehicles/procurement' },
   { label: 'Deals', href: '/sales/deals' },
-  { label: 'Quotations', href: '/sales/quotations' },
   { label: 'Finance', href: '/finance' },
-  { label: 'Workshop', href: '/service' },
   { label: 'Documents', href: '/documents' },
   { label: 'Reports', href: '/reports' },
 ];
