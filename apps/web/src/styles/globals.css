@@ -1300,21 +1300,6 @@ html, body {
   border: 1px solid rgba(30, 68, 59, 0.14);
 }
 
-.unique-deal-link {
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: var(--pearl-green);
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  transition: transform 0.2s ease;
-}
-
-.unique-deal-card:hover .unique-deal-link {
-  transform: translateX(2px);
-  color: var(--dock);
-}
-
 .unique-deal-date {
   font-size: 0.74rem;
   color: var(--muted);
@@ -1373,36 +1358,47 @@ html, body {
   color: var(--text);
 }
 
-/* 4-Stage Progress Gate Tracker */
-.unique-deal-stages {
+/* Sleek Slender 5-Segment Progress Bar (Replaces Clumsy Wrapped Pills) */
+.unique-deal-progress-wrap {
   display: flex;
-  align-items: center;
-  gap: 4px;
-  background: #F4F7F5;
-  padding: 5px 8px;
-  border-radius: 8px;
+  flex-direction: column;
+  gap: 5px;
+  margin: 2px 0;
 }
 
-.unique-stage-step {
+.unique-deal-progress-bars {
+  display: flex;
+  gap: 4px;
+  width: 100%;
+}
+
+.unique-deal-progress-seg {
   flex: 1;
-  text-align: center;
-  font-size: 0.67rem;
-  font-weight: 700;
-  color: var(--muted);
-  padding: 2px 0;
-  border-radius: 4px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(30, 68, 59, 0.1);
   transition: all 0.2s ease;
 }
 
-.unique-stage-step.active {
-  background: var(--pill);
-  color: #FFFFFF;
-  box-shadow: 0 1px 4px rgba(30, 68, 59, 0.2);
+.unique-deal-progress-seg.filled {
+  background: var(--pearl-green);
 }
 
-.unique-stage-step.done {
-  color: var(--pearl-green);
-  font-weight: 800;
+.unique-deal-stage-label {
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.unique-stage-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--pearl-green);
+  display: inline-block;
 }
 
 /* Footer Value and Avatars */
@@ -1443,6 +1439,222 @@ html, body {
 
 .unique-deal-avatar:first-child {
   margin-left: 0;
+}
+
+/* ========================================================
+   IN-HERO DEAL DOSSIER (APPEARS UPWARD IN HERO SECTION ONLY)
+   ======================================================== */
+
+.hero-deals-card {
+  position: relative;
+  min-height: 480px;
+  display: flex;
+  flex-direction: column;
+}
+
+.hero-deal-dossier-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: heroDossierSlideUp 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes heroDossierSlideUp {
+  0% {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.hero-dossier-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.hero-back-btn {
+  font-size: 0.76rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  background: var(--float);
+  border: 1px solid var(--line);
+  color: var(--text);
+  border-radius: var(--r-ctl);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s ease;
+}
+
+.hero-back-btn:hover {
+  background: rgba(30, 68, 59, 0.08);
+  color: var(--pearl-green);
+  border-color: rgba(30, 68, 59, 0.25);
+}
+
+.hero-dossier-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.hero-dossier-switcher {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.hero-switcher-btn {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: var(--r-ctl);
+  border: 1px solid var(--line);
+  background: #FFFFFF;
+  color: var(--muted);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.hero-switcher-btn:hover {
+  border-color: rgba(30, 68, 59, 0.3);
+  color: var(--text);
+}
+
+.hero-switcher-btn.active {
+  background: var(--pearl-green);
+  color: #FFFFFF;
+  border-color: var(--pearl-green);
+}
+
+.hero-dossier-banner {
+  background: linear-gradient(135deg, rgba(30, 68, 59, 0.07) 0%, rgba(30, 68, 59, 0.02) 100%);
+  border: 1px solid rgba(30, 68, 59, 0.14);
+  border-radius: var(--r-tile);
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.hero-dossier-vehicle {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.hero-dossier-sub {
+  font-size: 0.76rem;
+  color: var(--muted);
+  margin-top: 1px;
+}
+
+.hero-dossier-price {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--pearl-green);
+}
+
+.hero-dossier-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+@media (max-width: 600px) {
+  .hero-dossier-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.hero-dossier-tile {
+  background: #F8FAF9;
+  border: 1px solid var(--line);
+  border-radius: var(--r-ctl);
+  padding: 8px 12px;
+  font-size: 0.78rem;
+}
+
+.hero-dossier-tile-head {
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.hero-dossier-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 3px 0;
+  border-bottom: 1px solid rgba(30, 68, 59, 0.04);
+  font-size: 0.78rem;
+}
+
+.hero-dossier-row:last-child {
+  border-bottom: none;
+}
+
+.hero-dossier-gates-card {
+  background: #FFFFFF;
+  border: 1px solid var(--line);
+  border-radius: var(--r-tile);
+  padding: 8px 12px;
+}
+
+.hero-dossier-gates-title {
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.hero-dossier-gates-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hero-gate-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 8px;
+  background: #F8FAF9;
+  border-radius: 6px;
+  font-size: 0.76rem;
+}
+
+.hero-dossier-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
 }
 
 /* ========================================================
