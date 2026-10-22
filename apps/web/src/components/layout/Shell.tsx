@@ -197,8 +197,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
           />
         )}
 
-        {/* Page Content */}
-        <main>{children}</main>
+        {/* Page Content with route key to trigger fade-in and content animations */}
+        <main key={pathname} className="page-transition-wrap">
+          {children}
+        </main>
       </div>
     </div>
   );

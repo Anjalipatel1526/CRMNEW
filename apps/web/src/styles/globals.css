@@ -859,3 +859,78 @@ html, body {
     display: none;
   }
 }
+
+/* ========================================================
+   SECTION FADE-IN & STAGGERED CONTENT ENTRANCE ANIMATIONS
+   ======================================================== */
+
+@keyframes sectionFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes contentStaggerUp {
+  0% {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.page-transition-wrap {
+  animation: sectionFadeIn 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  width: 100%;
+}
+
+/* Stage 1: Headers & Titles */
+.page-transition-wrap .hero-header,
+.page-transition-wrap .page-header,
+.page-transition-wrap .hero-title-wrap,
+.page-transition-wrap h1 {
+  animation: contentStaggerUp 0.38s cubic-bezier(0.16, 1, 0.3, 1) 0.04s both;
+}
+
+/* Stage 2: Quick Metrics, Stat Capsules & Badges */
+.page-transition-wrap .hero-stats-row,
+.page-transition-wrap .stat-card,
+.page-transition-wrap .hero-stat-badge,
+.page-transition-wrap .metrics-row {
+  animation: contentStaggerUp 0.42s cubic-bezier(0.16, 1, 0.3, 1) 0.10s both;
+}
+
+/* Stage 3: Primary Cards, Charts & Grids */
+.page-transition-wrap .card,
+.page-transition-wrap .deal-card,
+.page-transition-wrap .dash-hero-grid,
+.page-transition-wrap .grid-4,
+.page-transition-wrap .grid-3,
+.page-transition-wrap .grid-2 {
+  animation: contentStaggerUp 0.46s cubic-bezier(0.16, 1, 0.3, 1) 0.16s both;
+}
+
+/* Stage 4: Secondary Tables, Pipelines, Clearance Gates & Boards */
+.page-transition-wrap .dash-bottom-grid,
+.page-transition-wrap .table-container,
+.page-transition-wrap .data-table,
+.page-transition-wrap .kanban-board {
+  animation: contentStaggerUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.22s both;
+}
+
+/* Micro-interaction on navigation pill click */
+.nav-pill {
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.nav-pill:active {
+  transform: scale(0.96);
+}
+
