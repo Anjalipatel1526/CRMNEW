@@ -24,9 +24,88 @@ import {
   CheckCircle2,
   AlertCircle,
   X,
+  ShieldCheck,
+  Receipt,
+  TrendingUp,
+  Tag,
+  Truck,
+  Phone,
+  Mail,
+  MapPin,
+  Edit3,
 } from 'lucide-react';
+import { Customer, Lead } from '@crm/shared-types';
 
 import { WordFadeIn } from '@/components/ui/WordFadeIn';
+
+const AUDIT_LOG_EVENTS = [
+  {
+    id: 'aud-01',
+    title: 'KYC Form 20 e-Verification Completed',
+    description: 'NSDL PAN & Aadhaar e-Sign verified for Rajesh Sharma (Individual Retail Client)',
+    actor: 'Vikram Singhania',
+    role: 'Tenant Admin · IP 192.168.1.42',
+    timeAgo: '6 mins ago',
+    type: 'kyc',
+    badge: { label: 'KYC Verified', bg: '#DCFCE7', color: '#15803D', border: 'rgba(22, 163, 74, 0.28)' },
+    icon: <ShieldCheck size={16} />,
+  },
+  {
+    id: 'aud-02',
+    title: 'Token Advance Deposit Receipted',
+    description: '₹2,50,000 RTGS advance reconciled for Deal #DL-2024-001 (Mahindra XUV700 AX7L)',
+    actor: 'Priya Patil',
+    role: 'Accounts Desk · UTR: HDFC2024991823',
+    timeAgo: '24 mins ago',
+    type: 'payment',
+    badge: { label: 'Bank Settled', bg: '#E0F2FE', color: '#0369A1', border: 'rgba(2, 132, 199, 0.28)' },
+    icon: <Receipt size={16} />,
+  },
+  {
+    id: 'aud-03',
+    title: 'Pipeline Stage Advanced: Qualified → Negotiation',
+    description: 'Priya Nair advanced to Negotiation after 45-min highway ADAS test drive demo',
+    actor: 'John Fernandes',
+    role: 'Senior Sales · Downtown Flagship',
+    timeAgo: '1 hr ago',
+    type: 'pipeline',
+    badge: { label: 'Stage Advanced', bg: '#F5F3FF', color: '#6D28D9', border: 'rgba(124, 58, 237, 0.28)' },
+    icon: <TrendingUp size={16} />,
+  },
+  {
+    id: 'aud-04',
+    title: '140-Point Pre-Delivery Technical Sign-Off',
+    description: 'PDI technical certification issued for Tata Safari Gold+ (#TATASAFDARK2024102)',
+    actor: 'Sarah Dsouza',
+    role: 'Chief Engineer · Workshop Bay #3',
+    timeAgo: '2 hrs ago',
+    type: 'pdi',
+    badge: { label: 'PDI 140/140', bg: '#CCFBF1', color: '#0F766E', border: 'rgba(13, 148, 136, 0.28)' },
+    icon: <CheckCircle2 size={16} />,
+  },
+  {
+    id: 'aud-05',
+    title: 'Special Margin Concession Authorized',
+    description: 'Branch festive concession of ₹25,000 sanctioned for Hyundai Creta SX Knight Edition',
+    actor: 'Kavita Chawla',
+    role: 'Branch Manager · Westside Automall',
+    timeAgo: '3 hrs ago',
+    type: 'price',
+    badge: { label: 'Authorized', bg: '#FEF3C7', color: '#B45309', border: 'rgba(217, 119, 6, 0.28)' },
+    icon: <Tag size={16} />,
+  },
+  {
+    id: 'aud-06',
+    title: 'Stockyard Vehicle Inward Allotment',
+    description: 'Shipment VIN #MALC851CLPM101901 registered into Central Inventory Stock repository',
+    actor: 'Sunil Rawat',
+    role: 'Yard Supervisor · Gate Inward #401',
+    timeAgo: '4 hrs ago',
+    type: 'stock',
+    badge: { label: 'Stock Registered', bg: '#EEF2FF', color: '#4338CA', border: 'rgba(79, 70, 229, 0.28)' },
+    icon: <Truck size={16} />,
+  },
+];
 
 const REVENUE_DATA_12M = [
   { month: 'Nov', revenue: 142000, target: 156700 },
@@ -220,8 +299,26 @@ export default function DashboardPage() {
   const [deals] = useState(api.getDeals());
   const [appointments] = useState(api.getAppointments());
   const [jobCards] = useState(api.getJobCards());
+  const [customers] = useState(api.getCustomers());
   const [timeRange, setTimeRange] = useState<'6M' | '12M'>('12M');
   const [selectedDeal, setSelectedDeal] = useState<typeof HOT_DEALS[0] | null>(null);
+  const [selectedLeadCustomer, setSelectedLeadCustomer] = useState<{
+    lead: Lead;
+    customer?: Customer;
+  } | null>(null);
+
+  const handleSelectLeadCustomer = (lead: Lead) => {
+    const custName = (lead.customerName || '').toLowerCase().trim();
+    const cust =
+      customers.find((c) => c.id === lead.customerId) ||
+      (custName
+        ? customers.find(
+            (c) =>
+              `${c.firstName} ${c.lastName}`.toLowerCase().trim() === custName
+          )
+        : undefined);
+    setSelectedLeadCustomer({ lead, customer: cust });
+  };
 
   // Aggregated totals
   const totalStockValue = vehicles.reduce((sum, v) => sum + v.askingPrice, 0);
@@ -606,11 +703,55 @@ export default function DashboardPage() {
               </thead>
               <tbody>
                 {leads.slice(0, 5).map((lead) => (
-                  <tr key={lead.id}>
+                  <tr
+                    key={lead.id}
+                    style={{ cursor: 'pointer', transition: 'background 0.15s ease' }}
+                    onClick={() => handleSelectLeadCustomer(lead)}
+                  >
                     <td>
-                      <div style={{ fontWeight: 700, color: 'var(--text)' }}>{lead.customerName}</div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
-                        Source: {lead.source}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '9px' }}>
+                        <div
+                          style={{
+                            width: '30px',
+                            height: '30px',
+                            borderRadius: '9px',
+                            background: '#F0F9FF',
+                            color: '#0369A1',
+                            border: '1px solid rgba(2, 132, 199, 0.25)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontWeight: 800,
+                            fontSize: '0.72rem',
+                            flexShrink: 0,
+                          }}
+                        >
+                          {(lead.customerName || 'Customer').split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
+                        </div>
+                        <div>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSelectLeadCustomer(lead);
+                            }}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              padding: 0,
+                              fontWeight: 700,
+                              color: 'var(--text)',
+                              cursor: 'pointer',
+                              textAlign: 'left',
+                              fontSize: '0.88rem',
+                            }}
+                          >
+                            {lead.customerName || 'Customer'}
+                          </button>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
+                            Source: {lead.source}
+                          </div>
+                        </div>
                       </div>
                     </td>
                     <td>
@@ -639,13 +780,17 @@ export default function DashboardPage() {
                       </span>
                     </td>
                     <td>
-                      <Link
-                        href={`/crm/leads`}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSelectLeadCustomer(lead);
+                        }}
                         className="btn btn-secondary btn-sm"
-                        style={{ padding: '4px 10px', fontSize: '0.75rem' }}
+                        style={{ padding: '4px 11px', fontSize: '0.75rem', borderRadius: '999px' }}
                       >
-                        Manage
-                      </Link>
+                        View Card
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -654,83 +799,401 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Right: Mandatory Pre-Delivery Clearance Gates (Section 6.3 of plan) */}
-        <div className="card">
-          <div className="card-header">
+        {/* Right: Dealership Audit Log & Activity Stream */}
+        <div className="card" style={{ display: 'flex', flexDirection: 'column' }}>
+          <div className="card-header" style={{ marginBottom: '14px' }}>
             <div>
-              <h2 className="card-title">Delivery Clearance Gates</h2>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <h2 className="card-title">Dealership Audit Log</h2>
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    fontSize: '0.72rem',
+                    fontWeight: 700,
+                    color: '#15803D',
+                    background: '#DCFCE7',
+                    border: '1px solid rgba(22, 163, 74, 0.28)',
+                    borderRadius: '999px',
+                    padding: '2px 8px',
+                  }}
+                >
+                  <span
+                    style={{
+                      width: '6px',
+                      height: '6px',
+                      borderRadius: '50%',
+                      background: '#16A34A',
+                      display: 'inline-block',
+                    }}
+                  />
+                  Live Trail
+                </span>
+              </div>
               <div style={{ fontSize: '0.8rem', color: 'var(--muted)', marginTop: '2px' }}>
-                5-gate checklist before vehicle handover pass
+                Immutable timestamped compliance records & staff actions
               </div>
             </div>
-            <Link href="/sales/deals" className="pill-btn">
-              Deals <ArrowUpRight size={14} />
-            </Link>
+            <div className="card-tools">
+              <span className="seg-btn" style={{ fontSize: '0.75rem' }}>
+                {AUDIT_LOG_EVENTS.length} Events
+              </span>
+            </div>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {/* Gate 1 */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', borderRadius: 'var(--r-tile)', background: 'var(--float)', border: '1px solid var(--line)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <CheckCircle size={18} style={{ color: 'var(--pine)' }} />
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: '0.88rem' }}>Gate 1: Booking Advance Deposit</div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Bank verified token received</div>
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px',
+              maxHeight: '430px',
+              overflowY: 'auto',
+              paddingRight: '4px',
+            }}
+          >
+            {AUDIT_LOG_EVENTS.map((item) => (
+              <div
+                key={item.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '12px',
+                  padding: '12px 14px',
+                  borderRadius: '14px',
+                  background: 'var(--float)',
+                  border: '1px solid var(--line)',
+                  transition: 'background 0.15s ease, transform 0.15s ease',
+                }}
+              >
+                <div
+                  style={{
+                    width: '34px',
+                    height: '34px',
+                    minWidth: '34px',
+                    borderRadius: '10px',
+                    background: item.badge.bg,
+                    color: item.badge.color,
+                    border: `1px solid ${item.badge.border}`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginTop: '2px',
+                    flexShrink: 0,
+                  }}
+                >
+                  {item.icon}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '2px' }}>
+                    <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--text)' }}>
+                      {item.title}
+                    </div>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--muted)', whiteSpace: 'nowrap' }}>
+                      {item.timeAgo}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text)', opacity: 0.85, lineHeight: 1.35, marginBottom: '4px' }}>
+                    {item.description}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>
+                      By <strong style={{ color: 'var(--text)' }}>{item.actor}</strong> · {item.role}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: '0.68rem',
+                        fontWeight: 700,
+                        padding: '1px 7px',
+                        borderRadius: '999px',
+                        background: item.badge.bg,
+                        color: item.badge.color,
+                        border: `1px solid ${item.badge.border}`,
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {item.badge.label}
+                    </span>
+                  </div>
                 </div>
               </div>
-              <span className="badge badge-green">Cleared</span>
-            </div>
-
-            {/* Gate 2 */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', borderRadius: 'var(--r-tile)', background: 'var(--float)', border: '1px solid var(--line)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <CheckCircle size={18} style={{ color: 'var(--pine)' }} />
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: '0.88rem' }}>Gate 2: Customer Identity & KYC</div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>PAN & Aadhaar document verified</div>
-                </div>
-              </div>
-              <span className="badge badge-green">Cleared</span>
-            </div>
-
-            {/* Gate 3 */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', borderRadius: 'var(--r-tile)', background: 'var(--float)', border: '1px solid var(--line)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <Clock size={18} style={{ color: 'var(--butter)' }} />
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: '0.88rem' }}>Gate 3: Bank Loan Sanction</div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>HDFC disbursement pending</div>
-                </div>
-              </div>
-              <span className="badge badge-amber">Sanctioned</span>
-            </div>
-
-            {/* Gate 4 */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', borderRadius: 'var(--r-tile)', background: 'var(--float)', border: '1px solid var(--line)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <CheckCircle size={18} style={{ color: 'var(--pine)' }} />
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: '0.88rem' }}>Gate 4: 140-Point PDI Inspection</div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Passed technical certification</div>
-                </div>
-              </div>
-              <span className="badge badge-green">Passed 140/140</span>
-            </div>
-
-            {/* Gate 5 */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', borderRadius: 'var(--r-tile)', background: 'var(--float)', border: '1px solid var(--line)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <Clock size={18} style={{ color: 'var(--faint)' }} />
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: '0.88rem' }}>Gate 5: Handover Gate Pass</div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Authorized delivery pass</div>
-                </div>
-              </div>
-              <span className="badge badge-neutral">Ready to Issue</span>
-            </div>
+            ))}
           </div>
         </div>
       </div>
+
+      {/* ====== CENTERED CUSTOMER LEAD CARD MODAL AT CENTRE OF THE PAGE ====== */}
+      {selectedLeadCustomer && (
+        <Modal
+          isOpen={!!selectedLeadCustomer}
+          onClose={() => setSelectedLeadCustomer(null)}
+          maxWidth="680px"
+          headerContent={
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ fontSize: '1.08rem', fontWeight: 800, color: 'var(--text)' }}>
+                Customer Lead Dossier
+              </div>
+              <span
+                className="badge"
+                style={{
+                  background: '#EEF2FF',
+                  color: '#4338CA',
+                  border: '1px solid rgba(79, 70, 229, 0.25)',
+                  fontSize: '0.72rem',
+                  textTransform: 'uppercase',
+                  fontWeight: 700,
+                  letterSpacing: '0.04em',
+                }}
+              >
+                Stage: {selectedLeadCustomer.lead.status.replace('_', ' ')}
+              </span>
+            </div>
+          }
+          headerActions={
+            <div className="modal-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Link
+                href="/crm/leads"
+                className="modal-header-edit-btn"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '5px 12px',
+                  borderRadius: '999px',
+                  border: '1px solid var(--line)',
+                  background: 'var(--float)',
+                  fontSize: '0.78rem',
+                  fontWeight: 600,
+                  color: 'var(--text)',
+                  textDecoration: 'none',
+                }}
+              >
+                <Edit3 size={13} /> Edit Details
+              </Link>
+              <button
+                type="button"
+                onClick={() => setSelectedLeadCustomer(null)}
+                className="modal-header-close-btn"
+                style={{
+                  width: '30px',
+                  height: '30px',
+                  borderRadius: '50%',
+                  border: '1px solid var(--line)',
+                  background: 'var(--float)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  color: 'var(--text)',
+                }}
+                aria-label="Close"
+              >
+                <X size={15} />
+              </button>
+            </div>
+          }
+          footer={
+            <div className="unique-modal-footer-bar" style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <button
+                type="button"
+                onClick={() => setSelectedLeadCustomer(null)}
+                className="btn btn-secondary btn-sm"
+                style={{ borderRadius: '999px', padding: '0.45rem 1.25rem' }}
+              >
+                &lt; Cancel
+              </button>
+              <Link
+                href="/crm/leads"
+                className="unique-lead-submit-btn"
+                style={{
+                  borderRadius: '999px',
+                  padding: '0.5rem 1.4rem',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  textDecoration: 'none',
+                  fontSize: '0.84rem',
+                  fontWeight: 700,
+                }}
+              >
+                Open in Leads Pipeline &rarr;
+              </Link>
+            </div>
+          }
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {/* 1. Customer Identity & Profile Banner */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '14px',
+                padding: '16px',
+                borderRadius: '16px',
+                background: 'linear-gradient(135deg, #F0F9FF 0%, #EEF2FF 100%)',
+                border: '1px solid rgba(2, 132, 199, 0.22)',
+              }}
+            >
+              <div
+                style={{
+                  width: '52px',
+                  height: '52px',
+                  borderRadius: '14px',
+                  background: '#0284C7',
+                  color: '#FFFFFF',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 800,
+                  fontSize: '1.15rem',
+                  letterSpacing: '0.02em',
+                  boxShadow: '0 4px 12px rgba(2, 132, 199, 0.25)',
+                  flexShrink: 0,
+                }}
+              >
+                {(selectedLeadCustomer.lead.customerName || 'Customer').split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#0F172A' }}>
+                    {selectedLeadCustomer.lead.customerName || 'Valued Customer'}
+                  </h3>
+                  <span
+                    style={{
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      padding: '2px 8px',
+                      borderRadius: '999px',
+                      background: '#E0F2FE',
+                      color: '#0369A1',
+                      border: '1px solid rgba(2, 132, 199, 0.25)',
+                    }}
+                  >
+                    {selectedLeadCustomer.customer?.type === 'business' ? 'Corporate Fleet' : 'Individual Client'}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      padding: '2px 8px',
+                      borderRadius: '999px',
+                      background: '#DCFCE7',
+                      color: '#15803D',
+                      border: '1px solid rgba(22, 163, 74, 0.25)',
+                    }}
+                  >
+                    KYC Verified ✓
+                  </span>
+                </div>
+                <div style={{ fontSize: '0.8rem', color: '#64748B', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    <Phone size={13} style={{ color: '#0284C7' }} />
+                    {selectedLeadCustomer.customer?.phone || '+91 98201 12345'}
+                  </span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    <Mail size={13} style={{ color: '#0284C7' }} />
+                    {selectedLeadCustomer.customer?.email || `${(selectedLeadCustomer.lead.customerName || 'customer').toLowerCase().replace(/\s+/g, '.')}@example.com`}
+                  </span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    <MapPin size={13} style={{ color: '#0284C7' }} />
+                    {selectedLeadCustomer.customer?.address?.city || 'Mumbai'}, MH
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* 2. Grid of Lead Information & Vehicle Interest */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div style={{ padding: '12px 14px', borderRadius: '12px', background: 'var(--float)', border: '1px solid var(--line)' }}>
+                <span style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--muted)', letterSpacing: '0.04em' }}>
+                  Target Vehicle Interest
+                </span>
+                <div style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--text)', marginTop: '3px' }}>
+                  {selectedLeadCustomer.lead.preferredMake} {selectedLeadCustomer.lead.preferredModel}
+                </div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--muted)', marginTop: '2px' }}>
+                  Fuel Type: <strong>{selectedLeadCustomer.lead.preferredFuelType || 'Petrol / Hybrid'}</strong>
+                </div>
+              </div>
+
+              <div style={{ padding: '12px 14px', borderRadius: '12px', background: 'var(--float)', border: '1px solid var(--line)' }}>
+                <span style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--muted)', letterSpacing: '0.04em' }}>
+                  Budget Range
+                </span>
+                <div style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--text)', marginTop: '3px' }}>
+                  ₹{((selectedLeadCustomer.lead.budgetMin || 0) / 100000).toFixed(1)}L - ₹{((selectedLeadCustomer.lead.budgetMax || 0) / 100000).toFixed(1)} Lakh
+                </div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--muted)', marginTop: '2px' }}>
+                  Authority: Pre-approved buyer
+                </div>
+              </div>
+
+              <div style={{ padding: '12px 14px', borderRadius: '12px', background: 'var(--float)', border: '1px solid var(--line)' }}>
+                <span style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--muted)', letterSpacing: '0.04em' }}>
+                  AI Purchase Propensity
+                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 800, fontSize: '0.95rem', color: '#15803D', marginTop: '3px' }}>
+                  <Sparkles size={14} style={{ color: '#7C3AED' }} />
+                  {selectedLeadCustomer.lead.score}/100 · High Intent
+                </div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--muted)', marginTop: '2px' }}>
+                  Probability of deal close: {selectedLeadCustomer.lead.score}%
+                </div>
+              </div>
+
+              <div style={{ padding: '12px 14px', borderRadius: '12px', background: 'var(--float)', border: '1px solid var(--line)' }}>
+                <span style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--muted)', letterSpacing: '0.04em' }}>
+                  Destination & Source
+                </span>
+                <div style={{ fontWeight: 800, fontSize: '0.92rem', color: 'var(--text)', marginTop: '3px' }}>
+                  {selectedLeadCustomer.lead.source || 'Walk-in Showroom'}
+                </div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--muted)', marginTop: '2px' }}>
+                  Branch: Apex Downtown Flagship
+                </div>
+              </div>
+            </div>
+
+            {/* 3. KYC Tax Identifiers */}
+            <div style={{ padding: '12px 14px', borderRadius: '12px', background: 'var(--float)', border: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+              <div>
+                <span style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--muted)', letterSpacing: '0.04em' }}>
+                  Permanent Account Number (PAN)
+                </span>
+                <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text)', marginTop: '2px' }}>
+                  {selectedLeadCustomer.customer?.panNumber || 'ABCPS1234M'}
+                </div>
+              </div>
+              <div>
+                <span style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--muted)', letterSpacing: '0.04em' }}>
+                  Statutory RTO Eligibility
+                </span>
+                <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#15803D', marginTop: '2px' }}>
+                  Form 20 Draft Ready ✓
+                </div>
+              </div>
+              <div>
+                <span style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--muted)', letterSpacing: '0.04em' }}>
+                  Assigned Consultant
+                </span>
+                <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text)', marginTop: '2px' }}>
+                  {selectedLeadCustomer.lead.assigneeName || 'Rajesh Patil'}
+                </div>
+              </div>
+            </div>
+
+            {/* 4. Notes & Requirements */}
+            <div style={{ padding: '12px 14px', borderRadius: '12px', background: 'var(--float)', border: '1px solid var(--line)' }}>
+              <span style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--muted)', letterSpacing: '0.04em' }}>
+                Customer Requirements & Intake Notes
+              </span>
+              <p style={{ margin: '4px 0 0 0', fontSize: '0.8125rem', color: 'var(--text)', lineHeight: 1.45, whiteSpace: 'pre-line' }}>
+                {selectedLeadCustomer.lead.notes || 'Customer is actively evaluating vehicle specifications, test-drive performance, and financing packages. Immediate follow-up recommended.'}
+              </p>
+            </div>
+          </div>
+        </Modal>
+      )}
 
       {/* ====== CENTERED DEAL DOSSIER CARD AT CENTRE OF THE PAGE ====== */}
       {selectedDeal && (
