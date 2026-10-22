@@ -4,13 +4,10 @@ import React, { useState } from 'react';
 import { api } from '@/lib/api-client';
 import { Lead, LeadStatus, Customer } from '@crm/shared-types';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { DataTable, Column } from '@/components/ui/DataTable';
 import { Modal } from '@/components/ui/Modal';
 import { validateLeadTransition } from '@crm/business-rules';
 import {
   Plus,
-  LayoutGrid,
-  List,
   Sparkles,
   Phone,
   Mail,
@@ -20,7 +17,6 @@ import {
   Filter,
   Car,
   GripVertical,
-  MoveHorizontal,
 } from 'lucide-react';
 import { WordFadeIn } from '@/components/ui/WordFadeIn';
 
@@ -29,7 +25,6 @@ export default function LeadsPage() {
   const [leads, setLeads] = useState<Lead[]>(api.getLeads());
   const [customers] = useState<Customer[]>(api.getCustomers());
   const [branches] = useState(api.getBranches());
-  const [viewMode, setViewMode] = useState<'kanban' | 'table'>('kanban');
   const [isNewLeadModalOpen, setIsNewLeadModalOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
 
@@ -186,72 +181,6 @@ export default function LeadsPage() {
     setDragOverStage(null);
   };
 
-  const columns: Column<Lead>[] = [
-    {
-      header: 'Customer',
-      accessorKey: 'customerName',
-      cell: (row) => (
-        <div>
-          <div style={{ fontWeight: 600 }}>{row.customerName}</div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>
-            Source: {row.source}
-          </div>
-        </div>
-      ),
-    },
-    {
-      header: 'Vehicle Interest',
-      cell: (row) => (
-        <div>
-          <div style={{ fontWeight: 600 }}>{row.preferredMake} {row.preferredModel}</div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>
-            Budget: ₹{(row.budgetMin! / 100000).toFixed(1)}L - ₹{(row.budgetMax! / 100000).toFixed(1)}L
-          </div>
-        </div>
-      ),
-    },
-    {
-      header: 'Stage',
-      cell: (row) => <StatusBadge status={row.status} />,
-    },
-    {
-      header: 'AI Purchase Score',
-      cell: (row) => (
-        <span
-          style={{
-            fontWeight: 700,
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '0.35rem',
-            color: (row.score || 0) >= 80 ? 'var(--color-green)' : 'var(--color-blue)',
-          }}
-        >
-          <Sparkles size={14} style={{ color: 'var(--color-violet)' }} />
-          {row.score}/100
-        </span>
-      ),
-    },
-    {
-      header: 'Branch & Owner',
-      cell: (row) => (
-        <div>
-          <div style={{ fontSize: '0.8125rem' }}>{row.branchName}</div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{row.assigneeName}</div>
-        </div>
-      ),
-    },
-    {
-      header: 'Actions',
-      cell: (row) => (
-        <button
-          className="btn btn-secondary btn-sm"
-          onClick={() => setSelectedLead(row)}
-        >
-          View Details
-        </button>
-      ),
-    },
-  ];
 
   return (
     <div>
@@ -269,90 +198,17 @@ export default function LeadsPage() {
             />
           </p>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-          {/* Helpful Drag & Drop Badge */}
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontSize: '0.78rem',
-              color: 'var(--pearl-green)',
-              background: 'rgba(35, 78, 67, 0.07)',
-              border: '1px solid rgba(35, 78, 67, 0.15)',
-              padding: '6px 12px',
-              borderRadius: '999px',
-              fontWeight: 600,
-            }}
-          >
-            <MoveHorizontal size={14} />
-            <span>Drag cards between columns to change stage</span>
-          </div>
-
-          {/* View Toggle */}
-          <div
-            style={{
-              display: 'flex',
-              backgroundColor: '#FAFBF9',
-              border: '1px solid var(--line-2)',
-              borderRadius: '999px',
-              padding: '3px',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
-            }}
-          >
-            <button
-              onClick={() => setViewMode('kanban')}
-              style={{
-                padding: '0.4rem 0.85rem',
-                borderRadius: '999px',
-                backgroundColor: viewMode === 'kanban' ? 'var(--pearl-green)' : 'transparent',
-                color: viewMode === 'kanban' ? '#FFFFFF' : 'var(--muted)',
-                fontWeight: 700,
-                fontSize: '0.8125rem',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.35rem',
-                border: 'none',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              <LayoutGrid size={14} /> Board
-            </button>
-            <button
-              onClick={() => setViewMode('table')}
-              style={{
-                padding: '0.4rem 0.85rem',
-                borderRadius: '999px',
-                backgroundColor: viewMode === 'table' ? 'var(--pearl-green)' : 'transparent',
-                color: viewMode === 'table' ? '#FFFFFF' : 'var(--muted)',
-                fontWeight: 700,
-                fontSize: '0.8125rem',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.35rem',
-                border: 'none',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              <List size={14} /> Table
-            </button>
-          </div>
-
-          <button
-            onClick={() => setIsNewLeadModalOpen(true)}
-            className="btn btn-primary btn-sm"
-            style={{ borderRadius: '999px', padding: '0.45rem 1rem' }}
-          >
-            <Plus size={16} /> New Lead
-          </button>
-        </div>
+        <button
+          onClick={() => setIsNewLeadModalOpen(true)}
+          className="btn btn-primary btn-sm"
+          style={{ borderRadius: '999px', padding: '0.45rem 1.15rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+        >
+          <Plus size={16} /> New Lead
+        </button>
       </div>
 
       {/* Kanban Board View */}
-      {viewMode === 'kanban' ? (
-        <div className="kanban-board-container">
+      <div className="kanban-board-container">
           {stages.map((stage) => {
             const stageLeads = leads.filter((l) => l.status === stage.key);
             const isOver = dragOverStage === stage.key;
@@ -476,18 +332,6 @@ export default function LeadsPage() {
             );
           })}
         </div>
-      ) : (
-        /* Table View */
-        <div className="card">
-          <div className="card-body">
-            <DataTable
-              data={leads}
-              columns={columns}
-              searchPlaceholder="Search leads by customer, vehicle, source..."
-            />
-          </div>
-        </div>
-      )}
 
       {/* New Lead Modal */}
       <Modal

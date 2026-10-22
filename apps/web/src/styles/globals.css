@@ -917,6 +917,15 @@ html, body {
   will-change: opacity, transform;
 }
 
+/* Page Header layout */
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
 /* Section Wrapper: Smooth pure fade-in on section mount */
 .page-transition-wrap {
   animation: sectionFadeIn 0.26s cubic-bezier(0.16, 1, 0.3, 1) forwards;
