@@ -16,6 +16,7 @@ import {
   Clock,
   Sparkles,
 } from 'lucide-react';
+import { WordFadeIn } from '@/components/ui/WordFadeIn';
 
 export default function SettingsPage() {
   const [branches, setBranches] = useState(api.getBranches());
@@ -34,9 +35,15 @@ export default function SettingsPage() {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">Dealership Administration & Settings</h1>
+          <h1 className="page-title">
+            <WordFadeIn text="Dealership Administration & Settings" />
+          </h1>
           <p className="page-desc">
-            Multi-branch physical configuration, staff permissions, role-based access control, and enterprise SaaS subscription.
+            <WordFadeIn
+              text="Multi-branch physical configuration, staff permissions, role-based access control, and enterprise SaaS subscription."
+              baseDelay={0.22}
+              staggerDelay={0.035}
+            />
           </p>
         </div>
       </div>

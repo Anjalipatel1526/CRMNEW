@@ -19,6 +19,7 @@ import {
   Clock,
   ArrowRight,
 } from 'lucide-react';
+import { WordFadeIn } from '@/components/ui/WordFadeIn';
 
 export default function VehiclesPage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>(api.getVehicles());
@@ -145,9 +146,15 @@ export default function VehiclesPage() {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">Vehicle Inventory & Stockyard</h1>
+          <h1 className="page-title">
+            <WordFadeIn text="Vehicle Inventory & Stockyard" />
+          </h1>
           <p className="page-desc">
-            Physical stock allocation, VIN verification, cost management, valuation margins, and status workflow.
+            <WordFadeIn
+              text="Physical stock allocation, VIN verification, cost management, valuation margins, and status workflow."
+              baseDelay={0.22}
+              staggerDelay={0.035}
+            />
           </p>
         </div>
         <button

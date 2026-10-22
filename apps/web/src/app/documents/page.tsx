@@ -14,6 +14,7 @@ import {
   Eye,
   Plus,
 } from 'lucide-react';
+import { WordFadeIn } from '@/components/ui/WordFadeIn';
 
 export default function DocumentsPage() {
   const [documents, setDocuments] = useState([
@@ -71,9 +72,15 @@ export default function DocumentsPage() {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">Document Verification & Compliance Vault</h1>
+          <h1 className="page-title">
+            <WordFadeIn text="Document Verification & Compliance Vault" />
+          </h1>
           <p className="page-desc">
-            Centralized KYC identity verification, RTO statutory forms, insurance certificates, and PDI checklists.
+            <WordFadeIn
+              text="Centralized KYC identity verification, RTO statutory forms, insurance certificates, and PDI checklists."
+              baseDelay={0.22}
+              staggerDelay={0.035}
+            />
           </p>
         </div>
         <button

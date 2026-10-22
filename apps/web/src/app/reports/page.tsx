@@ -13,6 +13,7 @@ import {
   DollarSign,
   ArrowUpRight,
 } from 'lucide-react';
+import { WordFadeIn } from '@/components/ui/WordFadeIn';
 
 export default function ReportsPage() {
   const [reportRange, setReportRange] = useState('month');
@@ -27,9 +28,15 @@ export default function ReportsPage() {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">Dealership Business Intelligence & Reports</h1>
+          <h1 className="page-title">
+            <WordFadeIn text="Dealership Business Intelligence & Reports" />
+          </h1>
           <p className="page-desc">
-            Multi-branch revenue performance, sales conversion funnel, stock aging analysis, and gross margin reporting.
+            <WordFadeIn
+              text="Multi-branch revenue performance, sales conversion funnel, stock aging analysis, and gross margin reporting."
+              baseDelay={0.22}
+              staggerDelay={0.035}
+            />
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem' }}>

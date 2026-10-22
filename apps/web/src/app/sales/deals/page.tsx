@@ -16,6 +16,7 @@ import {
   Car,
   ArrowRight,
 } from 'lucide-react';
+import { WordFadeIn } from '@/components/ui/WordFadeIn';
 
 export default function DealsPage() {
   const [deals, setDeals] = useState<Deal[]>(api.getDeals());
@@ -37,9 +38,15 @@ export default function DealsPage() {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">Sales Deals & Gate Clearance Pipeline</h1>
+          <h1 className="page-title">
+            <WordFadeIn text="Sales Deals & Gate Clearance Pipeline" />
+          </h1>
           <p className="page-desc">
-            Deal closing progress, 5-stage handover gates (Payment, Documents, Finance, PDI, Delivery).
+            <WordFadeIn
+              text="Deal closing progress, 5-stage handover gates (Payment, Documents, Finance, PDI, Delivery)."
+              baseDelay={0.22}
+              staggerDelay={0.035}
+            />
           </p>
         </div>
       </div>

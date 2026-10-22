@@ -18,6 +18,7 @@ import {
   Clock,
   Car,
 } from 'lucide-react';
+import { WordFadeIn } from '@/components/ui/WordFadeIn';
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>(api.getCustomers());
@@ -157,9 +158,15 @@ export default function CustomersPage() {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">Customer 360 Directory</h1>
+          <h1 className="page-title">
+            <WordFadeIn text="Customer 360 Directory" />
+          </h1>
           <p className="page-desc">
-            Complete relationship lifecycle, purchase history, consent preferences, and KYC records.
+            <WordFadeIn
+              text="Complete relationship lifecycle, purchase history, consent preferences, and KYC records."
+              baseDelay={0.22}
+              staggerDelay={0.035}
+            />
           </p>
         </div>
         <button

@@ -19,6 +19,7 @@ import {
   ArrowRight,
   Filter,
 } from 'lucide-react';
+import { WordFadeIn } from '@/components/ui/WordFadeIn';
 
 export default function LeadsPage() {
   const [mounted, setMounted] = useState(false);
@@ -143,9 +144,15 @@ export default function LeadsPage() {
       {/* Page Header */}
       <div className="page-header">
         <div>
-          <h1 className="page-title">Lead Management & Pipeline</h1>
+          <h1 className="page-title">
+            <WordFadeIn text="Lead Management & Pipeline" />
+          </h1>
           <p className="page-desc">
-            End-to-end sales pipeline tracking, AI scoring, branch allocations, and stage progression.
+            <WordFadeIn
+              text="End-to-end sales pipeline tracking, AI scoring, branch allocations, and stage progression."
+              baseDelay={0.22}
+              staggerDelay={0.035}
+            />
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem' }}>

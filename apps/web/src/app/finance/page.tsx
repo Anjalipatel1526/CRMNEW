@@ -16,6 +16,7 @@ import {
   TrendingUp,
   Receipt,
 } from 'lucide-react';
+import { WordFadeIn } from '@/components/ui/WordFadeIn';
 
 export default function FinancePage() {
   const [payments, setPayments] = useState<Payment[]>(api.getPayments());
@@ -45,9 +46,15 @@ export default function FinancePage() {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">Finance, Bookings & Cash Flow</h1>
+          <h1 className="page-title">
+            <WordFadeIn text="Finance, Bookings & Cash Flow" />
+          </h1>
           <p className="page-desc">
-            Customer token deposits, receipts, GST invoice management, accounts receivable, and dealership expenses.
+            <WordFadeIn
+              text="Customer token deposits, receipts, GST invoice management, accounts receivable, and dealership expenses."
+              baseDelay={0.22}
+              staggerDelay={0.035}
+            />
           </p>
         </div>
         <button

@@ -861,7 +861,7 @@ html, body {
 }
 
 /* ========================================================
-   SECTION FADE-IN & STAGGERED CONTENT ENTRANCE ANIMATIONS
+   SECTION FADE-IN & ONE-BY-ONE WORD & CONTENT ANIMATIONS
    ======================================================== */
 
 @keyframes sectionFadeIn {
@@ -873,10 +873,21 @@ html, body {
   }
 }
 
+@keyframes wordFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @keyframes contentAppear {
   0% {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(12px);
   }
   100% {
     opacity: 1;
@@ -896,9 +907,19 @@ html, body {
   }
 }
 
+/* Word-by-word fade-in wrappers */
+.fade-words-container {
+  display: inline;
+}
+
+.fade-word {
+  display: inline-block;
+  will-change: opacity, transform;
+}
+
 /* Section Wrapper: Smooth pure fade-in on section mount */
 .page-transition-wrap {
-  animation: sectionFadeIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: sectionFadeIn 0.26s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   width: 100%;
 }
 
@@ -911,7 +932,7 @@ html, body {
 .page-transition-wrap .tabs-header,
 .page-transition-wrap > *:nth-child(1),
 .page-transition-wrap > div > *:nth-child(1) {
-  animation: contentAppear 0.44s cubic-bezier(0.16, 1, 0.3, 1) 0.12s both;
+  animation: contentAppear 0.42s cubic-bezier(0.16, 1, 0.3, 1) 0.08s both;
 }
 
 /* Stage 2: Quick Metrics, Stat Badges, and Filter Bars */
@@ -922,7 +943,39 @@ html, body {
 .page-transition-wrap .filter-bar,
 .page-transition-wrap > *:nth-child(2),
 .page-transition-wrap > div > *:nth-child(2) {
-  animation: contentAppear 0.48s cubic-bezier(0.16, 1, 0.3, 1) 0.20s both;
+  animation: contentAppear 0.46s cubic-bezier(0.16, 1, 0.3, 1) 0.18s both;
+}
+
+/* Individual Stat Badges Fade in One by One */
+.hero-stats-row > *:nth-child(1) {
+  animation: contentAppear 0.42s cubic-bezier(0.16, 1, 0.3, 1) 0.18s both;
+}
+.hero-stats-row > *:nth-child(2) {
+  animation: contentAppear 0.42s cubic-bezier(0.16, 1, 0.3, 1) 0.26s both;
+}
+.hero-stats-row > *:nth-child(3) {
+  animation: contentAppear 0.42s cubic-bezier(0.16, 1, 0.3, 1) 0.34s both;
+}
+.hero-stats-row > *:nth-child(n+4) {
+  animation: contentAppear 0.42s cubic-bezier(0.16, 1, 0.3, 1) 0.42s both;
+}
+
+/* Individual Metric Cards in Grids Fade in One by One */
+.grid-3 > *:nth-child(1),
+.grid-4 > *:nth-child(1) {
+  animation: contentAppear 0.44s cubic-bezier(0.16, 1, 0.3, 1) 0.22s both;
+}
+.grid-3 > *:nth-child(2),
+.grid-4 > *:nth-child(2) {
+  animation: contentAppear 0.44s cubic-bezier(0.16, 1, 0.3, 1) 0.30s both;
+}
+.grid-3 > *:nth-child(3),
+.grid-4 > *:nth-child(3) {
+  animation: contentAppear 0.44s cubic-bezier(0.16, 1, 0.3, 1) 0.38s both;
+}
+.grid-3 > *:nth-child(n+4),
+.grid-4 > *:nth-child(n+4) {
+  animation: contentAppear 0.44s cubic-bezier(0.16, 1, 0.3, 1) 0.46s both;
 }
 
 /* Stage 3: Primary Cards, Charts, Grids, and Kanban Boards */
@@ -935,7 +988,7 @@ html, body {
 .page-transition-wrap .kanban-board,
 .page-transition-wrap > *:nth-child(3),
 .page-transition-wrap > div > *:nth-child(3) {
-  animation: contentAppear 0.52s cubic-bezier(0.16, 1, 0.3, 1) 0.28s both;
+  animation: contentAppear 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.28s both;
 }
 
 /* Stage 4: Secondary Tables, Clearance Gates, Lists & Later Sections */
@@ -946,7 +999,7 @@ html, body {
 .page-transition-wrap > div > *:nth-child(4),
 .page-transition-wrap > *:nth-child(n+5),
 .page-transition-wrap > div > *:nth-child(n+5) {
-  animation: contentAppear 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.36s both;
+  animation: contentAppear 0.52s cubic-bezier(0.16, 1, 0.3, 1) 0.36s both;
 }
 
 /* Modal overlay exemption so popups never inherit transforms */
@@ -968,5 +1021,6 @@ html, body {
 .nav-pill.active {
   animation: navPillPop 0.26s cubic-bezier(0.16, 1, 0.3, 1);
 }
+
 
 

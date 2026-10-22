@@ -20,6 +20,8 @@ import {
   Calendar,
 } from 'lucide-react';
 
+import { WordFadeIn } from '@/components/ui/WordFadeIn';
+
 export default function DashboardPage() {
   const [vehicles] = useState(api.getVehicles());
   const [leads] = useState(api.getLeads());
@@ -38,9 +40,15 @@ export default function DashboardPage() {
       {/* ====== 1. RAPPORT STYLE HERO HEADER ====== */}
       <div className="hero-header">
         <div className="hero-title-wrap">
-          <h1 className="hero-title">Sales Overview</h1>
+          <h1 className="hero-title">
+            <WordFadeIn text="Sales Overview" />
+          </h1>
           <p className="hero-subtitle">
-            Apex Motors Group · Real-time pipeline velocity, stockyard valuation & delivery gates
+            <WordFadeIn
+              text="Apex Motors Group · Real-time pipeline velocity, stockyard valuation & delivery gates"
+              baseDelay={0.18}
+              staggerDelay={0.035}
+            />
           </p>
         </div>
 

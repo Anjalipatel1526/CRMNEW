@@ -15,6 +15,7 @@ import {
   Star,
   CheckCircle,
 } from 'lucide-react';
+import { WordFadeIn } from '@/components/ui/WordFadeIn';
 
 export default function AppointmentsPage() {
   const [appointments, setAppointments] = useState<Appointment[]>(api.getAppointments());
@@ -100,9 +101,15 @@ export default function AppointmentsPage() {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">Appointments & Test Drive Calendar</h1>
+          <h1 className="page-title">
+            <WordFadeIn text="Appointments & Test Drive Calendar" />
+          </h1>
           <p className="page-desc">
-            Organize customer showroom visits, highway test drive routes, vehicle availability, and feedback.
+            <WordFadeIn
+              text="Organize customer showroom visits, highway test drive routes, vehicle availability, and feedback."
+              baseDelay={0.22}
+              staggerDelay={0.035}
+            />
           </p>
         </div>
         <button

@@ -15,6 +15,7 @@ import {
   Clock,
   Car,
 } from 'lucide-react';
+import { WordFadeIn } from '@/components/ui/WordFadeIn';
 
 export default function ProcurementPage() {
   const [activeTab, setActiveTab] = useState<'orders' | 'tradeins' | 'inspections'>('orders');
@@ -74,9 +75,15 @@ export default function ProcurementPage() {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">Procurement, Trade-In & Intake Inspections</h1>
+          <h1 className="page-title">
+            <WordFadeIn text="Procurement, Trade-In & Intake Inspections" />
+          </h1>
           <p className="page-desc">
-            Supplier purchase orders, customer exchange vehicle appraisals, and showroom intake grading.
+            <WordFadeIn
+              text="Supplier purchase orders, customer exchange vehicle appraisals, and showroom intake grading."
+              baseDelay={0.22}
+              staggerDelay={0.035}
+            />
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem' }}>
