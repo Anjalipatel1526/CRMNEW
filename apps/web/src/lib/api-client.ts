@@ -795,6 +795,17 @@ class DataService {
     return null;
   }
 
+  updateLead(leadId: string, leadData: Partial<Lead>): Lead | null {
+    const lead = this.data.leads.find((l) => l.id === leadId);
+    if (lead) {
+      Object.assign(lead, leadData);
+      lead.updatedAt = new Date().toISOString();
+      this.persist();
+      return lead;
+    }
+    return null;
+  }
+
   // Vehicles
   getVehicles() {
     return this.data.vehicles;

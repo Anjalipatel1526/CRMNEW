@@ -22,6 +22,8 @@ import {
   ChevronLeft,
   ChevronRight,
   ShieldCheck,
+  Edit3,
+  X,
 } from 'lucide-react';
 import { WordFadeIn } from '@/components/ui/WordFadeIn';
 
@@ -354,11 +356,32 @@ export default function LeadsPage() {
   const [formStage, setFormStage] = useState<LeadStatus>('new');
   const [stageQuestions, setStageQuestions] = useState<Record<string, string>>({});
   const [formData, setFormData] = useState(emptyLeadForm);
+  const [editingLeadId, setEditingLeadId] = useState<string | null>(null);
 
   const openStageModal = (stageKey: LeadStatus) => {
+    setEditingLeadId(null);
     setFormStage(stageKey);
     setStageQuestions({});
     setFormData(emptyLeadForm);
+    setIsNewLeadModalOpen(true);
+  };
+
+  const handleStartEditLead = (lead: Lead) => {
+    setEditingLeadId(lead.id);
+    setFormStage(lead.status);
+    setFormData({
+      customerId: lead.customerId || '',
+      branchId: lead.branchId || '',
+      source: lead.source || 'Walk-in Showroom',
+      preferredMake: lead.preferredMake || '',
+      preferredModel: lead.preferredModel || '',
+      preferredFuelType: lead.preferredFuelType || '',
+      budgetMin: lead.budgetMin ? String(lead.budgetMin) : '',
+      budgetMax: lead.budgetMax ? String(lead.budgetMax) : '',
+      notes: lead.notes || '',
+    });
+    setStageQuestions({});
+    setSelectedLead(null);
     setIsNewLeadModalOpen(true);
   };
 
@@ -382,15 +405,26 @@ export default function LeadsPage() {
       .filter(Boolean)
       .join('\n\n');
 
-    const created = api.addLead({
-      ...formData,
-      status: formStage,
-      notes: combinedNotes,
-    });
+    if (editingLeadId) {
+      api.updateLead(editingLeadId, {
+        ...formData,
+        budgetMin: formData.budgetMin ? Number(formData.budgetMin) : undefined,
+        budgetMax: formData.budgetMax ? Number(formData.budgetMax) : undefined,
+        status: formStage,
+        notes: combinedNotes || formData.notes,
+      });
+      setEditingLeadId(null);
+    } else {
+      const created = api.addLead({
+        ...formData,
+        status: formStage,
+        notes: combinedNotes,
+      });
+      setRecentlyMovedId(created.id);
+      setTimeout(() => setRecentlyMovedId(null), 1500);
+    }
 
     setLeads([...api.getLeads()]);
-    setRecentlyMovedId(created.id);
-    setTimeout(() => setRecentlyMovedId(null), 1500);
     setFormData(emptyLeadForm);
     setStageQuestions({});
     setIsNewLeadModalOpen(false);
@@ -700,12 +734,15 @@ export default function LeadsPage() {
         return (
           <Modal
             isOpen={isNewLeadModalOpen}
-            onClose={() => setIsNewLeadModalOpen(false)}
+            onClose={() => {
+              setIsNewLeadModalOpen(false);
+              setEditingLeadId(null);
+            }}
             maxWidth="840px"
             title={
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                 <span style={{ fontSize: '1.2rem', fontWeight: 700, color: '#0F172A', letterSpacing: '-0.02em' }}>
-                  {currentStageQuestions?.stageTitle || 'Create New Lead'}
+                  {editingLeadId ? 'Edit Lead Details' : (currentStageQuestions?.stageTitle || 'Create New Lead')}
                 </span>
                 <span
                   style={{
@@ -731,7 +768,10 @@ export default function LeadsPage() {
                 <button
                   type="button"
                   className="unique-btn-cancel"
-                  onClick={() => setIsNewLeadModalOpen(false)}
+                  onClick={() => {
+                    setIsNewLeadModalOpen(false);
+                    setEditingLeadId(null);
+                  }}
                 >
                   <ChevronLeft size={16} />
                   <span>Cancel</span>
@@ -754,7 +794,9 @@ export default function LeadsPage() {
                     ['--btn-glow' as any]: currentStageConfig.glow,
                   }}
                 >
-                  <span className="btn-text">Create Lead in {currentStageConfig.label}</span>
+                  <span className="btn-text">
+                    {editingLeadId ? 'Save Lead Changes' : `Create Lead in ${currentStageConfig.label}`}
+                  </span>
                   <ArrowRight size={15} className="btn-arrow-icon" />
                 </button>
               </div>
@@ -991,6 +1033,28 @@ export default function LeadsPage() {
           isOpen={!!selectedLead}
           onClose={() => setSelectedLead(null)}
           title={`Lead: ${selectedLead.customerName}`}
+          headerActions={
+            <div className="modal-header-actions">
+              <button
+                type="button"
+                className="modal-header-btn-edit"
+                onClick={() => handleStartEditLead(selectedLead)}
+                title="Edit lead details"
+              >
+                <Edit3 size={14} />
+                <span>Edit</span>
+              </button>
+              <button
+                type="button"
+                className="modal-header-btn-close"
+                onClick={() => setSelectedLead(null)}
+                title="Close lead details"
+              >
+                <X size={14} />
+                <span>Close</span>
+              </button>
+            </div>
+          }
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             {/* Stage Progress Bar */}
@@ -1020,23 +1084,6 @@ export default function LeadsPage() {
                   </button>
                 ))}
               </div>
-            </div>
-
-            {/* AI Insights Card */}
-            <div
-              style={{
-                backgroundColor: 'var(--color-violet-bg)',
-                border: '1px solid var(--color-violet-border)',
-                borderRadius: 'var(--radius-md)',
-                padding: '1rem',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600, color: 'var(--color-violet-text)', marginBottom: '0.35rem' }}>
-                <Sparkles size={16} /> AI Dealership Copilot Recommendation
-              </div>
-              <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-primary)' }}>
-                Likelihood score <strong>{selectedLead.score}/100</strong>. Suggested next action: Schedule immediate home test drive for {selectedLead.preferredMake} {selectedLead.preferredModel} or prepare finance quotation.
-              </p>
             </div>
 
             {/* Details Grid */}
