@@ -32,7 +32,6 @@ import { WordFadeIn } from '@/components/ui/WordFadeIn';
 
 export default function VehiclesPage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>(api.getVehicles());
-  const [branches] = useState(api.getBranches());
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
   const [editingVehicleId, setEditingVehicleId] = useState<string | null>(null);
@@ -628,38 +627,18 @@ export default function VehiclesPage() {
         maxWidth="740px"
       >
         <form onSubmit={handleAddVehicle} className="inspo-form-wrapper">
-          <div className="form-grid-2">
-            <div className="form-group">
-              <label className="form-label">
-                Assigned Dealership Branch <span className="req-star">*</span>
-              </label>
-              <select
-                className="form-select"
-                value={formData.branchId}
-                onChange={(e) => setFormData({ ...formData, branchId: e.target.value })}
-                required
-              >
-                <option value="">Select Dealership Branch...</option>
-                {branches.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name} ({b.city})
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="form-group">
-              <label className="form-label">
-                VIN / Chassis Number <span className="req-star">*</span>
-              </label>
-              <input
-                type="text"
-                className="form-input"
-                value={formData.vin}
-                onChange={(e) => setFormData({ ...formData, vin: e.target.value.toUpperCase() })}
-                placeholder="Enter 17-digit VIN"
-                required
-              />
-            </div>
+          <div className="form-group" style={{ marginBottom: '16px' }}>
+            <label className="form-label">
+              VIN / Chassis Number <span className="req-star">*</span>
+            </label>
+            <input
+              type="text"
+              className="form-input"
+              value={formData.vin}
+              onChange={(e) => setFormData({ ...formData, vin: e.target.value.toUpperCase() })}
+              placeholder="Enter 17-digit VIN"
+              required
+            />
           </div>
 
           {/* Multiple Photos of the Car Upload & Gallery Option */}
