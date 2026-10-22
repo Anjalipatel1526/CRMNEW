@@ -97,7 +97,7 @@ export function InvoiceDocumentGenerator({
   const [shareDropdownOpen, setShareDropdownOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Form State matching Image 2 & 3
+  // Form State
   const [invoiceNumber] = useState('INV-2024-' + Math.floor(100 + Math.random() * 900));
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split('T')[0]);
   const [dueDate, setDueDate] = useState(new Date(Date.now() + 15 * 86400000).toISOString().split('T')[0]);
@@ -113,47 +113,53 @@ export function InvoiceDocumentGenerator({
   const [billingAddress, setBillingAddress] = useState(
     initialCustomer?.address?.street || ''
   );
-  const [state, setState] = useState(initialCustomer?.address?.state || 'Maharashtra');
-  const [pincode, setPincode] = useState(initialCustomer?.address?.pincode || '400069');
+  const [state, setState] = useState(initialCustomer?.address?.state || '');
+  const [pincode, setPincode] = useState(initialCustomer?.address?.pincode || '');
   const [sameShipping, setSameShipping] = useState(true);
 
-  // Items & Particulars (Image 2 & 3)
+  // Items & Particulars - ZERO Mock Data
   const [items, setItems] = useState<InvoiceItem[]>([
     {
       id: 'item-1',
-      description: 'Mahindra XUV700 AX7L AWD (Midnight Black) — Vehicle Delivery & Advance Settlement',
+      description: '',
       qty: '1',
-      rate: '2500000',
+      rate: '',
       taxPercent: 18,
     },
   ]);
 
-  // Tax & Discount Adjustments (Image 3)
+  // Tax & Discount Adjustments
   const [taxMode, setTaxMode] = useState<'cgst_sgst' | 'igst' | 'exempt'>('cgst_sgst');
   const [discountType, setDiscountType] = useState<'percentage' | 'fixed'>('percentage');
   const [discountValue, setDiscountValue] = useState<string | number>('0');
   const [applyRoundOff, setApplyRoundOff] = useState(true);
 
-  // Notes & Authorized Signature (Image 3)
+  // Payment Details (Clean & Minimal)
   const [paymentMethod, setPaymentMethod] = useState('upi');
-  const [utrReference, setUtrReference] = useState('UPI-' + Math.floor(100000000000 + Math.random() * 900000000000));
-  const [documentNotes, setDocumentNotes] = useState('Thank you for your business! All vehicle documents, warranty booklet, and spare keys handed over.');
-  const [terms, setTerms] = useState(DEFAULT_TERMS);
-  const [signatureImage, setSignatureImage] = useState<string | null>(null);
+  const [utrReference, setUtrReference] = useState('');
 
-  // Auto-fill customer
+  // Auto-fill customer without mock fallback strings
   const handleSelectCustomer = (cId: string) => {
     setCustomerId(cId);
     const found = customers.find((c) => c.id === cId);
     if (found) {
-      setCustomerName(`${found.firstName} ${found.lastName}`);
-      setCompanyName(found.companyName || `${found.firstName} Enterprises`);
-      setGstin(found.gstin || '27AABCT9988C1Z4');
-      setEmail(found.email || `${found.firstName.toLowerCase()}@example.com`);
-      setPhone(found.phone || '+91 98765 43210');
-      setBillingAddress(found.address?.street || '402 Skyline Heights, Link Road');
-      setState(found.address?.state || 'Maharashtra');
-      setPincode(found.address?.pincode || '400069');
+      setCustomerName(`${found.firstName} ${found.lastName}`.trim());
+      setCompanyName(found.companyName || '');
+      setGstin(found.gstin || '');
+      setEmail(found.email || '');
+      setPhone(found.phone || '');
+      setBillingAddress(found.address?.street || '');
+      setState(found.address?.state || '');
+      setPincode(found.address?.pincode || '');
+    } else {
+      setCustomerName('');
+      setCompanyName('');
+      setGstin('');
+      setEmail('');
+      setPhone('');
+      setBillingAddress('');
+      setState('');
+      setPincode('');
     }
   };
 
@@ -165,7 +171,7 @@ export function InvoiceDocumentGenerator({
         id: 'item-' + Date.now(),
         description: '',
         qty: '1',
-        rate: '0',
+        rate: '',
         taxPercent: 18,
       },
     ]);
@@ -245,7 +251,6 @@ export function InvoiceDocumentGenerator({
       items,
       paymentMethod,
       utrReference,
-      notes: documentNotes,
       subtotal: calc.subtotal,
       discountAmount: calc.discountAmount,
       totalTax: calc.totalTax,
@@ -279,7 +284,7 @@ export function InvoiceDocumentGenerator({
       `Customer: ${customerName || 'Valued Customer'}\n` +
       `Amount Settled: ₹${calc.grandTotal.toLocaleString('en-IN')}\n` +
       `Payment Method: ${paymentMethod.toUpperCase()}\n` +
-      `Reference: ${utrReference}\n\n` +
+      (utrReference ? `Reference: ${utrReference}\n\n` : '\n') +
       `Certified Pre-Owned Luxury Dealership\n` +
       `Thank you for your business!`;
     window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
@@ -295,8 +300,7 @@ export function InvoiceDocumentGenerator({
       `Date: ${invoiceDate}\n` +
       `Grand Total: ₹${calc.grandTotal.toLocaleString('en-IN')} (${numberToWordsINR(calc.grandTotal)})\n` +
       `Payment Mode: ${paymentMethod.toUpperCase()}\n` +
-      `Transaction Ref: ${utrReference}\n\n` +
-      `Notes: ${documentNotes}\n\n` +
+      (utrReference ? `Transaction Ref: ${utrReference}\n\n` : '\n') +
       `Thank you for trusting Apex Motors.\n\n` +
       `Warm regards,\nAPEX MOTORS PVT LTD\nBilling & Finance Desk`;
     window.open(`mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
@@ -306,8 +310,8 @@ export function InvoiceDocumentGenerator({
   const handleCopySummary = () => {
     const summary =
       `APEX MOTORS OFFICIAL INVOICE: ${invoiceNumber}\n` +
-      `Customer: ${customerName} | ₹${calc.grandTotal.toLocaleString('en-IN')}\n` +
-      `Date: ${invoiceDate} | Ref: ${utrReference}`;
+      `Customer: ${customerName || 'Customer'} | ₹${calc.grandTotal.toLocaleString('en-IN')}\n` +
+      `Date: ${invoiceDate}` + (utrReference ? ` | Ref: ${utrReference}` : '');
     navigator.clipboard.writeText(summary);
     setCopied(true);
     setToastMessage('Invoice summary copied to clipboard!');
@@ -362,42 +366,42 @@ export function InvoiceDocumentGenerator({
         </div>
       )}
 
-      {/* Top Header Card matching Image 2 & 3 */}
-      <div
-        className="no-print"
-        style={{
-          backgroundColor: '#FFFFFF',
-          borderRadius: '16px',
-          border: '1.5px solid #E2E8F0',
-          padding: '14px 18px',
-          marginBottom: '16px',
-          boxShadow: '0 2px 10px rgba(0,0,0,0.03)',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {onClose && (
-              <button
-                type="button"
-                onClick={onClose}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  color: '#64748B',
-                  display: 'flex',
-                  alignItems: 'center',
-                }}
-              >
-                <ChevronLeft size={20} />
-              </button>
-            )}
-            <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#0F172A' }}>
-              Create Document
-            </h2>
-          </div>
+      {/* Top Header Card / Action Toolbar */}
+      {!isModal ? (
+        <div
+          className="no-print"
+          style={{
+            backgroundColor: '#FFFFFF',
+            borderRadius: '16px',
+            border: '1.5px solid #E2E8F0',
+            padding: '14px 18px',
+            marginBottom: '16px',
+            boxShadow: '0 2px 10px rgba(0,0,0,0.03)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {onClose && (
+                <button
+                  type="button"
+                  onClick={onClose}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: '#64748B',
+                    display: 'flex',
+                    alignItems: 'center',
+                  }}
+                >
+                  <ChevronLeft size={20} />
+                </button>
+              )}
+              <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#0F172A' }}>
+                Create Document
+              </h2>
+            </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span
               style={{
                 fontSize: '0.82rem',
@@ -411,69 +415,264 @@ export function InvoiceDocumentGenerator({
             >
               UNAI / APEX
             </span>
-            {onClose && (
+          </div>
+
+          {/* Subtitle Bar with Action Buttons */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '10px',
+              paddingTop: '10px',
+              borderTop: '1px solid #F1F5F9',
+            }}
+          >
+            <div>
+              <div style={{ fontSize: '0.84rem', fontWeight: 800, color: '#2563EB', textTransform: 'uppercase' }}>
+                New INVOICE
+              </div>
+              <div style={{ fontSize: '0.74rem', color: '#64748B' }}>
+                Click Preview Document to view the complete A4 document page with company watermark.
+              </div>
+            </div>
+
+            {/* Action Buttons: Save, Preview, Download PDF, Share */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
               <button
                 type="button"
-                onClick={onClose}
+                onClick={handleSave}
                 style={{
-                  background: 'none',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '7px 14px',
+                  backgroundColor: '#0F172A',
+                  color: '#FFFFFF',
+                  borderRadius: '999px',
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
                   border: 'none',
-                  color: '#94A3B8',
                   cursor: 'pointer',
-                  padding: '4px',
+                  transition: 'all 0.15s ease',
                 }}
               >
-                <X size={18} />
+                <Save size={14} />
+                <span>Save Document</span>
               </button>
-            )}
+
+              <button
+                type="button"
+                onClick={() => setShowPreview((prev) => !prev)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '7px 14px',
+                  backgroundColor: showPreview ? '#1E443B' : '#F1F5F9',
+                  color: showPreview ? '#FFFFFF' : '#1E293B',
+                  borderRadius: '999px',
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
+                  border: '1px solid #CBD5E1',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <Eye size={14} />
+                <span>{showPreview ? 'Edit Form' : 'Preview A4'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleDownloadPDF}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '7px 14px',
+                  backgroundColor: '#2563EB',
+                  color: '#FFFFFF',
+                  borderRadius: '999px',
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
+                  border: 'none',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <Download size={14} />
+                <span>Download PDF</span>
+              </button>
+
+              {/* Social Share Dropdown */}
+              <div style={{ position: 'relative' }}>
+                <button
+                  type="button"
+                  onClick={() => setShareDropdownOpen((prev) => !prev)}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '7px 14px',
+                    backgroundColor: '#10B981',
+                    color: '#FFFFFF',
+                    borderRadius: '999px',
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    border: 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <Share2 size={14} />
+                  <span>Share</span>
+                </button>
+
+                {shareDropdownOpen && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      right: 0,
+                      top: '38px',
+                      backgroundColor: '#FFFFFF',
+                      borderRadius: '12px',
+                      boxShadow: '0 12px 30px rgba(0,0,0,0.18)',
+                      border: '1.5px solid #E2E8F0',
+                      width: '210px',
+                      zIndex: 100,
+                      overflow: 'hidden',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      padding: '6px',
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={shareViaWhatsApp}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '8px 12px',
+                        background: 'none',
+                        border: 'none',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontSize: '0.8rem',
+                        fontWeight: 600,
+                        color: '#047857',
+                        textAlign: 'left',
+                      }}
+                    >
+                      <span style={{ fontSize: '1rem' }}>💬</span> Share on WhatsApp
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={shareViaEmail}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '8px 12px',
+                        background: 'none',
+                        border: 'none',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontSize: '0.8rem',
+                        fontWeight: 600,
+                        color: '#1E40AF',
+                        textAlign: 'left',
+                      }}
+                    >
+                      <Mail size={15} /> Send via Email
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleNativeShare}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '8px 12px',
+                        background: 'none',
+                        border: 'none',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontSize: '0.8rem',
+                        fontWeight: 600,
+                        color: '#0F172A',
+                        textAlign: 'left',
+                      }}
+                    >
+                      <Share2 size={15} /> Social Media / More...
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleCopySummary}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '8px 12px',
+                        background: 'none',
+                        border: 'none',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontSize: '0.8rem',
+                        fontWeight: 600,
+                        color: '#475569',
+                        textAlign: 'left',
+                        borderTop: '1px solid #F1F5F9',
+                      }}
+                    >
+                      {copied ? <Check size={15} style={{ color: '#10B981' }} /> : <Copy size={15} />}
+                      <span>{copied ? 'Copied Link!' : 'Copy Summary Link'}</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
-
-        {/* Subtitle Bar with Action Buttons (from Image 2) */}
+      ) : (
+        /* Inside Modal: sleek single toolbar (No duplicate title card, No floating X) */
         <div
+          className="no-print"
           style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             flexWrap: 'wrap',
             gap: '10px',
-            paddingTop: '10px',
-            borderTop: '1px solid #F1F5F9',
+            paddingBottom: '12px',
+            marginBottom: '14px',
+            borderBottom: '1px solid #E2E8F0',
           }}
         >
-          <div>
-            <div style={{ fontSize: '0.84rem', fontWeight: 800, color: '#2563EB', textTransform: 'uppercase' }}>
-              New INVOICE
-            </div>
-            <div style={{ fontSize: '0.74rem', color: '#64748B' }}>
-              Click Preview Document to view the complete A4 document page with company watermark.
-            </div>
-          </div>
-
-          {/* Action Buttons: Save, Preview, Download PDF, Share */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              onClick={handleSave}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span
               style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '7px 14px',
-                backgroundColor: '#0F172A',
-                color: '#FFFFFF',
-                borderRadius: '999px',
                 fontSize: '0.78rem',
-                fontWeight: 700,
-                border: 'none',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
+                fontWeight: 800,
+                letterSpacing: '0.06em',
+                color: '#1E443B',
+                background: '#E6F4EF',
+                padding: '4px 10px',
+                borderRadius: '6px',
               }}
             >
-              <Save size={14} />
-              <span>Save Document</span>
-            </button>
+              TAX INVOICE
+            </span>
+            <span style={{ fontSize: '0.84rem', fontWeight: 700, color: '#64748B' }}>
+              #{invoiceNumber}
+            </span>
+          </div>
 
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
             <button
               type="button"
               onClick={() => setShowPreview((prev) => !prev)}
@@ -481,18 +680,18 @@ export function InvoiceDocumentGenerator({
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '6px',
-                padding: '7px 14px',
+                padding: '6px 13px',
                 backgroundColor: showPreview ? '#1E443B' : '#F1F5F9',
                 color: showPreview ? '#FFFFFF' : '#1E293B',
                 borderRadius: '999px',
-                fontSize: '0.78rem',
+                fontSize: '0.76rem',
                 fontWeight: 700,
                 border: '1px solid #CBD5E1',
                 cursor: 'pointer',
                 transition: 'all 0.15s ease',
               }}
             >
-              <Eye size={14} />
+              <Eye size={13} />
               <span>{showPreview ? 'Edit Form' : 'Preview A4'}</span>
             </button>
 
@@ -503,18 +702,18 @@ export function InvoiceDocumentGenerator({
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '6px',
-                padding: '7px 14px',
+                padding: '6px 13px',
                 backgroundColor: '#2563EB',
                 color: '#FFFFFF',
                 borderRadius: '999px',
-                fontSize: '0.78rem',
+                fontSize: '0.76rem',
                 fontWeight: 700,
                 border: 'none',
                 cursor: 'pointer',
                 transition: 'all 0.15s ease',
               }}
             >
-              <Download size={14} />
+              <Download size={13} />
               <span>Download PDF</span>
             </button>
 
@@ -527,17 +726,17 @@ export function InvoiceDocumentGenerator({
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '6px',
-                  padding: '7px 14px',
+                  padding: '6px 13px',
                   backgroundColor: '#10B981',
                   color: '#FFFFFF',
                   borderRadius: '999px',
-                  fontSize: '0.78rem',
+                  fontSize: '0.76rem',
                   fontWeight: 700,
                   border: 'none',
                   cursor: 'pointer',
                 }}
               >
-                <Share2 size={14} />
+                <Share2 size={13} />
                 <span>Share</span>
               </button>
 
@@ -546,7 +745,7 @@ export function InvoiceDocumentGenerator({
                   style={{
                     position: 'absolute',
                     right: 0,
-                    top: '38px',
+                    top: '36px',
                     backgroundColor: '#FFFFFF',
                     borderRadius: '12px',
                     boxShadow: '0 12px 30px rgba(0,0,0,0.18)',
@@ -649,7 +848,7 @@ export function InvoiceDocumentGenerator({
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Main Container: Form Editor vs Live A4 Watermarked Invoice */}
       {!showPreview ? (
@@ -940,10 +1139,10 @@ export function InvoiceDocumentGenerator({
             </div>
           </div>
 
-          {/* TAX & DISCOUNT ADJUSTMENTS (from Image 3) */}
+          {/* TAX & PAYMENT ADJUSTMENTS */}
           <div style={{ marginTop: '10px' }}>
             <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#64748B', letterSpacing: '0.06em', textTransform: 'uppercase', display: 'block', marginBottom: '10px' }}>
-              TAX & DISCOUNT ADJUSTMENTS
+              TAX & PAYMENT DETAILS
             </span>
 
             <div className="form-grid-3">
@@ -990,7 +1189,36 @@ export function InvoiceDocumentGenerator({
               </div>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 0 10px 0' }}>
+            {/* Clean, compact Payment Method & UTR Reference row */}
+            <div className="form-grid-2" style={{ marginTop: '8px' }}>
+              <div className="form-group">
+                <label className="form-label">Payment Method</label>
+                <select
+                  className="form-select"
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                >
+                  <option value="upi">UPI / Instant QR</option>
+                  <option value="bank_transfer">NEFT / RTGS / Bank Transfer</option>
+                  <option value="card">Credit / Debit Card</option>
+                  <option value="cash">Cash Showroom Receipt</option>
+                  <option value="cheque">Demand Draft / Cheque</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Transaction / Bank UTR Reference</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={utrReference}
+                  onChange={(e) => setUtrReference(e.target.value)}
+                  placeholder="e.g. UTR / Txn Reference (Optional)"
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 0 10px 0' }}>
               <input
                 type="checkbox"
                 id="apply-round-off-box"
@@ -1044,147 +1272,6 @@ export function InvoiceDocumentGenerator({
                   ₹{calc.grandTotal.toLocaleString('en-IN')}
                 </span>
               </div>
-            </div>
-          </div>
-
-          {/* NOTES & AUTHORIZED SIGNATURE (from Image 3) */}
-          <div style={{ marginTop: '10px' }}>
-            <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#64748B', letterSpacing: '0.06em', textTransform: 'uppercase', display: 'block', marginBottom: '10px' }}>
-              NOTES & AUTHORIZED SIGNATURE
-            </span>
-
-            <div className="form-grid-2">
-              <div className="form-group">
-                <label className="form-label">Payment Method</label>
-                <select
-                  className="form-select"
-                  value={paymentMethod}
-                  onChange={(e) => setPaymentMethod(e.target.value)}
-                >
-                  <option value="upi">UPI / Instant QR</option>
-                  <option value="bank_transfer">NEFT / RTGS / IMPS</option>
-                  <option value="card">Credit / Debit Card</option>
-                  <option value="cash">Cash Showroom Receipt</option>
-                  <option value="cheque">Demand Draft / Cheque</option>
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Transaction / Bank UTR Reference</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={utrReference}
-                  onChange={(e) => setUtrReference(e.target.value)}
-                  placeholder="Enter transaction or UTR reference"
-                />
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Document Notes</label>
-              <textarea
-                className="form-input"
-                rows={2}
-                value={documentNotes}
-                onChange={(e) => setDocumentNotes(e.target.value)}
-                placeholder="Thank you for your business!"
-                style={{ resize: 'vertical' }}
-              />
-            </div>
-
-            <div className="form-group">
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                <label className="form-label" style={{ margin: 0 }}>
-                  Terms & Conditions
-                </label>
-                <button
-                  type="button"
-                  onClick={() => setTerms(DEFAULT_TERMS)}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: '#2563EB',
-                    fontSize: '0.72rem',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                  }}
-                >
-                  Reset to Company Default
-                </button>
-              </div>
-              <textarea
-                className="form-input"
-                rows={3}
-                value={terms}
-                onChange={(e) => setTerms(e.target.value)}
-                style={{ fontSize: '0.78rem', resize: 'vertical' }}
-              />
-            </div>
-
-            {/* Authorized Signature Image upload (Image 3) */}
-            <div className="form-group">
-              <label className="form-label">Authorized Signature / Official Seal</label>
-              {signatureImage ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <img
-                    src={signatureImage}
-                    alt="Authorized Signature"
-                    style={{ height: '54px', border: '1px solid #CBD5E1', borderRadius: '8px', padding: '4px' }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setSignatureImage(null)}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: '#EF4444',
-                      fontSize: '0.75rem',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    Remove Signature
-                  </button>
-                </div>
-              ) : (
-                <label
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    padding: '8px 14px',
-                    borderRadius: '8px',
-                    border: '1.5px dashed #CBD5E1',
-                    cursor: 'pointer',
-                    backgroundColor: '#F8FAFC',
-                    width: 'fit-content',
-                    fontSize: '0.78rem',
-                    fontWeight: 600,
-                    color: '#2563EB',
-                  }}
-                >
-                  <Upload size={14} />
-                  <span>Upload Signature Image</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    style={{ display: 'none' }}
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        const reader = new FileReader();
-                        reader.onloadend = () => {
-                          if (typeof reader.result === 'string') {
-                            setSignatureImage(reader.result);
-                          }
-                        };
-                        reader.readAsDataURL(file);
-                      }
-                    }}
-                  />
-                </label>
-              )}
             </div>
           </div>
 
@@ -1439,7 +1526,7 @@ export function InvoiceDocumentGenerator({
                     Mode: <span style={{ textTransform: 'uppercase', color: '#16A34A' }}>{paymentMethod}</span>
                   </div>
                   <div style={{ fontSize: '0.76rem', color: '#64748B', marginTop: '2px' }}>
-                    UTR / Txn Ref: <span style={{ fontFamily: 'monospace', fontWeight: 700 }}>{utrReference}</span>
+                    UTR / Txn Ref: <span style={{ fontFamily: 'monospace', fontWeight: 700 }}>{utrReference || 'PENDING'}</span>
                   </div>
                   <div style={{ fontSize: '0.76rem', color: '#64748B', marginTop: '2px' }}>
                     Delivery Location: Apex Downtown Flagship Showroom
@@ -1577,30 +1664,26 @@ export function InvoiceDocumentGenerator({
               >
                 <div style={{ fontSize: '0.72rem', color: '#64748B' }}>
                   <div style={{ fontWeight: 700, color: '#334155', marginBottom: '4px' }}>Terms & Conditions:</div>
-                  <div style={{ whiteSpace: 'pre-line', lineHeight: 1.45 }}>{terms}</div>
+                  <div style={{ whiteSpace: 'pre-line', lineHeight: 1.45 }}>{DEFAULT_TERMS}</div>
                 </div>
 
                 <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end' }}>
-                  {signatureImage ? (
-                    <img src={signatureImage} alt="Official Seal" style={{ height: '48px', marginBottom: '6px' }} />
-                  ) : (
-                    <div
-                      style={{
-                        width: '120px',
-                        height: '48px',
-                        borderBottom: '1px dashed #94A3B8',
-                        marginBottom: '6px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: '#94A3B8',
-                        fontSize: '0.72rem',
-                        fontStyle: 'italic',
-                      }}
-                    >
-                      [Seal & Signature]
-                    </div>
-                  )}
+                  <div
+                    style={{
+                      width: '130px',
+                      height: '44px',
+                      borderBottom: '1px dashed #94A3B8',
+                      marginBottom: '6px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#94A3B8',
+                      fontSize: '0.72rem',
+                      fontStyle: 'italic',
+                    }}
+                  >
+                    [Seal & Signature]
+                  </div>
                   <div style={{ fontSize: '0.76rem', fontWeight: 800, color: '#0F172A' }}>
                     For APEX MOTORS PVT LTD
                   </div>

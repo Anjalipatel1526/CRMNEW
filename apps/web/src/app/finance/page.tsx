@@ -460,14 +460,13 @@ export default function FinancePage() {
         </div>
       )}
 
-      {/* Create Document / Invoice Modal (Matching Inspo Image 2 & 3 with Watermark, PDF download, and Social Sharing) */}
+      {/* Create Document / Invoice Modal */}
       {isPaymentModalOpen && (
         <Modal
           isOpen={isPaymentModalOpen}
           onClose={() => setIsPaymentModalOpen(false)}
-          title=""
-          headerContent={<div style={{ display: 'none' }} />}
-          maxWidth="860px"
+          title="Create Document / Invoice"
+          maxWidth="840px"
         >
           <InvoiceDocumentGenerator
             onClose={() => setIsPaymentModalOpen(false)}
