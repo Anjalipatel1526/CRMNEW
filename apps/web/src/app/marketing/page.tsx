@@ -23,24 +23,7 @@ export default function MarketingPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>(api.getCampaigns());
   const [isCampaignModalOpen, setIsCampaignModalOpen] = useState(false);
 
-  const referrals = [
-    {
-      code: 'REF-RAJESH-10',
-      referrer: 'Rajesh Sharma',
-      referredCustomer: 'Amit Deshmukh',
-      reward: 10000,
-      status: 'converted',
-      rewardPaid: true,
-    },
-    {
-      code: 'REF-PRIYA-05',
-      referrer: 'Priya Nair',
-      referredCustomer: 'Sneha Patel',
-      reward: 7500,
-      status: 'contacted',
-      rewardPaid: false,
-    },
-  ];
+  const [referrals, setReferrals] = useState<any[]>([]);
 
   return (
     <div>
@@ -62,22 +45,22 @@ export default function MarketingPage() {
       <div className="grid-3">
         <StatCard
           title="Active WhatsApp Campaigns"
-          value="1 Campaign"
-          sub="420 delivered • 16.2% response rate"
+          value={`${campaigns.length} Campaigns`}
+          sub="0 delivered • 0% response rate"
           icon={<MessageSquare size={18} />}
           accentColor="violet"
         />
         <StatCard
           title="Customer Referrals Generated"
-          value="2 Referrals"
-          sub="₹17,500 total customer referral rewards"
+          value={`${referrals.length} Referrals`}
+          sub="₹0 total customer referral rewards"
           icon={<Share2 size={18} />}
           accentColor="indigo"
         />
         <StatCard
           title="Top Lead Channel"
-          value="Walk-in & Google"
-          sub="Highest conversion velocity to test drive"
+          value="Direct & Digital"
+          sub="Lead inquiry attribution channel"
           icon={<Target size={18} />}
           accentColor="blue"
         />
@@ -88,46 +71,59 @@ export default function MarketingPage() {
         <div className="card-header">
           <h2 className="card-title">Promotional Campaigns</h2>
         </div>
-        <div className="table-container" style={{ border: 'none', borderRadius: 0 }}>
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Campaign Name</th>
-                <th>Channel</th>
-                <th>Audience Segment</th>
-                <th>Sent Count</th>
-                <th>Delivered</th>
-                <th>Responses</th>
-                <th>Budget</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {campaigns.map((c) => (
-                <tr key={c.id}>
-                  <td>
-                    <strong style={{ color: 'var(--color-violet)' }}>{c.name}</strong>
-                  </td>
-                  <td>
-                    <span className="badge badge-violet" style={{ textTransform: 'uppercase' }}>
-                      {c.campaignType}
-                    </span>
-                  </td>
-                  <td>{c.targetAudience?.segment || 'Broad Audience'}</td>
-                  <td>{c.sentCount}</td>
-                  <td>{c.deliveredCount}</td>
-                  <td>
-                    <strong style={{ color: 'var(--color-green)' }}>{c.responseCount} leads</strong>
-                  </td>
-                  <td>₹{c.budget?.toLocaleString() || '0'}</td>
-                  <td>
-                    <StatusBadge status={c.status} />
-                  </td>
+        {campaigns.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '48px 24px' }}>
+            <MessageSquare size={36} style={{ color: 'var(--muted)', margin: '0 auto 12px' }} />
+            <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text)', marginBottom: '6px' }}>No Active Marketing Campaigns</h3>
+            <p style={{ fontSize: '0.82rem', color: 'var(--muted)', maxWidth: '400px', margin: '0 auto 16px' }}>
+              WhatsApp broadcast sequences and promotional campaigns will be managed here.
+            </p>
+            <button onClick={() => setIsCampaignModalOpen(true)} className="btn btn-primary btn-sm">
+              <Plus size={14} /> Launch First Campaign
+            </button>
+          </div>
+        ) : (
+          <div className="table-container" style={{ border: 'none', borderRadius: 0 }}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Campaign Name</th>
+                  <th>Channel</th>
+                  <th>Audience Segment</th>
+                  <th>Sent Count</th>
+                  <th>Delivered</th>
+                  <th>Responses</th>
+                  <th>Budget</th>
+                  <th>Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {campaigns.map((c) => (
+                  <tr key={c.id}>
+                    <td>
+                      <strong style={{ color: 'var(--color-violet)' }}>{c.name}</strong>
+                    </td>
+                    <td>
+                      <span className="badge badge-violet" style={{ textTransform: 'uppercase' }}>
+                        {c.campaignType}
+                      </span>
+                    </td>
+                    <td>{c.targetAudience?.segment || 'Broad Audience'}</td>
+                    <td>{c.sentCount}</td>
+                    <td>{c.deliveredCount}</td>
+                    <td>
+                      <strong style={{ color: 'var(--color-green)' }}>{c.responseCount} leads</strong>
+                    </td>
+                    <td>₹{c.budget?.toLocaleString() || '0'}</td>
+                    <td>
+                      <StatusBadge status={c.status} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Referrals Section */}
@@ -135,46 +131,56 @@ export default function MarketingPage() {
         <div className="card-header">
           <h2 className="card-title">Customer Referral Program Tracking</h2>
         </div>
-        <div className="table-container" style={{ border: 'none', borderRadius: 0 }}>
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Referral Code</th>
-                <th>Advocate Customer</th>
-                <th>Referred Prospect</th>
-                <th>Reward Amount</th>
-                <th>Conversion Stage</th>
-                <th>Reward Disbursed</th>
-              </tr>
-            </thead>
-            <tbody>
-              {referrals.map((r, idx) => (
-                <tr key={idx}>
-                  <td>
-                    <strong style={{ fontFamily: 'monospace', color: 'var(--color-indigo)' }}>{r.code}</strong>
-                  </td>
-                  <td>
-                    <strong>{r.referrer}</strong>
-                  </td>
-                  <td>{r.referredCustomer}</td>
-                  <td>
-                    <strong>₹{r.reward.toLocaleString()}</strong>
-                  </td>
-                  <td>
-                    <StatusBadge status={r.status} />
-                  </td>
-                  <td>
-                    {r.rewardPaid ? (
-                      <span className="badge badge-green">Paid</span>
-                    ) : (
-                      <span className="badge badge-orange">Pending Delivery</span>
-                    )}
-                  </td>
+        {referrals.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '48px 24px' }}>
+            <Share2 size={36} style={{ color: 'var(--muted)', margin: '0 auto 12px' }} />
+            <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text)', marginBottom: '6px' }}>No Customer Referrals Yet</h3>
+            <p style={{ fontSize: '0.82rem', color: 'var(--muted)', maxWidth: '400px', margin: '0 auto' }}>
+              Customer referral vouchers, advocate rewards, and lead conversions will be logged here.
+            </p>
+          </div>
+        ) : (
+          <div className="table-container" style={{ border: 'none', borderRadius: 0 }}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Referral Code</th>
+                  <th>Advocate Customer</th>
+                  <th>Referred Prospect</th>
+                  <th>Reward Amount</th>
+                  <th>Conversion Stage</th>
+                  <th>Reward Disbursed</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {referrals.map((r, idx) => (
+                  <tr key={idx}>
+                    <td>
+                      <strong style={{ fontFamily: 'monospace', color: 'var(--color-indigo)' }}>{r.code}</strong>
+                    </td>
+                    <td>
+                      <strong>{r.referrer}</strong>
+                    </td>
+                    <td>{r.referredCustomer}</td>
+                    <td>
+                      <strong>₹{r.reward.toLocaleString()}</strong>
+                    </td>
+                    <td>
+                      <StatusBadge status={r.status} />
+                    </td>
+                    <td>
+                      {r.rewardPaid ? (
+                        <span className="badge badge-green">Paid</span>
+                      ) : (
+                        <span className="badge badge-orange">Pending Delivery</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Launch Campaign Modal */}

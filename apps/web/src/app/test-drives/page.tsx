@@ -210,7 +210,59 @@ export default function TestDrivesPage() {
 
       {/* Test Drives Cards */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        {filtered.map((td) => (
+        {filtered.length === 0 ? (
+          <div
+            style={{
+              padding: '60px 24px',
+              textAlign: 'center',
+              backgroundColor: '#FFFFFF',
+              borderRadius: '16px',
+              border: '1.5px dashed #CBD5E1',
+            }}
+          >
+            <div
+              style={{
+                width: '56px',
+                height: '56px',
+                borderRadius: '50%',
+                backgroundColor: 'rgba(30,68,59,0.08)',
+                color: '#1E443B',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '1.6rem',
+                margin: '0 auto 16px',
+              }}
+            >
+              🚗
+            </div>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0F172A', marginBottom: '6px' }}>
+              No Test Drives Scheduled Yet
+            </h3>
+            <p style={{ fontSize: '0.85rem', color: '#64748B', maxWidth: '420px', margin: '0 auto 20px' }}>
+              Schedule customer test drives, assign vehicle inventory, record odometer readings, gate passes, and customer feedback.
+            </p>
+            <button
+              onClick={() => setIsAddModalOpen(true)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '10px 20px',
+                backgroundColor: '#1E443B',
+                color: '#FFFFFF',
+                borderRadius: '10px',
+                fontWeight: 700,
+                fontSize: '0.85rem',
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              <span>+</span> Schedule First Test Drive
+            </button>
+          </div>
+        ) : (
+          filtered.map((td) => (
           <div
             key={td.id}
             style={{
@@ -382,7 +434,8 @@ export default function TestDrivesPage() {
               </div>
             )}
           </div>
-        ))}
+        ))
+      )}
       </div>
 
       {/* Schedule Test Drive Modal */}

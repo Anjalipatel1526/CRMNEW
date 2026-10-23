@@ -33,265 +33,71 @@ import {
   Mail,
   MapPin,
   Edit3,
+  Flame,
 } from 'lucide-react';
 import { Customer, Lead } from '@crm/shared-types';
 
 import { WordFadeIn } from '@/components/ui/WordFadeIn';
 
-const AUDIT_LOG_EVENTS = [
-  {
-    id: 'aud-01',
-    title: 'KYC Form 20 e-Verification Completed',
-    description: 'NSDL PAN & Aadhaar e-Sign verified for Rajesh Sharma (Individual Retail Client)',
-    actor: 'Vikram Singhania',
-    role: 'Tenant Admin · IP 192.168.1.42',
-    timeAgo: '6 mins ago',
-    type: 'kyc',
-    badge: { label: 'KYC Verified', bg: '#DCFCE7', color: '#15803D', border: 'rgba(22, 163, 74, 0.28)' },
-    icon: <ShieldCheck size={16} />,
-  },
-  {
-    id: 'aud-02',
-    title: 'Token Advance Deposit Receipted',
-    description: '₹2,50,000 RTGS advance reconciled for Deal #DL-2024-001 (Mahindra XUV700 AX7L)',
-    actor: 'Priya Patil',
-    role: 'Accounts Desk · UTR: HDFC2024991823',
-    timeAgo: '24 mins ago',
-    type: 'payment',
-    badge: { label: 'Bank Settled', bg: '#E0F2FE', color: '#0369A1', border: 'rgba(2, 132, 199, 0.28)' },
-    icon: <Receipt size={16} />,
-  },
-  {
-    id: 'aud-03',
-    title: 'Pipeline Stage Advanced: Qualified → Negotiation',
-    description: 'Priya Nair advanced to Negotiation after 45-min highway ADAS test drive demo',
-    actor: 'John Fernandes',
-    role: 'Senior Sales · Downtown Flagship',
-    timeAgo: '1 hr ago',
-    type: 'pipeline',
-    badge: { label: 'Stage Advanced', bg: '#F5F3FF', color: '#6D28D9', border: 'rgba(124, 58, 237, 0.28)' },
-    icon: <TrendingUp size={16} />,
-  },
-  {
-    id: 'aud-04',
-    title: '140-Point Pre-Delivery Technical Sign-Off',
-    description: 'PDI technical certification issued for Tata Safari Gold+ (#TATASAFDARK2024102)',
-    actor: 'Sarah Dsouza',
-    role: 'Chief Engineer · Workshop Bay #3',
-    timeAgo: '2 hrs ago',
-    type: 'pdi',
-    badge: { label: 'PDI 140/140', bg: '#CCFBF1', color: '#0F766E', border: 'rgba(13, 148, 136, 0.28)' },
-    icon: <CheckCircle2 size={16} />,
-  },
-  {
-    id: 'aud-05',
-    title: 'Special Margin Concession Authorized',
-    description: 'Branch festive concession of ₹25,000 sanctioned for Hyundai Creta SX Knight Edition',
-    actor: 'Kavita Chawla',
-    role: 'Branch Manager · Westside Automall',
-    timeAgo: '3 hrs ago',
-    type: 'price',
-    badge: { label: 'Authorized', bg: '#FEF3C7', color: '#B45309', border: 'rgba(217, 119, 6, 0.28)' },
-    icon: <Tag size={16} />,
-  },
-  {
-    id: 'aud-06',
-    title: 'Stockyard Vehicle Inward Allotment',
-    description: 'Shipment VIN #MALC851CLPM101901 registered into Central Inventory Stock repository',
-    actor: 'Sunil Rawat',
-    role: 'Yard Supervisor · Gate Inward #401',
-    timeAgo: '4 hrs ago',
-    type: 'stock',
-    badge: { label: 'Stock Registered', bg: '#EEF2FF', color: '#4338CA', border: 'rgba(79, 70, 229, 0.28)' },
-    icon: <Truck size={16} />,
-  },
-];
+export interface HotDeal {
+  id: string;
+  dealNumber: string;
+  vehicle: string;
+  variant: string;
+  vin: string;
+  fuel: string;
+  transmission: string;
+  color: string;
+  customer: string;
+  phone: string;
+  email: string;
+  city: string;
+  advisor: string;
+  branch: string;
+  value: number;
+  basePrice: number;
+  rtoRoadTax: number;
+  insurance: number;
+  accessories: number;
+  tokenPaid: number;
+  loanApproved: number;
+  financier: string;
+  balanceDue: number;
+  prob: number;
+  date: string;
+  stages: string[];
+  currentStage: number;
+  gateDetails: { name: string; status: string; date: string; note: string }[];
+  avatars: { text: string; bg: string; color?: string }[];
+}
+
+const AUDIT_LOG_EVENTS: any[] = [];
 
 const REVENUE_DATA_12M = [
-  { month: 'Nov', revenue: 142000, target: 156700 },
-  { month: 'Dec', revenue: 168000, target: 156700 },
-  { month: 'Jan', revenue: 152000, target: 156700 },
-  { month: 'Feb', revenue: 174000, target: 156700 },
-  { month: 'Mar', revenue: 188000, target: 156700 },
-  { month: 'Apr', revenue: 138000, target: 156700 },
-  { month: 'May', revenue: 165000, target: 156700 },
-  { month: 'Jun', revenue: 178000, target: 156700 },
-  { month: 'Jul', revenue: 145000, target: 156700 },
-  { month: 'Aug', revenue: 190000, target: 156700 },
-  { month: 'Sep', revenue: 182000, target: 156700 },
-  { month: 'Oct', revenue: 196000, target: 156700 },
+  { month: 'Nov', revenue: 0, target: 150000 },
+  { month: 'Dec', revenue: 0, target: 150000 },
+  { month: 'Jan', revenue: 0, target: 150000 },
+  { month: 'Feb', revenue: 0, target: 150000 },
+  { month: 'Mar', revenue: 0, target: 150000 },
+  { month: 'Apr', revenue: 0, target: 150000 },
+  { month: 'May', revenue: 0, target: 150000 },
+  { month: 'Jun', revenue: 0, target: 150000 },
+  { month: 'Jul', revenue: 0, target: 150000 },
+  { month: 'Aug', revenue: 0, target: 150000 },
+  { month: 'Sep', revenue: 0, target: 150000 },
+  { month: 'Oct', revenue: 0, target: 150000 },
 ];
 
 const REVENUE_DATA_6M = [
-  { month: 'May', revenue: 165000, target: 156700 },
-  { month: 'Jun', revenue: 178000, target: 156700 },
-  { month: 'Jul', revenue: 145000, target: 156700 },
-  { month: 'Aug', revenue: 190000, target: 156700 },
-  { month: 'Sep', revenue: 182000, target: 156700 },
-  { month: 'Oct', revenue: 196000, target: 156700 },
+  { month: 'May', revenue: 0, target: 150000 },
+  { month: 'Jun', revenue: 0, target: 150000 },
+  { month: 'Jul', revenue: 0, target: 150000 },
+  { month: 'Aug', revenue: 0, target: 150000 },
+  { month: 'Sep', revenue: 0, target: 150000 },
+  { month: 'Oct', revenue: 0, target: 150000 },
 ];
 
-const HOT_DEALS = [
-  {
-    id: 'hd-1',
-    dealNumber: 'DL-2024-001',
-    vehicle: 'Mahindra XUV700 AX7L',
-    variant: 'Diesel AWD Luxury (7-Seater)',
-    vin: 'MAH700AX7L20240981',
-    fuel: 'Diesel mHawk 2.2L',
-    transmission: 'Automatic 6-Speed',
-    color: 'Midnight Black Metallic',
-    customer: 'Vikram Singhania',
-    phone: '+91 98201 44552',
-    email: 'vikram.singhania@apexcorp.in',
-    city: 'Mumbai, Maharashtra',
-    advisor: 'Rajesh Patil (Senior Sales Desk)',
-    branch: 'Downtown Flagship',
-    value: 2480000,
-    basePrice: 2050000,
-    rtoRoadTax: 246000,
-    insurance: 94000,
-    accessories: 45000,
-    tokenPaid: 250000,
-    loanApproved: 2000000,
-    financier: 'HDFC Bank Auto Loan (8.25% p.a.)',
-    balanceDue: 230000,
-    prob: 95,
-    date: 'Closes Oct 27',
-    stages: ['Token Paid', 'KYC Verified', 'Loan Sanctioned', 'PDI Passed', 'Ready for Delivery'],
-    currentStage: 3,
-    gateDetails: [
-      { name: 'Booking Token Paid', status: 'cleared', date: '2026-10-14', note: '₹2,50,000 via NEFT received & receipted' },
-      { name: 'KYC & Form 20 Verification', status: 'cleared', date: '2026-10-16', note: 'PAN & Aadhaar e-verified, RTO draft generated' },
-      { name: 'Financier Loan Disbursal', status: 'cleared', date: '2026-10-19', note: 'HDFC Sanction Letter received for ₹20.0 Lakh' },
-      { name: '140-Point PDI Technical Inspection', status: 'cleared', date: '2026-10-21', note: 'Clearance certificate #PDI-8849 generated' },
-      { name: 'RTO Security Gate Pass & Handover', status: 'pending', date: '2026-10-27', note: 'Scheduled handover ceremony with ribbon kit' },
-    ],
-    avatars: [
-      { text: 'VS', bg: 'var(--tomato)' },
-      { text: 'AP', bg: 'var(--pine)' },
-    ],
-  },
-  {
-    id: 'hd-2',
-    dealNumber: 'DL-2024-002',
-    vehicle: 'Tata Safari Gold+',
-    variant: 'Dark Edition 6-Str Captain Seats',
-    vin: 'TATASAFDARK2024102',
-    fuel: 'Diesel Kryotec 2.0L',
-    transmission: 'Automatic 6-Speed',
-    color: 'Oberon Black Sheen',
-    customer: 'Amit Patel',
-    phone: '+91 99304 88120',
-    email: 'amit.patel@patelchem.com',
-    city: 'Ahmedabad / Mumbai',
-    advisor: 'Amit Patel (Branch Lead)',
-    branch: 'Westside Depot',
-    value: 2550000,
-    basePrice: 2110000,
-    rtoRoadTax: 252000,
-    insurance: 98000,
-    accessories: 50000,
-    tokenPaid: 300000,
-    loanApproved: 2000000,
-    financier: 'State Bank of India (Car Prime)',
-    balanceDue: 250000,
-    prob: 90,
-    date: 'Closes Nov 15',
-    stages: ['Token Paid', 'KYC Verified', 'Loan Sanctioned', 'PDI Passed', 'Ready for Delivery'],
-    currentStage: 3,
-    gateDetails: [
-      { name: 'Booking Token Paid', status: 'cleared', date: '2026-10-15', note: '₹3,00,000 advance RTGS received' },
-      { name: 'KYC & Form 20 Verification', status: 'cleared', date: '2026-10-17', note: 'GST invoice matching company PAN verified' },
-      { name: 'Financier Loan Disbursal', status: 'cleared', date: '2026-10-20', note: 'SBI auto loan disbursal release processed' },
-      { name: '140-Point PDI Technical Inspection', status: 'in_progress', date: '2026-10-22', note: 'Accessory fitment in workshop bay #2' },
-      { name: 'RTO Security Gate Pass & Handover', status: 'pending', date: '2026-11-15', note: 'Scheduled handover ceremony' },
-    ],
-    avatars: [
-      { text: 'AP', bg: 'var(--color-blue)' },
-      { text: 'RK', bg: 'var(--violet)' },
-    ],
-  },
-  {
-    id: 'hd-3',
-    dealNumber: 'DL-2024-003',
-    vehicle: 'Hyundai Creta SX',
-    variant: '1.5L Turbo Petrol DCT Knight Edition',
-    vin: 'HYUNCRETAS2024551',
-    fuel: 'Petrol Turbo GDi',
-    transmission: '7-Speed Dual Clutch (DCT)',
-    color: 'Titan Grey Matte',
-    customer: 'Priya Sharma',
-    phone: '+91 98450 12890',
-    email: 'priya.sharma@techventures.io',
-    city: 'Bengaluru / Pune',
-    advisor: 'Priya Sharma (Fleet Manager)',
-    branch: 'Flagship Hub',
-    value: 1890000,
-    basePrice: 1580000,
-    rtoRoadTax: 188000,
-    insurance: 72000,
-    accessories: 35000,
-    tokenPaid: 200000,
-    loanApproved: 1500000,
-    financier: 'ICICI Bank Custom Auto Plan',
-    balanceDue: 190000,
-    prob: 85,
-    date: 'Closes Nov 21',
-    stages: ['Token Paid', 'KYC Verified', 'Loan Sanctioned', 'PDI Passed', 'Ready for Delivery'],
-    currentStage: 2,
-    gateDetails: [
-      { name: 'Booking Token Paid', status: 'cleared', date: '2026-10-18', note: '₹2,00,000 paid via netbanking' },
-      { name: 'KYC & Form 20 Verification', status: 'cleared', date: '2026-10-20', note: 'Aadhaar e-Sign KYC completed' },
-      { name: 'Financier Loan Disbursal', status: 'in_progress', date: '2026-10-22', note: 'Awaiting final bank disbursement release' },
-      { name: '140-Point PDI Technical Inspection', status: 'pending', date: '2026-11-10', note: 'Yard allotment scheduled' },
-      { name: 'RTO Security Gate Pass & Handover', status: 'pending', date: '2026-11-21', note: 'Customer scheduled delivery' },
-    ],
-    avatars: [
-      { text: 'PS', bg: 'var(--butter)', color: '#17191a' },
-      { text: 'VS', bg: 'var(--pine)' },
-    ],
-  },
-  {
-    id: 'hd-4',
-    dealNumber: 'DL-2024-004',
-    vehicle: 'Honda City ZX',
-    variant: 'e:HEV Hybrid Electric Sedan',
-    vin: 'HONDACITY2024883',
-    fuel: 'Hybrid (Petrol + EV Dual Motor)',
-    transmission: 'e-CVT Automatic',
-    color: 'Platinum White Pearl',
-    customer: 'Rajesh Nair',
-    phone: '+91 97110 33499',
-    email: 'rajesh.nair@nairglobal.com',
-    city: 'Kochi / Mumbai',
-    advisor: 'Rajesh Nair (Showroom Specialist)',
-    branch: 'Downtown Flagship',
-    value: 1520000,
-    basePrice: 1280000,
-    rtoRoadTax: 135000,
-    insurance: 62000,
-    accessories: 32000,
-    tokenPaid: 1520000,
-    loanApproved: 0,
-    financier: '100% Self Financed (Full Cashier Receipt Cleared)',
-    balanceDue: 0,
-    prob: 100,
-    date: 'Closes Nov 28',
-    stages: ['Token Paid', 'KYC Verified', 'Payment Cleared', 'PDI Passed', 'Ready for Delivery'],
-    currentStage: 4,
-    gateDetails: [
-      { name: 'Booking Token Paid', status: 'cleared', date: '2026-10-10', note: 'Full on-road payment cleared ₹15.20 Lakh' },
-      { name: 'KYC & Form 20 Verification', status: 'cleared', date: '2026-10-12', note: 'RTO registration number MH-02-CP-8902 allotted' },
-      { name: 'Payment Settlement', status: 'cleared', date: '2026-10-14', note: 'Zero balance due, 100% receipt settled' },
-      { name: '140-Point PDI Technical Inspection', status: 'cleared', date: '2026-10-18', note: 'Ceramic coating & accessories applied' },
-      { name: 'RTO Security Gate Pass & Handover', status: 'cleared', date: '2026-10-22', note: 'Security gate clearance pass issued' },
-    ],
-    avatars: [
-      { text: 'RN', bg: 'var(--pine)' },
-    ],
-  },
-];
+const HOT_DEALS: HotDeal[] = [];
 
 export default function DashboardPage() {
   const [vehicles] = useState(api.getVehicles());
@@ -303,7 +109,7 @@ export default function DashboardPage() {
   const [selectedYear, setSelectedYear] = useState('2026');
   const [selectedMonth, setSelectedMonth] = useState('all');
   const [selectedDate, setSelectedDate] = useState('2026-10-22');
-  const [selectedDeal, setSelectedDeal] = useState<typeof HOT_DEALS[0] | null>(null);
+  const [selectedDeal, setSelectedDeal] = useState<HotDeal | null>(null);
   const [selectedLeadCustomer, setSelectedLeadCustomer] = useState<{
     lead: Lead;
     customer?: Customer;
@@ -338,16 +144,11 @@ export default function DashboardPage() {
   }, [selectedMonth]);
 
   const activeWonTotal = useMemo(() => {
-    if (selectedMonth !== 'all') {
-      const found = REVENUE_DATA_12M.find(
-        (d) => d.month.toLowerCase() === selectedMonth.toLowerCase()
-      );
-      return found ? `₹${(found.revenue).toLocaleString('en-IN')}` : '₹1,96,000';
-    }
-    if (selectedYear === '2025') return '₹894,200';
-    if (selectedYear === '2024') return '₹720,000';
-    return '₹1,014,640';
-  }, [selectedMonth, selectedYear]);
+    const won = deals
+      .filter((d) => d.stage === 'delivered')
+      .reduce((sum, d) => sum + d.grandTotal, 0);
+    return `₹${won.toLocaleString('en-IN')}`;
+  }, [deals]);
 
   const targetMetCount = activeRevenueData.filter(d => d.revenue >= d.target).length;
 
@@ -370,12 +171,12 @@ export default function DashboardPage() {
 
         {/* Horizontal Stat Capsules */}
         <div className="hero-stats-row">
-          {/* Stat 1: Won This Month (Removed trophy icon as requested) */}
+          {/* Stat 1: Won This Month */}
           <div className="hero-stat-badge">
             <div className="hero-stat-content">
               <div className="hero-stat-value">
-                ₹1,12,560
-                <span className="hero-stat-tag">+18% vs last month</span>
+                {activeWonTotal}
+                <span className="hero-stat-tag">{deals.filter((d) => d.stage === 'delivered').length} deals closed</span>
               </div>
               <div className="hero-stat-label">Won this month</div>
             </div>
@@ -390,7 +191,7 @@ export default function DashboardPage() {
               <div className="hero-stat-value">
                 ₹{(totalDealValue / 100000).toFixed(2)} Lakh
               </div>
-              <div className="hero-stat-label">Open pipeline</div>
+              <div className="hero-stat-label">Open pipeline ({deals.length} deals)</div>
             </div>
           </div>
 
@@ -400,7 +201,9 @@ export default function DashboardPage() {
               <Clock size={20} style={{ color: 'var(--tomato)' }} />
             </div>
             <div className="hero-stat-content">
-              <div className="hero-stat-value">75%</div>
+              <div className="hero-stat-value">
+                {deals.length > 0 ? `${Math.round((deals.filter((d) => d.stage === 'delivered').length / deals.length) * 100)}%` : '0%'}
+              </div>
               <div className="hero-stat-label">Win rate, closed deals</div>
             </div>
           </div>
@@ -676,101 +479,129 @@ export default function DashboardPage() {
 
           {/* Unique Hot Deals Grid */}
           <div className="unique-deals-grid">
-            {HOT_DEALS.map((deal) => {
-              const strokeDash = `${deal.prob}, 100`;
-              const strokeColor =
-                deal.prob >= 95 ? '#1E443B' :
-                deal.prob >= 90 ? '#26554A' :
-                deal.prob >= 85 ? '#0F766E' : '#C8431F';
-
-              return (
-                <div
-                  key={deal.id}
-                  className="unique-deal-card"
-                  onClick={() => setSelectedDeal(deal)}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      setSelectedDeal(deal);
-                    }
-                  }}
-                  title="Click to view full deal dossier & gate clearances at centre of the page"
-                >
-                  {/* Top Status & Date (Clean metadata, no Show Details button) */}
-                  <div className="unique-deal-header">
-                    <span className="unique-deal-tag">Deal #{deal.dealNumber}</span>
-                    <span className="unique-deal-date">
-                      <Clock size={12} /> {deal.date}
-                    </span>
-                  </div>
-
-                  {/* Body: Vehicle Info + Radial Probability Dial */}
-                  <div className="unique-deal-body">
-                    <div className="unique-deal-info">
-                      <div className="unique-deal-title">{deal.vehicle}</div>
-                      <div className="unique-deal-sub">{deal.customer} · {deal.branch}</div>
-                    </div>
-
-                    {/* Radial Dial */}
-                    <div className="unique-dial-wrap" title={`Closing Probability: ${deal.prob}%`}>
-                      <svg viewBox="0 0 36 36" className="unique-dial-svg">
-                        <path
-                          d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                          fill="none"
-                          stroke="rgba(30, 68, 59, 0.12)"
-                          strokeWidth="3.2"
-                        />
-                        <path
-                          d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                          fill="none"
-                          stroke={strokeColor}
-                          strokeWidth="3.2"
-                          strokeDasharray={strokeDash}
-                          strokeLinecap="round"
-                        />
-                      </svg>
-                      <span className="unique-dial-pct">{deal.prob}%</span>
-                    </div>
-                  </div>
-
-                  {/* Sleek Slender 5-Segment Progress Bar (Replaced clumsy wrapped stage pills) */}
-                  <div className="unique-deal-progress-wrap">
-                    <div className="unique-deal-progress-bars">
-                      {[0, 1, 2, 3, 4].map((step) => (
-                        <div
-                          key={step}
-                          className={`unique-deal-progress-seg ${step < deal.currentStage ? 'filled' : ''}`}
-                        />
-                      ))}
-                    </div>
-                    <div className="unique-deal-stage-label">
-                      <span className="unique-stage-dot" />
-                      Gate {deal.currentStage} of 5: {deal.stages[deal.currentStage - 1] || 'In Progress'}
-                    </div>
-                  </div>
-
-                  {/* Footer: Value + Avatars */}
-                  <div className="unique-deal-footer">
-                    <div>
-                      <div className="unique-deal-value">₹{(deal.value).toLocaleString('en-IN')}</div>
-                    </div>
-                    <div className="unique-deal-avatars">
-                      {deal.avatars.map((av, avIdx) => (
-                        <div
-                          key={avIdx}
-                          className="unique-deal-avatar"
-                          style={{ backgroundColor: av.bg, color: av.color || '#FFFFFF' }}
-                        >
-                          {av.text}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+            {HOT_DEALS.length === 0 ? (
+              <div
+                style={{
+                  gridColumn: '1 / -1',
+                  textAlign: 'center',
+                  padding: '48px 24px',
+                  background: 'var(--float)',
+                  borderRadius: '16px',
+                  border: '1px dashed var(--line)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '10px',
+                }}
+              >
+                <Flame size={32} style={{ color: 'var(--tomato)', opacity: 0.7 }} />
+                <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text)' }}>
+                  No Hot Deals Active
                 </div>
-              );
-            })}
+                <div style={{ fontSize: '0.82rem', color: 'var(--muted)', maxWidth: '400px' }}>
+                  High-probability negotiation deals and gate clearance dossiers will appear here as deals progress.
+                </div>
+                <Link href="/sales/deals" className="btn btn-secondary btn-sm" style={{ marginTop: '4px' }}>
+                  View All Deals Pipeline
+                </Link>
+              </div>
+            ) : (
+              HOT_DEALS.map((deal) => {
+                const strokeDash = `${deal.prob}, 100`;
+                const strokeColor =
+                  deal.prob >= 95 ? '#1E443B' :
+                  deal.prob >= 90 ? '#26554A' :
+                  deal.prob >= 85 ? '#0F766E' : '#C8431F';
+
+                return (
+                  <div
+                    key={deal.id}
+                    className="unique-deal-card"
+                    onClick={() => setSelectedDeal(deal)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setSelectedDeal(deal);
+                      }
+                    }}
+                    title="Click to view full deal dossier & gate clearances at centre of the page"
+                  >
+                    {/* Top Status & Date (Clean metadata, no Show Details button) */}
+                    <div className="unique-deal-header">
+                      <span className="unique-deal-tag">Deal #{deal.dealNumber}</span>
+                      <span className="unique-deal-date">
+                        <Clock size={12} /> {deal.date}
+                      </span>
+                    </div>
+
+                    {/* Body: Vehicle Info + Radial Probability Dial */}
+                    <div className="unique-deal-body">
+                      <div className="unique-deal-info">
+                        <div className="unique-deal-title">{deal.vehicle}</div>
+                        <div className="unique-deal-sub">{deal.customer} · {deal.branch}</div>
+                      </div>
+
+                      {/* Radial Dial */}
+                      <div className="unique-dial-wrap" title={`Closing Probability: ${deal.prob}%`}>
+                        <svg viewBox="0 0 36 36" className="unique-dial-svg">
+                          <path
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                            fill="none"
+                            stroke="rgba(30, 68, 59, 0.12)"
+                            strokeWidth="3.2"
+                          />
+                          <path
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                            fill="none"
+                            stroke={strokeColor}
+                            strokeWidth="3.2"
+                            strokeDasharray={strokeDash}
+                            strokeLinecap="round"
+                          />
+                        </svg>
+                        <span className="unique-dial-pct">{deal.prob}%</span>
+                      </div>
+                    </div>
+
+                    {/* Sleek Slender 5-Segment Progress Bar (Replaced clumsy wrapped stage pills) */}
+                    <div className="unique-deal-progress-wrap">
+                      <div className="unique-deal-progress-bars">
+                        {[0, 1, 2, 3, 4].map((step) => (
+                          <div
+                            key={step}
+                            className={`unique-deal-progress-seg ${step < deal.currentStage ? 'filled' : ''}`}
+                          />
+                        ))}
+                      </div>
+                      <div className="unique-deal-stage-label">
+                        <span className="unique-stage-dot" />
+                        Gate {deal.currentStage} of 5: {deal.stages[deal.currentStage - 1] || 'In Progress'}
+                      </div>
+                    </div>
+
+                    {/* Footer: Value + Avatars */}
+                    <div className="unique-deal-footer">
+                      <div>
+                        <div className="unique-deal-value">₹{(deal.value).toLocaleString('en-IN')}</div>
+                      </div>
+                      <div className="unique-deal-avatars">
+                        {deal.avatars.map((av, avIdx) => (
+                          <div
+                            key={avIdx}
+                            className="unique-deal-avatar"
+                            style={{ backgroundColor: av.bg, color: av.color || '#FFFFFF' }}
+                          >
+                            {av.text}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
       </div>
@@ -802,64 +633,72 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {leads.slice(0, 5).map((lead) => (
-                  <tr
-                    key={lead.id}
-                    style={{ cursor: 'pointer', transition: 'background 0.15s ease' }}
-                    onClick={() => handleSelectLeadCustomer(lead)}
-                  >
-                    <td>
-                      <div>
+                {leads.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} style={{ textAlign: 'center', padding: '36px 16px', color: 'var(--muted)', fontSize: '0.85rem' }}>
+                      No active sales leads. Click &ldquo;Sales Pipeline&rdquo; to add your first lead.
+                    </td>
+                  </tr>
+                ) : (
+                  leads.slice(0, 5).map((lead) => (
+                    <tr
+                      key={lead.id}
+                      style={{ cursor: 'pointer', transition: 'background 0.15s ease' }}
+                      onClick={() => handleSelectLeadCustomer(lead)}
+                    >
+                      <td>
+                        <div>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSelectLeadCustomer(lead);
+                            }}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              padding: 0,
+                              fontWeight: 700,
+                              color: 'var(--text)',
+                              cursor: 'pointer',
+                              textAlign: 'left',
+                              fontSize: '0.88rem',
+                            }}
+                          >
+                            {lead.customerName || 'Customer'}
+                          </button>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
+                            Source: {lead.source}
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <div style={{ fontWeight: 600 }}>{lead.preferredMake} {lead.preferredModel}</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
+                          Budget: ₹{((lead.budgetMin || 0) / 100000).toFixed(1)}L - ₹{((lead.budgetMax || 0) / 100000).toFixed(1)}L
+                        </div>
+                      </td>
+                      <td>
+                        <span className={`badge ${lead.status === 'converted' ? 'badge-green' : lead.status === 'negotiation' ? 'badge-amber' : 'badge-neutral'}`}>
+                          {lead.status.replace('_', ' ')}
+                        </span>
+                      </td>
+                      <td>
                         <button
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleSelectLeadCustomer(lead);
                           }}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            padding: 0,
-                            fontWeight: 700,
-                            color: 'var(--text)',
-                            cursor: 'pointer',
-                            textAlign: 'left',
-                            fontSize: '0.88rem',
-                          }}
+                          className="btn btn-secondary btn-sm"
+                          style={{ padding: '4px 11px', fontSize: '0.75rem', borderRadius: '999px' }}
                         >
-                          {lead.customerName || 'Customer'}
+                          View Card
                         </button>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
-                          Source: {lead.source}
-                        </div>
-                      </div>
-                    </td>
-                    <td>
-                      <div style={{ fontWeight: 600 }}>{lead.preferredMake} {lead.preferredModel}</div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
-                        Budget: ₹{((lead.budgetMin || 0) / 100000).toFixed(1)}L - ₹{((lead.budgetMax || 0) / 100000).toFixed(1)}L
-                      </div>
-                    </td>
-                    <td>
-                      <span className={`badge ${lead.status === 'converted' ? 'badge-green' : lead.status === 'negotiation' ? 'badge-amber' : 'badge-neutral'}`}>
-                        {lead.status.replace('_', ' ')}
-                      </span>
-                    </td>
-                    <td>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleSelectLeadCustomer(lead);
-                        }}
-                        className="btn btn-secondary btn-sm"
-                        style={{ padding: '4px 11px', fontSize: '0.75rem', borderRadius: '999px' }}
-                      >
-                        View Card
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -918,72 +757,90 @@ export default function DashboardPage() {
               paddingRight: '4px',
             }}
           >
-            {AUDIT_LOG_EVENTS.map((item) => (
+            {AUDIT_LOG_EVENTS.length === 0 ? (
               <div
-                key={item.id}
                 style={{
+                  textAlign: 'center',
+                  padding: '36px 16px',
+                  color: 'var(--muted)',
+                  fontSize: '0.85rem',
                   display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: '12px',
-                  padding: '12px 14px',
-                  borderRadius: '14px',
-                  background: 'var(--float)',
-                  border: '1px solid var(--line)',
-                  transition: 'background 0.15s ease, transform 0.15s ease',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '8px',
                 }}
               >
+                <ShieldCheck size={28} style={{ opacity: 0.5 }} />
+                <div>No compliance audit logs yet. System events will be recorded here automatically.</div>
+              </div>
+            ) : (
+              AUDIT_LOG_EVENTS.map((item) => (
                 <div
+                  key={item.id}
                   style={{
-                    width: '34px',
-                    height: '34px',
-                    minWidth: '34px',
-                    borderRadius: '10px',
-                    background: item.badge.bg,
-                    color: item.badge.color,
-                    border: `1px solid ${item.badge.border}`,
                     display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginTop: '2px',
-                    flexShrink: 0,
+                    alignItems: 'flex-start',
+                    gap: '12px',
+                    padding: '12px 14px',
+                    borderRadius: '14px',
+                    background: 'var(--float)',
+                    border: '1px solid var(--line)',
+                    transition: 'background 0.15s ease, transform 0.15s ease',
                   }}
                 >
-                  {item.icon}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '2px' }}>
-                    <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--text)' }}>
-                      {item.title}
+                  <div
+                    style={{
+                      width: '34px',
+                      height: '34px',
+                      minWidth: '34px',
+                      borderRadius: '10px',
+                      background: item.badge.bg,
+                      color: item.badge.color,
+                      border: `1px solid ${item.badge.border}`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginTop: '2px',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {item.icon}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '2px' }}>
+                      <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--text)' }}>
+                        {item.title}
+                      </div>
+                      <span style={{ fontSize: '0.72rem', color: 'var(--muted)', whiteSpace: 'nowrap' }}>
+                        {item.timeAgo}
+                      </span>
                     </div>
-                    <span style={{ fontSize: '0.72rem', color: 'var(--muted)', whiteSpace: 'nowrap' }}>
-                      {item.timeAgo}
-                    </span>
-                  </div>
-                  <div style={{ fontSize: '0.78rem', color: 'var(--text)', opacity: 0.85, lineHeight: 1.35, marginBottom: '4px' }}>
-                    {item.description}
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>
-                      By <strong style={{ color: 'var(--text)' }}>{item.actor}</strong> · {item.role}
-                    </span>
-                    <span
-                      style={{
-                        fontSize: '0.68rem',
-                        fontWeight: 700,
-                        padding: '1px 7px',
-                        borderRadius: '999px',
-                        background: item.badge.bg,
-                        color: item.badge.color,
-                        border: `1px solid ${item.badge.border}`,
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {item.badge.label}
-                    </span>
+                    <div style={{ fontSize: '0.78rem', color: 'var(--text)', opacity: 0.85, lineHeight: 1.35, marginBottom: '4px' }}>
+                      {item.description}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>
+                        By <strong style={{ color: 'var(--text)' }}>{item.actor}</strong> · {item.role}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: '0.68rem',
+                          fontWeight: 700,
+                          padding: '1px 7px',
+                          borderRadius: '999px',
+                          background: item.badge.bg,
+                          color: item.badge.color,
+                          border: `1px solid ${item.badge.border}`,
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {item.badge.label}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       </div>

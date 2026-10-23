@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
+import Link from 'next/link';
 import { api } from '@/lib/api-client';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Modal } from '@/components/ui/Modal';
@@ -583,6 +584,68 @@ export default function SettingsPage() {
             <Sparkles size={14} /> {modules.filter((m) => m.isPluggedIn).length} Modules Plugged In
           </span>
         </div>
+      </div>
+
+      {/* Company Profile & Onboarding Setup Banner */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '16px',
+          padding: '16px 20px',
+          background: 'linear-gradient(90deg, #1E443B 0%, #26554A 100%)',
+          borderRadius: '16px',
+          color: '#FFFFFF',
+          marginBottom: '20px',
+          boxShadow: '0 4px 15px rgba(30,68,59,0.15)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <div
+            style={{
+              width: '44px',
+              height: '44px',
+              borderRadius: '12px',
+              backgroundColor: 'rgba(255,255,255,0.15)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Building2 size={22} style={{ color: '#FFFFFF' }} />
+          </div>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: '0.96rem' }}>
+              Dealership Company Profile, Logo Watermark & Invoice Signatory
+            </div>
+            <div style={{ fontSize: '0.78rem', opacity: 0.85, marginTop: '2px' }}>
+              Configure company legal entity, GST/PAN credentials, upload logo for invoice watermarks, and draw authorized digital signature.
+            </div>
+          </div>
+        </div>
+
+        <Link
+          href="/onboarding"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '9px 18px',
+            backgroundColor: '#FFFFFF',
+            color: '#1E443B',
+            borderRadius: '10px',
+            fontWeight: 800,
+            fontSize: '0.82rem',
+            textDecoration: 'none',
+            boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          <Sparkles size={14} />
+          <span>Launch Onboarding Wizard →</span>
+        </Link>
       </div>
 
       {/* KPI Stats Row */}

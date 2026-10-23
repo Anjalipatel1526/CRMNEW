@@ -334,37 +334,77 @@ export default function AppointmentsPage() {
             gap: '12px',
           }}
         >
-          <div
-            style={{
-              width: '52px',
-              height: '52px',
-              borderRadius: '16px',
-              backgroundColor: '#F1F5F9',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#64748B',
-            }}
-          >
-            <CalendarIcon size={24} />
-          </div>
-          <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: '#0F172A' }}>
-            No matching appointments found
-          </h3>
-          <p style={{ margin: 0, fontSize: '0.84rem', color: '#64748B', maxWidth: '380px' }}>
-            We couldn&apos;t find any appointments matching &ldquo;{searchQuery}&rdquo;. Try adjusting your search query or reset the filters.
-          </p>
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={() => {
-              setSearchQuery('');
-              setActiveFilter('all');
-            }}
-            style={{ marginTop: '6px' }}
-          >
-            Clear Search & Filters
-          </button>
+          {appointments.length === 0 ? (
+            <>
+              <div
+                style={{
+                  width: '52px',
+                  height: '52px',
+                  borderRadius: '16px',
+                  backgroundColor: 'rgba(30,68,59,0.08)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#1E443B',
+                  fontSize: '1.5rem',
+                }}
+              >
+                📅
+              </div>
+              <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: '#0F172A' }}>
+                No Appointments Scheduled Yet
+              </h3>
+              <p style={{ margin: 0, fontSize: '0.84rem', color: '#64748B', maxWidth: '400px' }}>
+                Your dealership calendar is clear. Schedule customer showroom visits, vehicle test drives, or service check-ins.
+              </p>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => {
+                  setEditingAptId(null);
+                  setFormData(emptyFormData);
+                  setIsModalOpen(true);
+                }}
+                style={{ marginTop: '6px' }}
+              >
+                <Plus size={16} /> Book First Appointment
+              </button>
+            </>
+          ) : (
+            <>
+              <div
+                style={{
+                  width: '52px',
+                  height: '52px',
+                  borderRadius: '16px',
+                  backgroundColor: '#F1F5F9',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#64748B',
+                }}
+              >
+                <CalendarIcon size={24} />
+              </div>
+              <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: '#0F172A' }}>
+                No matching appointments found
+              </h3>
+              <p style={{ margin: 0, fontSize: '0.84rem', color: '#64748B', maxWidth: '380px' }}>
+                We couldn&apos;t find any appointments matching &ldquo;{searchQuery}&rdquo;. Try adjusting your search query or reset the filters.
+              </p>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => {
+                  setSearchQuery('');
+                  setActiveFilter('all');
+                }}
+                style={{ marginTop: '6px' }}
+              >
+                Clear Search & Filters
+              </button>
+            </>
+          )}
         </div>
       )}
 

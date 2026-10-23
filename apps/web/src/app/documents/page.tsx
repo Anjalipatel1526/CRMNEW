@@ -23,53 +23,7 @@ import {
 import { WordFadeIn } from '@/components/ui/WordFadeIn';
 
 export default function DocumentsPage() {
-  const [documents, setDocuments] = useState([
-    {
-      id: 'doc-01',
-      title: 'Customer PAN Card',
-      entityName: 'Rajesh Sharma',
-      type: 'KYC Identity',
-      fileName: 'pan_rajesh_sharma.pdf',
-      status: 'verified',
-      uploadedAt: '2026-10-18',
-    },
-    {
-      id: 'doc-02',
-      title: 'Aadhaar Card Copy',
-      entityName: 'Rajesh Sharma',
-      type: 'Address Proof',
-      fileName: 'aadhaar_rajesh_masked.pdf',
-      status: 'verified',
-      uploadedAt: '2026-10-18',
-    },
-    {
-      id: 'doc-03',
-      title: 'HDFC Bank Loan Sanction Letter',
-      entityName: 'Deal DL-2024-001',
-      type: 'Finance Approval',
-      fileName: 'hdfc_loan_sanction_xuv.pdf',
-      status: 'verified',
-      uploadedAt: '2026-10-19',
-    },
-    {
-      id: 'doc-04',
-      title: '140-Point PDI Technical Sign-off',
-      entityName: 'Mahindra XUV700 (MALC851CLPM...)',
-      type: 'PDI Clearance',
-      fileName: 'pdi_report_approved.pdf',
-      status: 'verified',
-      uploadedAt: '2026-10-20',
-    },
-    {
-      id: 'doc-05',
-      title: 'Form 20 Registration Application',
-      entityName: 'RTO Andheri (MH-02)',
-      type: 'Statutory RTO',
-      fileName: 'form_20_signed.pdf',
-      status: 'under_review',
-      uploadedAt: '2026-10-20',
-    },
-  ]);
+  const [documents, setDocuments] = useState<any[]>([]);
 
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<any | null>(null);
@@ -136,22 +90,22 @@ export default function DocumentsPage() {
       <div className="grid-3" style={{ marginBottom: '20px' }}>
         <StatCard
           title="Verified Documents"
-          value="4 Documents"
+          value={`${documents.filter((d) => d.status === 'verified').length} Documents`}
           sub="Compliant with dealership audit rules"
           icon={<ShieldCheck size={18} />}
           accentColor="green"
         />
         <StatCard
           title="Pending Verification"
-          value="1 Document"
-          sub="RTO Form 20 awaiting RTO clerk review"
+          value={`${documents.filter((d) => d.status === 'under_review').length} Documents`}
+          sub="Statutory compliance review queue"
           icon={<AlertTriangle size={18} />}
           accentColor="orange"
         />
         <StatCard
           title="PDI Inspection Status"
-          value="100% Passed"
-          sub="Pre-Delivery Inspection cleared for delivery"
+          value={documents.some((d) => d.type?.includes('PDI')) ? "100% Passed" : "0 Files"}
+          sub="Pre-Delivery Inspection vault"
           icon={<FileCheck size={18} />}
           accentColor="teal"
         />
@@ -331,22 +285,35 @@ export default function DocumentsPage() {
             <FileText size={24} />
           </div>
           <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: '#0F172A' }}>
-            No matching compliance documents found
+            {documents.length === 0 ? 'No compliance documents in vault' : 'No matching compliance documents found'}
           </h3>
           <p style={{ margin: 0, fontSize: '0.84rem', color: '#64748B', maxWidth: '380px' }}>
-            We couldn&apos;t find any documents matching &ldquo;{searchQuery}&rdquo;. Try adjusting your search query or reset the filters.
+            {documents.length === 0
+              ? 'Upload customer KYC identity cards, Form 20 RTO copies, or loan sanction letters to begin.'
+              : `We couldn't find any documents matching "${searchQuery}". Try adjusting your search query or reset the filters.`}
           </p>
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={() => {
-              setSearchQuery('');
-              setActiveFilter('all');
-            }}
-            style={{ marginTop: '6px' }}
-          >
-            Clear Search & Filters
-          </button>
+          {documents.length === 0 ? (
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={() => setIsUploadModalOpen(true)}
+              style={{ marginTop: '6px' }}
+            >
+              <UploadCloud size={14} /> Upload First Document
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => {
+                setSearchQuery('');
+                setActiveFilter('all');
+              }}
+              style={{ marginTop: '6px' }}
+            >
+              Clear Search & Filters
+            </button>
+          )}
         </div>
       )}
 

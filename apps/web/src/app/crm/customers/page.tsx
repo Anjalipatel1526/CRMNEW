@@ -561,37 +561,76 @@ export default function CustomersPage() {
             gap: '12px',
           }}
         >
-          <div
-            style={{
-              width: '54px',
-              height: '54px',
-              borderRadius: '50%',
-              background: '#F1F5F9',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#64748B',
-            }}
-          >
-            <Search size={24} />
-          </div>
-          <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#0F172A' }}>
-            No matching customers found
-          </h3>
-          <p style={{ margin: 0, fontSize: '0.84rem', color: '#64748B', maxWidth: '380px' }}>
-            We couldn&apos;t find any customers matching &ldquo;{searchQuery}&rdquo;. Try adjusting your search query or reset the filters.
-          </p>
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={() => {
-              setSearchQuery('');
-              setActiveFilter('all');
-            }}
-            style={{ marginTop: '6px' }}
-          >
-            Clear Search & Filters
-          </button>
+          {customers.length === 0 ? (
+            <>
+              <div
+                style={{
+                  width: '54px',
+                  height: '54px',
+                  borderRadius: '50%',
+                  background: 'rgba(30,68,59,0.08)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#1E443B',
+                  fontSize: '1.5rem',
+                }}
+              >
+                👥
+              </div>
+              <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#0F172A' }}>
+                No Customers Added Yet
+              </h3>
+              <p style={{ margin: 0, fontSize: '0.84rem', color: '#64748B', maxWidth: '400px' }}>
+                Your customer directory is empty. Add individual retail buyers or corporate fleet clients to manage deals, quotations, and communications.
+              </p>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => {
+                  setSelectedCustomer(null);
+                  setIsModalOpen(true);
+                }}
+                style={{ marginTop: '6px' }}
+              >
+                <Plus size={16} /> Add First Customer
+              </button>
+            </>
+          ) : (
+            <>
+              <div
+                style={{
+                  width: '54px',
+                  height: '54px',
+                  borderRadius: '50%',
+                  background: '#F1F5F9',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#64748B',
+                }}
+              >
+                <Search size={24} />
+              </div>
+              <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#0F172A' }}>
+                No matching customers found
+              </h3>
+              <p style={{ margin: 0, fontSize: '0.84rem', color: '#64748B', maxWidth: '380px' }}>
+                We couldn&apos;t find any customers matching &ldquo;{searchQuery}&rdquo;. Try adjusting your search query or reset the filters.
+              </p>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => {
+                  setSearchQuery('');
+                  setActiveFilter('all');
+                }}
+                style={{ marginTop: '6px' }}
+              >
+                Clear Search & Filters
+              </button>
+            </>
+          )}
         </div>
       )}
 

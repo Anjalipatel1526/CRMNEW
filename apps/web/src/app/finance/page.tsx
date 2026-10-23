@@ -37,32 +37,8 @@ export default function FinancePage() {
   const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const [invoices, setInvoices] = useState([
-    {
-      id: 'inv-2024-001',
-      invoiceNumber: 'INV-2024-001',
-      customerName: 'Rajesh Sharma',
-      vehicleDetails: 'Mahindra XUV700 AX7L AWD (Midnight Black)',
-      amount: 2580000,
-      dueDate: '2026-10-25',
-      status: 'partially_paid',
-      method: 'bank_transfer',
-      referenceNumber: 'HDFC-RTGS-998231',
-      date: '2026-10-18',
-    },
-    {
-      id: 'inv-2024-002',
-      invoiceNumber: 'INV-2024-002',
-      customerName: 'Ananya Sengupta',
-      vehicleDetails: 'Tata Nexon EV — Periodic Maintenance',
-      amount: 12450,
-      dueDate: '2026-10-21',
-      status: 'settled',
-      method: 'upi',
-      referenceNumber: 'UPI-778899221144',
-      date: '2026-10-21',
-    },
-  ]);
+  const [invoices, setInvoices] = useState<any[]>([]);
+  const [expenses, setExpenses] = useState<any[]>([]);
 
   const handleSaveInvoice = (inv: any) => {
     const newPayment: Payment = {
@@ -158,14 +134,14 @@ export default function FinancePage() {
         />
         <StatCard
           title="Accounts Receivable (Pending)"
-          value="₹28.26 Lakh"
-          sub="Deal DL-2024-001 loan pending"
+          value="₹0.00 Lakh"
+          sub="No pending loans or receipts"
           icon={<Receipt size={18} />}
           accentColor="orange"
         />
         <StatCard
           title="Reconditioning Expenses"
-          value="₹45,000"
+          value="₹0"
           sub="Fleet touch-up and mechanical prep"
           icon={<CreditCard size={18} />}
           accentColor="indigo"
@@ -218,7 +194,7 @@ export default function FinancePage() {
               onClick={() => setActiveTab('invoices')}
             >
               <span>Invoices & Receivables</span>
-              <span className="pill-count">2</span>
+              <span className="pill-count">{invoices.length}</span>
             </button>
             <button
               type="button"
@@ -226,12 +202,12 @@ export default function FinancePage() {
               onClick={() => setActiveTab('expenses')}
             >
               <span>Dealership Expenses</span>
-              <span className="pill-count">2</span>
+              <span className="pill-count">{expenses.length}</span>
             </button>
           </div>
 
           <div className="search-results-counter">
-            Showing <strong>{activeTab === 'payments' ? filteredPayments.length : 2}</strong> records
+            Showing <strong>{activeTab === 'payments' ? filteredPayments.length : activeTab === 'invoices' ? invoices.length : expenses.length}</strong> records
           </div>
         </div>
       </div>
@@ -253,68 +229,90 @@ export default function FinancePage() {
           </div>
 
           <div className="app-cards-list">
-            {filteredPayments.map((p, index) => {
-              const palette = APP_CARD_PALETTES[index % APP_CARD_PALETTES.length];
-
-              return (
-                <div
-                  key={p.id}
-                  className="app-row-card"
-                  style={{
-                    ['--grid-cols' as any]: '2fr 1.3fr 1.6fr 1.8fr 1.4fr 1.1fr 130px',
-                    ['--theme-accent' as any]: palette.accent,
-                    ['--theme-border' as any]: palette.border,
-                    ['--theme-glow' as any]: palette.glow,
-                    ['--theme-badge-bg' as any]: palette.badgeBg,
-                    ['--theme-badge-text' as any]: palette.badgeText,
-                  }}
-                >
-                  <div className="app-row-cell-main">
-                    <div className="app-row-avatar">
-                      <Receipt size={18} />
-                    </div>
-                    <div className="app-row-title-wrap">
-                      <span className="app-row-title" style={{ color: palette.accent }}>{p.paymentNumber}</span>
-                      <span className="app-row-subtitle">{p.customerName}</span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <span style={{ textTransform: 'uppercase', fontSize: '0.74rem', fontWeight: 700, padding: '3px 8px', borderRadius: '6px', background: '#F1F5F9', color: '#334155' }}>
-                      {p.method}
-                    </span>
-                  </div>
-
-                  <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#16A34A' }}>
-                    ₹{p.amount.toLocaleString()}
-                  </div>
-
-                  <div style={{ fontSize: '0.78rem', fontFamily: 'monospace', color: '#475569' }}>
-                    {p.referenceNumber || 'CASH-SHOWROOM'}
-                  </div>
-
-                  <div style={{ fontSize: '0.82rem', color: '#64748B' }}>
-                    {new Date(p.settledAt || p.createdAt).toLocaleDateString()}
-                  </div>
-
-                  <div>
-                    <StatusBadge status={p.status} />
-                  </div>
-
-                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                    <button
-                      type="button"
-                      className="app-action-btn"
-                      onClick={() => setSelectedReceipt(p)}
-                      title="View payment receipt"
-                    >
-                      <span>Receipt</span>
-                      <ChevronRight size={13} />
-                    </button>
-                  </div>
+            {filteredPayments.length === 0 ? (
+              <div
+                style={{
+                  textAlign: 'center',
+                  padding: '48px 24px',
+                  background: '#FFFFFF',
+                  borderRadius: '16px',
+                  border: '1.5px dashed #CBD5E1',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}
+              >
+                <Receipt size={36} style={{ color: '#94A3B8' }} />
+                <div style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A' }}>No Payments or Receipts Recorded</div>
+                <div style={{ fontSize: '0.82rem', color: '#64748B', maxWidth: '400px' }}>
+                  Customer booking advances, tokens, and bank settlements will be listed here.
                 </div>
-              );
-            })}
+              </div>
+            ) : (
+              filteredPayments.map((p, index) => {
+                const palette = APP_CARD_PALETTES[index % APP_CARD_PALETTES.length];
+
+                return (
+                  <div
+                    key={p.id}
+                    className="app-row-card"
+                    style={{
+                      ['--grid-cols' as any]: '2fr 1.3fr 1.6fr 1.8fr 1.4fr 1.1fr 130px',
+                      ['--theme-accent' as any]: palette.accent,
+                      ['--theme-border' as any]: palette.border,
+                      ['--theme-glow' as any]: palette.glow,
+                      ['--theme-badge-bg' as any]: palette.badgeBg,
+                      ['--theme-badge-text' as any]: palette.badgeText,
+                    }}
+                  >
+                    <div className="app-row-cell-main">
+                      <div className="app-row-avatar">
+                        <Receipt size={18} />
+                      </div>
+                      <div className="app-row-title-wrap">
+                        <span className="app-row-title" style={{ color: palette.accent }}>{p.paymentNumber}</span>
+                        <span className="app-row-subtitle">{p.customerName}</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <span style={{ textTransform: 'uppercase', fontSize: '0.74rem', fontWeight: 700, padding: '3px 8px', borderRadius: '6px', background: '#F1F5F9', color: '#334155' }}>
+                        {p.method}
+                      </span>
+                    </div>
+
+                    <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#16A34A' }}>
+                      ₹{p.amount.toLocaleString()}
+                    </div>
+
+                    <div style={{ fontSize: '0.78rem', fontFamily: 'monospace', color: '#475569' }}>
+                      {p.referenceNumber || 'CASH-SHOWROOM'}
+                    </div>
+
+                    <div style={{ fontSize: '0.82rem', color: '#64748B' }}>
+                      {new Date(p.settledAt || p.createdAt).toLocaleDateString()}
+                    </div>
+
+                    <div>
+                      <StatusBadge status={p.status} />
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                      <button
+                        type="button"
+                        className="app-action-btn"
+                        onClick={() => setSelectedReceipt(p)}
+                        title="View payment receipt"
+                      >
+                        <span>Receipt</span>
+                        <ChevronRight size={13} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
       )}
@@ -336,52 +334,82 @@ export default function FinancePage() {
           </div>
 
           <div className="app-cards-list">
-            {invoices.map((inv, index) => {
-              const palette = APP_CARD_PALETTES[index % APP_CARD_PALETTES.length];
-
-              return (
-                <div
-                  key={inv.id}
-                  className="app-row-card"
-                  style={{
-                    ['--grid-cols' as any]: '1.8fr 2fr 2fr 1.6fr 1.4fr 1fr 120px',
-                    ['--theme-accent' as any]: palette.accent,
-                    ['--theme-border' as any]: palette.border,
-                    ['--theme-glow' as any]: palette.glow,
-                    ['--theme-badge-bg' as any]: palette.badgeBg,
-                    ['--theme-badge-text' as any]: palette.badgeText,
-                  }}
-                >
-                  <div className="app-row-cell-main">
-                    <div className="app-row-avatar">
-                      <FileText size={18} />
-                    </div>
-                    <div className="app-row-title-wrap">
-                      <span className="app-row-title" style={{ color: palette.accent }}>{inv.invoiceNumber}</span>
-                      <span className="app-row-subtitle">Tax Invoice</span>
-                    </div>
-                  </div>
-                  <div style={{ fontWeight: 600, fontSize: '0.88rem' }}>{inv.customerName}</div>
-                  <div style={{ fontSize: '0.84rem', color: '#475569' }}>{inv.vehicleDetails}</div>
-                  <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>₹{inv.amount.toLocaleString('en-IN')}</div>
-                  <div style={{ fontSize: '0.82rem', color: '#64748B' }}>{inv.dueDate}</div>
-                  <div>
-                    <StatusBadge status={inv.status as any} />
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                    <button
-                      type="button"
-                      className="app-action-btn"
-                      onClick={() => setSelectedInvoice(inv)}
-                      title="Inspect watermarked invoice"
-                    >
-                      <span>Invoice</span>
-                      <ChevronRight size={13} />
-                    </button>
-                  </div>
+            {invoices.length === 0 ? (
+              <div
+                style={{
+                  textAlign: 'center',
+                  padding: '48px 24px',
+                  background: '#FFFFFF',
+                  borderRadius: '16px',
+                  border: '1.5px dashed #CBD5E1',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}
+              >
+                <FileText size={36} style={{ color: '#94A3B8' }} />
+                <div style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A' }}>No GST Invoices Created</div>
+                <div style={{ fontSize: '0.82rem', color: '#64748B', maxWidth: '400px' }}>
+                  Generate vehicle delivery tax invoices and accounts receivable documents using &ldquo;Create Document / Invoice&rdquo;.
                 </div>
-              );
-            })}
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={() => setIsPaymentModalOpen(true)}
+                  style={{ marginTop: '6px' }}
+                >
+                  <Plus size={14} /> Create First Invoice
+                </button>
+              </div>
+            ) : (
+              invoices.map((inv, index) => {
+                const palette = APP_CARD_PALETTES[index % APP_CARD_PALETTES.length];
+
+                return (
+                  <div
+                    key={inv.id}
+                    className="app-row-card"
+                    style={{
+                      ['--grid-cols' as any]: '1.8fr 2fr 2fr 1.6fr 1.4fr 1fr 120px',
+                      ['--theme-accent' as any]: palette.accent,
+                      ['--theme-border' as any]: palette.border,
+                      ['--theme-glow' as any]: palette.glow,
+                      ['--theme-badge-bg' as any]: palette.badgeBg,
+                      ['--theme-badge-text' as any]: palette.badgeText,
+                    }}
+                  >
+                    <div className="app-row-cell-main">
+                      <div className="app-row-avatar">
+                        <FileText size={18} />
+                      </div>
+                      <div className="app-row-title-wrap">
+                        <span className="app-row-title" style={{ color: palette.accent }}>{inv.invoiceNumber}</span>
+                        <span className="app-row-subtitle">Tax Invoice</span>
+                      </div>
+                    </div>
+                    <div style={{ fontWeight: 600, fontSize: '0.88rem' }}>{inv.customerName}</div>
+                    <div style={{ fontSize: '0.84rem', color: '#475569' }}>{inv.vehicleDetails}</div>
+                    <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>₹{inv.amount.toLocaleString('en-IN')}</div>
+                    <div style={{ fontSize: '0.82rem', color: '#64748B' }}>{inv.dueDate}</div>
+                    <div>
+                      <StatusBadge status={inv.status as any} />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                      <button
+                        type="button"
+                        className="app-action-btn"
+                        onClick={() => setSelectedInvoice(inv)}
+                        title="Inspect watermarked invoice"
+                      >
+                        <span>Invoice</span>
+                        <ChevronRight size={13} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
       )}
@@ -401,61 +429,61 @@ export default function FinancePage() {
           </div>
 
           <div className="app-cards-list">
-            <div
-              className="app-row-card"
-              style={{
-                ['--grid-cols' as any]: '2.2fr 2.4fr 1.6fr 1.8fr 1fr',
-                ['--theme-accent' as any]: '#4F46E5',
-                ['--theme-border' as any]: 'rgba(79, 70, 229, 0.28)',
-                ['--theme-glow' as any]: 'rgba(79, 70, 229, 0.18)',
-                ['--theme-badge-bg' as any]: '#EEF2FF',
-                ['--theme-badge-text' as any]: '#4338CA',
-              }}
-            >
-              <div className="app-row-cell-main">
-                <div className="app-row-avatar">
-                  <CreditCard size={18} />
-                </div>
-                <div className="app-row-title-wrap">
-                  <span className="app-row-title">SpeedShine Detailing Studio</span>
-                  <span className="app-row-subtitle">Ceramic Prep & Interior Deep Clean</span>
-                </div>
-              </div>
-              <div style={{ fontSize: '0.84rem', color: '#334155' }}>Comprehensive 3M ceramic gloss coat</div>
-              <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#0F172A' }}>₹25,000</div>
-              <div style={{ fontSize: '0.82rem', color: '#64748B' }}>Mahindra XUV700 (STK-2024-001)</div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <StatusBadge status="settled" />
-              </div>
-            </div>
-
-            <div
-              className="app-row-card"
-              style={{
-                ['--grid-cols' as any]: '2.2fr 2.4fr 1.6fr 1.8fr 1fr',
-                ['--theme-accent' as any]: '#D97706',
-                ['--theme-border' as any]: 'rgba(217, 119, 6, 0.28)',
-                ['--theme-glow' as any]: 'rgba(217, 119, 6, 0.18)',
-                ['--theme-badge-bg' as any]: '#FEF3C7',
-                ['--theme-badge-text' as any]: '#B45309',
-              }}
-            >
-              <div className="app-row-cell-main">
-                <div className="app-row-avatar">
-                  <CreditCard size={18} />
-                </div>
-                <div className="app-row-title-wrap">
-                  <span className="app-row-title">Metro Express Towing</span>
-                  <span className="app-row-subtitle">Inter-branch enclosed flatbed transport WS → DT</span>
+            {expenses.length === 0 ? (
+              <div
+                style={{
+                  textAlign: 'center',
+                  padding: '48px 24px',
+                  background: '#FFFFFF',
+                  borderRadius: '16px',
+                  border: '1.5px dashed #CBD5E1',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}
+              >
+                <CreditCard size={36} style={{ color: '#94A3B8' }} />
+                <div style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A' }}>No Dealership Expenses Recorded</div>
+                <div style={{ fontSize: '0.82rem', color: '#64748B', maxWidth: '400px' }}>
+                  Detailing, transportation, and workshop vendor invoices will appear here.
                 </div>
               </div>
-              <div style={{ fontSize: '0.84rem', color: '#334155' }}>Specialist enclosed electric vehicle tow</div>
-              <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#0F172A' }}>₹20,000</div>
-              <div style={{ fontSize: '0.82rem', color: '#64748B' }}>Tata Nexon EV (STK-2024-002)</div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <StatusBadge status="approved" />
-              </div>
-            </div>
+            ) : (
+              expenses.map((exp: any, index: number) => {
+                const palette = APP_CARD_PALETTES[index % APP_CARD_PALETTES.length];
+                return (
+                  <div
+                    key={exp.id || index}
+                    className="app-row-card"
+                    style={{
+                      ['--grid-cols' as any]: '2.2fr 2.4fr 1.6fr 1.8fr 1fr',
+                      ['--theme-accent' as any]: palette.accent,
+                      ['--theme-border' as any]: palette.border,
+                      ['--theme-glow' as any]: palette.glow,
+                      ['--theme-badge-bg' as any]: palette.badgeBg,
+                      ['--theme-badge-text' as any]: palette.badgeText,
+                    }}
+                  >
+                    <div className="app-row-cell-main">
+                      <div className="app-row-avatar">
+                        <CreditCard size={18} />
+                      </div>
+                      <div className="app-row-title-wrap">
+                        <span className="app-row-title">{exp.vendor}</span>
+                        <span className="app-row-subtitle">{exp.category}</span>
+                      </div>
+                    </div>
+                    <div style={{ fontSize: '0.84rem', color: '#334155' }}>{exp.description}</div>
+                    <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#0F172A' }}>₹{exp.amount?.toLocaleString('en-IN')}</div>
+                    <div style={{ fontSize: '0.82rem', color: '#64748B' }}>{exp.vehicleDetails}</div>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                      <StatusBadge status={exp.status || 'settled'} />
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
       )}

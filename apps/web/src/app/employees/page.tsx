@@ -346,7 +346,59 @@ export default function EmployeesPage() {
 
       {/* Employees List */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        {filtered.map((emp) => {
+        {filtered.length === 0 ? (
+          <div
+            style={{
+              padding: '60px 24px',
+              textAlign: 'center',
+              backgroundColor: '#FFFFFF',
+              borderRadius: '16px',
+              border: '1.5px dashed #CBD5E1',
+            }}
+          >
+            <div
+              style={{
+                width: '56px',
+                height: '56px',
+                borderRadius: '50%',
+                backgroundColor: 'rgba(30,68,59,0.08)',
+                color: '#1E443B',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '1.6rem',
+                margin: '0 auto 16px',
+              }}
+            >
+              👥
+            </div>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0F172A', marginBottom: '6px' }}>
+              No Staff Members Registered Yet
+            </h3>
+            <p style={{ fontSize: '0.85rem', color: '#64748B', maxWidth: '420px', margin: '0 auto 20px' }}>
+              Your dealership team roster is empty. Register employees, assign department roles, credentials, and track commissions.
+            </p>
+            <button
+              onClick={() => setIsAddModalOpen(true)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '10px 20px',
+                backgroundColor: '#1E443B',
+                color: '#FFFFFF',
+                borderRadius: '10px',
+                fontWeight: 700,
+                fontSize: '0.85rem',
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              <span>+</span> Add First Employee
+            </button>
+          </div>
+        ) : (
+          filtered.map((emp) => {
           const isPassVisible = revealedPasswords[emp.id];
           const isExpanded = !!expandedCardIds[emp.id];
 
@@ -483,7 +535,8 @@ export default function EmployeesPage() {
               </div>
             </div>
           );
-        })}
+        })
+      )}
       </div>
 
       {/* Add Employee Modal */}

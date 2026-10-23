@@ -23,104 +23,28 @@ export interface TestDrive {
   createdAt: string;
 }
 
-const STORAGE_KEY = 'crm_test_drives_v1';
+const STORAGE_KEY = 'crm_test_drives_v2';
 
-export const INITIAL_TEST_DRIVES: TestDrive[] = [
-  {
-    id: 'td-1',
-    driveCode: 'TD-2024-081',
-    customerName: 'Rajesh Sharma',
-    customerPhone: '+91 98201 12345',
-    customerEmail: 'rajesh.sharma@example.com',
-    vehicleName: 'Mahindra XUV700 AX7L AWD (Midnight Black)',
-    vehicleReg: 'MH-02-EZ-4120',
-    date: new Date().toISOString().split('T')[0],
-    timeSlot: '03:30 PM - 04:15 PM',
-    durationMinutes: 45,
-    assignedStaff: 'John Fernandes',
-    dlNumber: 'MH02 20180045231',
-    kycVerified: true,
-    startOdo: 4820,
-    endOdo: 4838,
-    route: 'Western Express Highway Sprint (18 km)',
-    status: 'completed',
-    feedback: 'Loved the acceleration and ADAS lane assist. Customer is ready for down payment negotiation.',
-    rating: 5,
-    createdAt: new Date(Date.now() - 4 * 3600000).toISOString(),
-  },
-  {
-    id: 'td-2',
-    driveCode: 'TD-2024-082',
-    customerName: 'Priya Nair',
-    customerPhone: '+91 98450 67890',
-    customerEmail: 'priya.nair@example.com',
-    vehicleName: 'Hyundai Creta SX(O) Turbo DCT (Polar White)',
-    vehicleReg: 'MH-03-DF-8812',
-    date: new Date().toISOString().split('T')[0],
-    timeSlot: '05:00 PM - 05:45 PM',
-    durationMinutes: 45,
-    assignedStaff: 'Kavita Chawla',
-    dlNumber: 'MH03 20190088192',
-    kycVerified: true,
-    startOdo: 8140,
-    route: 'Andheri West Suburban Coastal Loop (12 km)',
-    status: 'in_progress',
-    feedback: 'Vehicle currently on test route with client and spouse.',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'td-3',
-    driveCode: 'TD-2024-083',
-    customerName: 'Vikram Malhotra',
-    customerPhone: '+91 99100 54321',
-    customerEmail: 'vikram@nexalogistics.in',
-    vehicleName: 'Toyota Fortuner 4x4 AT Legender',
-    vehicleReg: 'MH-01-DA-1008',
-    date: new Date(Date.now() + 86400000).toISOString().split('T')[0],
-    timeSlot: '11:00 AM - 12:00 PM',
-    durationMinutes: 60,
-    assignedStaff: 'John Fernandes',
-    dlNumber: 'MH01 20150033190',
-    kycVerified: true,
-    startOdo: 12450,
-    route: 'Sea Link Expressway High Speed Run (25 km)',
-    status: 'scheduled',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'td-4',
-    driveCode: 'TD-2024-084',
-    customerName: 'Ananya Sengupta',
-    customerPhone: '+91 97312 99887',
-    customerEmail: 'ananya.s@example.com',
-    vehicleName: 'Tata Nexon EV Max (Intense Teal)',
-    vehicleReg: 'MH-47-BE-6601',
-    date: new Date(Date.now() + 86400000).toISOString().split('T')[0],
-    timeSlot: '02:30 PM - 03:15 PM',
-    durationMinutes: 45,
-    assignedStaff: 'Sarah Dsouza',
-    dlNumber: 'MH47 20210011994',
-    kycVerified: false,
-    startOdo: 3100,
-    route: 'City Eco Drive & Regenerative Braking Test (10 km)',
-    status: 'scheduled',
-    createdAt: new Date().toISOString(),
-  },
-];
+export const INITIAL_TEST_DRIVES: TestDrive[] = [];
 
 export function getTestDrives(): TestDrive[] {
   if (typeof window === 'undefined') return INITIAL_TEST_DRIVES;
   try {
+    // Purge legacy mock test drives from previous sessions
+    localStorage.removeItem('crm_test_drives_v1');
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_TEST_DRIVES));
-      return INITIAL_TEST_DRIVES;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify([]));
+      return [];
     }
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_TEST_DRIVES;
+    if (Array.isArray(parsed)) {
+      return parsed;
+    }
+    return [];
   } catch (err) {
     console.error('Failed to read test drives from storage:', err);
-    return INITIAL_TEST_DRIVES;
+    return [];
   }
 }
 

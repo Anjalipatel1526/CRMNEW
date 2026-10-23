@@ -23,11 +23,7 @@ export default function ReportsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
 
-  const performance = [
-    { name: 'John Fernandes', role: 'Senior Sales Executive', assigned: 14, converted: 5, rate: '35.7%', revenue: 6450000 },
-    { name: 'Kavita Chawla', role: 'Branch Manager / Sales', assigned: 11, converted: 4, rate: '36.3%', revenue: 7200000 },
-    { name: 'Sarah Dsouza', role: 'Service Advisor', assigned: 28, converted: 26, rate: '92.8%', revenue: 198000 },
-  ];
+  const [performance, setPerformance] = useState<any[]>([]);
 
   const filteredPerformance = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
@@ -85,29 +81,29 @@ export default function ReportsPage() {
       <div className="grid-4" style={{ marginBottom: '20px' }}>
         <StatCard
           title="Gross Booked Revenue"
-          value="₹1.36 Cr"
-          sub="↑ 24% vs previous quarter"
+          value="₹0"
+          sub="0% vs previous quarter"
           icon={<DollarSign size={18} />}
           accentColor="indigo"
         />
         <StatCard
           title="Overall Conversion"
-          value="38.2%"
+          value="0%"
           sub="Lead inquiry to deal closure"
           icon={<TrendingUp size={18} />}
           accentColor="green"
         />
         <StatCard
           title="Average Inventory Age"
-          value="18.5 Days"
-          sub="Industry benchmark: 35 days"
+          value="0 Days"
+          sub="Real-time stock turnaround"
           icon={<Car size={18} />}
           accentColor="teal"
         />
         <StatCard
           title="Net Gross Margin"
-          value="11.8%"
-          sub="After trade-in and reconditioning"
+          value="0%"
+          sub="Gross margin reporting"
           icon={<BarChart3 size={18} />}
           accentColor="blue"
         />
@@ -192,61 +188,83 @@ export default function ReportsPage() {
         </div>
 
         <div className="app-cards-list">
-          {filteredPerformance.map((p, index) => {
-            const palette = APP_CARD_PALETTES[index % APP_CARD_PALETTES.length];
-            const initials = p.name.split(' ').map((n) => n[0]).join('');
-
-            return (
-              <div
-                key={index}
-                className="app-row-card"
-                style={{
-                  ['--grid-cols' as any]: '2.2fr 1.8fr 1.4fr 1.4fr 1.6fr 1.8fr',
-                  ['--theme-accent' as any]: palette.accent,
-                  ['--theme-border' as any]: palette.border,
-                  ['--theme-glow' as any]: palette.glow,
-                  ['--theme-badge-bg' as any]: palette.badgeBg,
-                  ['--theme-badge-text' as any]: palette.badgeText,
-                }}
-              >
-                <div className="app-row-cell-main">
-                  <div className="app-row-avatar">
-                    {initials}
-                  </div>
-                  <div className="app-row-title-wrap">
-                    <span className="app-row-title">{p.name}</span>
-                    <span className="app-row-subtitle">Dealership Key Contributor</span>
-                  </div>
-                </div>
-
-                <div>
-                  <span className="badge badge-neutral">{p.role}</span>
-                </div>
-
-                <div style={{ fontSize: '0.84rem', color: '#475569', fontWeight: 600 }}>
-                  {p.assigned} leads
-                </div>
-
-                <div>
-                  <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#0F172A' }}>
-                    {p.converted} units
-                  </span>
-                </div>
-
-                <div>
-                  <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#16A34A' }}>
-                    {p.rate}
-                  </span>
-                </div>
-
-                <div style={{ textAlign: 'right' }}>
-                  <span style={{ fontWeight: 800, fontSize: '0.98rem', color: '#4F46E5' }}>
-                    ₹{(p.revenue / 100000).toFixed(2)} Lakh
-                  </span>
-                </div>
+          {filteredPerformance.length === 0 ? (
+            <div
+              style={{
+                textAlign: 'center',
+                padding: '48px 24px',
+                background: '#FFFFFF',
+                borderRadius: '16px',
+                border: '1.5px dashed #CBD5E1',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '8px',
+              }}
+            >
+              <Users size={36} style={{ color: '#94A3B8' }} />
+              <div style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A' }}>No Team Performance Records</div>
+              <div style={{ fontSize: '0.82rem', color: '#64748B', maxWidth: '400px' }}>
+                Sales conversion benchmarks, lead allocation counts, and gross closed revenue will be tracked here.
               </div>
-            );
-          })}
+            </div>
+          ) : (
+            filteredPerformance.map((p, index) => {
+              const palette = APP_CARD_PALETTES[index % APP_CARD_PALETTES.length];
+              const initials = p.name.split(' ').map((n: string) => n[0]).join('');
+
+              return (
+                <div
+                  key={index}
+                  className="app-row-card"
+                  style={{
+                    ['--grid-cols' as any]: '2.2fr 1.8fr 1.4fr 1.4fr 1.6fr 1.8fr',
+                    ['--theme-accent' as any]: palette.accent,
+                    ['--theme-border' as any]: palette.border,
+                    ['--theme-glow' as any]: palette.glow,
+                    ['--theme-badge-bg' as any]: palette.badgeBg,
+                    ['--theme-badge-text' as any]: palette.badgeText,
+                  }}
+                >
+                  <div className="app-row-cell-main">
+                    <div className="app-row-avatar">
+                      {initials}
+                    </div>
+                    <div className="app-row-title-wrap">
+                      <span className="app-row-title">{p.name}</span>
+                      <span className="app-row-subtitle">Dealership Key Contributor</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <span className="badge badge-neutral">{p.role}</span>
+                  </div>
+
+                  <div style={{ fontSize: '0.84rem', color: '#475569', fontWeight: 600 }}>
+                    {p.assigned} leads
+                  </div>
+
+                  <div>
+                    <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#0F172A' }}>
+                      {p.converted} units
+                    </span>
+                  </div>
+
+                  <div>
+                    <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#16A34A' }}>
+                      {p.rate}
+                    </span>
+                  </div>
+
+                  <div style={{ textAlign: 'right' }}>
+                    <span style={{ fontWeight: 800, fontSize: '0.98rem', color: '#4F46E5' }}>
+                      ₹{(p.revenue / 100000).toFixed(2)} Lakh
+                    </span>
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
 
@@ -261,30 +279,30 @@ export default function ReportsPage() {
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8125rem', marginBottom: '0.35rem' }}>
                 <span style={{ fontWeight: 600, color: '#334155' }}>0 - 15 Days (Fresh Arrivals)</span>
-                <strong style={{ color: '#0F172A' }}>4 Vehicles (66%)</strong>
+                <strong style={{ color: '#0F172A' }}>0 Vehicles (0%)</strong>
               </div>
               <div style={{ height: '8px', backgroundColor: '#E2E8F0', borderRadius: '4px', overflow: 'hidden' }}>
-                <div style={{ width: '66%', height: '100%', backgroundColor: '#16A34A' }} />
+                <div style={{ width: '0%', height: '100%', backgroundColor: '#16A34A' }} />
               </div>
             </div>
 
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8125rem', marginBottom: '0.35rem' }}>
                 <span style={{ fontWeight: 600, color: '#334155' }}>16 - 30 Days (Active Showroom)</span>
-                <strong style={{ color: '#0F172A' }}>1 Vehicle (17%)</strong>
+                <strong style={{ color: '#0F172A' }}>0 Vehicles (0%)</strong>
               </div>
               <div style={{ height: '8px', backgroundColor: '#E2E8F0', borderRadius: '4px', overflow: 'hidden' }}>
-                <div style={{ width: '17%', height: '100%', backgroundColor: '#0284C7' }} />
+                <div style={{ width: '0%', height: '100%', backgroundColor: '#0284C7' }} />
               </div>
             </div>
 
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8125rem', marginBottom: '0.35rem' }}>
                 <span style={{ fontWeight: 600, color: '#334155' }}>31 - 60 Days (Markdown Proposed)</span>
-                <strong style={{ color: '#0F172A' }}>1 Vehicle (17%)</strong>
+                <strong style={{ color: '#0F172A' }}>0 Vehicles (0%)</strong>
               </div>
               <div style={{ height: '8px', backgroundColor: '#E2E8F0', borderRadius: '4px', overflow: 'hidden' }}>
-                <div style={{ width: '17%', height: '100%', backgroundColor: '#D97706' }} />
+                <div style={{ width: '0%', height: '100%', backgroundColor: '#D97706' }} />
               </div>
             </div>
 

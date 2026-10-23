@@ -150,40 +150,61 @@ export default function QuotationsPage() {
               </tr>
             </thead>
             <tbody>
-              {quotations.map((q) => (
-                <tr key={q.id}>
-                  <td>
-                    <strong style={{ color: 'var(--color-indigo)' }}>{q.quoteNumber}</strong>
-                  </td>
-                  <td>
-                    <strong>{q.customerName}</strong>
-                  </td>
-                  <td>{new Date(q.validUntil).toLocaleDateString()}</td>
-                  <td>₹{(q.totals.subtotal / 100000).toFixed(2)} L</td>
-                  <td>
-                    <span style={{ color: 'var(--color-green)' }}>
-                      -₹{(q.totals.discountTotal / 100000).toFixed(2)} L
-                    </span>
-                  </td>
-                  <td>₹{((q.totals.taxTotal + q.totals.feesTotal) / 100000).toFixed(2)} L</td>
-                  <td>
-                    <strong style={{ fontSize: '0.95rem' }}>
-                      ₹{(q.totals.grandTotal / 100000).toFixed(2)} Lakh
-                    </strong>
-                  </td>
-                  <td>
-                    <StatusBadge status={q.status} />
-                  </td>
-                  <td>
+              {quotations.length === 0 ? (
+                <tr>
+                  <td colSpan={9} style={{ textAlign: 'center', padding: '60px 20px', color: '#64748B' }}>
+                    <div style={{ fontSize: '2rem', marginBottom: '8px' }}>📑</div>
+                    <div style={{ fontWeight: 700, color: '#0F172A', marginBottom: '4px' }}>
+                      No Quotations Generated Yet
+                    </div>
+                    <div style={{ fontSize: '0.82rem', marginBottom: '16px' }}>
+                      Build customized proforma invoices and quotations with taxes, discounts, and vehicle accessories.
+                    </div>
                     <button
-                      className="btn btn-secondary btn-sm"
-                      onClick={() => setPreviewQuote(q)}
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      onClick={() => setIsBuilderOpen(true)}
                     >
-                      <Printer size={14} /> PDF
+                      <Plus size={14} /> Create First Quotation
                     </button>
                   </td>
                 </tr>
-              ))}
+              ) : (
+                quotations.map((q) => (
+                  <tr key={q.id}>
+                    <td>
+                      <strong style={{ color: 'var(--color-indigo)' }}>{q.quoteNumber}</strong>
+                    </td>
+                    <td>
+                      <strong>{q.customerName}</strong>
+                    </td>
+                    <td>{new Date(q.validUntil).toLocaleDateString()}</td>
+                    <td>₹{(q.totals.subtotal / 100000).toFixed(2)} L</td>
+                    <td>
+                      <span style={{ color: 'var(--color-green)' }}>
+                        -₹{(q.totals.discountTotal / 100000).toFixed(2)} L
+                      </span>
+                    </td>
+                    <td>₹{((q.totals.taxTotal + q.totals.feesTotal) / 100000).toFixed(2)} L</td>
+                    <td>
+                      <strong style={{ fontSize: '0.95rem' }}>
+                        ₹{(q.totals.grandTotal / 100000).toFixed(2)} Lakh
+                      </strong>
+                    </td>
+                    <td>
+                      <StatusBadge status={q.status} />
+                    </td>
+                    <td>
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => setPreviewQuote(q)}
+                      >
+                        <Printer size={14} /> PDF
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { api } from '@/lib/api-client';
 import { Customer } from '@crm/shared-types';
+import { getCompanyProfile, CompanyProfile } from '@/lib/company-store';
 import {
   FileText,
   Save,
@@ -96,6 +97,18 @@ export function InvoiceDocumentGenerator({
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [shareDropdownOpen, setShareDropdownOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  const [company, setCompany] = useState<CompanyProfile>(getCompanyProfile());
+
+  useEffect(() => {
+    const handleCompanyChanged = () => {
+      setCompany(getCompanyProfile());
+    };
+    window.addEventListener('crm-company-profile-changed', handleCompanyChanged);
+    return () => {
+      window.removeEventListener('crm-company-profile-changed', handleCompanyChanged);
+    };
+  }, []);
 
   // Form State
   const [invoiceNumber] = useState('INV-2024-' + Math.floor(100 + Math.random() * 900));
@@ -1163,45 +1176,63 @@ export function InvoiceDocumentGenerator({
             }}
           >
             {/* COMPANY WATERMARK (Rotated diagonally across background) */}
-            <div
-              style={{
-                position: 'absolute',
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%) rotate(-32deg)',
-                fontSize: '4.8rem',
-                fontWeight: 900,
-                color: 'rgba(30, 68, 59, 0.06)',
-                letterSpacing: '0.25em',
-                textTransform: 'uppercase',
-                pointerEvents: 'none',
-                userSelect: 'none',
-                whiteSpace: 'nowrap',
-                zIndex: 0,
-                fontFamily: 'serif',
-              }}
-            >
-              APEX MOTORS
-            </div>
-            <div
-              style={{
-                position: 'absolute',
-                top: '34%',
-                left: '50%',
-                transform: 'translate(-50%, -50%) rotate(-32deg)',
-                fontSize: '1.1rem',
-                fontWeight: 800,
-                color: 'rgba(30, 68, 59, 0.04)',
-                letterSpacing: '0.4em',
-                textTransform: 'uppercase',
-                pointerEvents: 'none',
-                userSelect: 'none',
-                whiteSpace: 'nowrap',
-                zIndex: 0,
-              }}
-            >
-              ★ CERTIFIED LUXURY DEALERSHIP INVOICE ★
-            </div>
+            {company.watermarkEnabled && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%) rotate(-30deg)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  pointerEvents: 'none',
+                  userSelect: 'none',
+                  zIndex: 0,
+                  opacity: company.watermarkOpacity || 0.08,
+                }}
+              >
+                {company.logoUrl ? (
+                  <img
+                    src={company.logoUrl}
+                    alt="Watermark"
+                    style={{
+                      maxWidth: '380px',
+                      maxHeight: '380px',
+                      objectFit: 'contain',
+                      filter: 'grayscale(100%)',
+                    }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      fontSize: '4.2rem',
+                      fontWeight: 900,
+                      letterSpacing: '0.15em',
+                      textTransform: 'uppercase',
+                      color: '#1E443B',
+                      textAlign: 'center',
+                      fontFamily: 'serif',
+                    }}
+                  >
+                    {company.tradeName || company.legalName || 'DEALERSHIP'}
+                  </div>
+                )}
+                <div
+                  style={{
+                    fontSize: '0.86rem',
+                    fontWeight: 800,
+                    letterSpacing: '0.35em',
+                    textTransform: 'uppercase',
+                    color: '#1E443B',
+                    marginTop: '8px',
+                  }}
+                >
+                  ★ OFFICIAL TAX INVOICE & PROFORMA RECEIPT ★
+                </div>
+              </div>
+            )}
 
             {/* Document Content (z-index 2 over watermark) */}
             <div style={{ position: 'relative', zIndex: 2 }}>
@@ -1217,31 +1248,52 @@ export function InvoiceDocumentGenerator({
                 }}
               >
                 <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <div
-                      style={{
-                        width: '32px',
-                        height: '32px',
-                        borderRadius: '8px',
-                        backgroundColor: '#1E443B',
-                        color: '#FFFFFF',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontWeight: 900,
-                      }}
-                    >
-                      A
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    {company.logoUrl ? (
+                      <img
+                        src={company.logoUrl}
+                        alt="Logo"
+                        style={{
+                          width: '40px',
+                          height: '40px',
+                          borderRadius: '8px',
+                          objectFit: 'contain',
+                          border: '1px solid #E2E8F0',
+                          background: '#FFFFFF',
+                        }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          width: '36px',
+                          height: '36px',
+                          borderRadius: '8px',
+                          backgroundColor: '#1E443B',
+                          color: '#FFFFFF',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontWeight: 900,
+                          fontSize: '1.1rem',
+                        }}
+                      >
+                        {(company.tradeName || company.legalName || 'A').charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    <div>
+                      <span style={{ fontSize: '1.4rem', fontWeight: 900, letterSpacing: '-0.02em', color: '#1E443B' }}>
+                        {company.tradeName || company.legalName || 'APEX MOTORS'}
+                      </span>
+                      {company.tagline && (
+                        <div style={{ fontSize: '0.7rem', color: '#64748B', fontWeight: 600 }}>{company.tagline}</div>
+                      )}
                     </div>
-                    <span style={{ fontSize: '1.4rem', fontWeight: 900, letterSpacing: '-0.02em', color: '#1E443B' }}>
-                      APEX MOTORS
-                    </span>
                   </div>
-                  <div style={{ fontSize: '0.78rem', color: '#64748B', marginTop: '4px' }}>
-                    Plot 42, Western Express Highway, Andheri East, Mumbai, MH 400069
+                  <div style={{ fontSize: '0.78rem', color: '#64748B', marginTop: '6px' }}>
+                    {company.address}, {company.city}, {company.state} {company.pincode}
                   </div>
                   <div style={{ fontSize: '0.74rem', color: '#64748B' }}>
-                    GSTIN: 27AABCA1234F1ZP | CIN: U50100MH2020PTC123456 | Phone: +91 22 6123 4567
+                    GSTIN: {company.gstin} {company.pan ? `| PAN: ${company.pan}` : ''} {company.cin ? `| CIN: ${company.cin}` : ''} | Phone: {company.phone}
                   </div>
                 </div>
 
@@ -1301,19 +1353,19 @@ export function InvoiceDocumentGenerator({
 
                 <div style={{ backgroundColor: '#F8FAFC', padding: '12px 14px', borderRadius: '10px', border: '1px solid #E2E8F0' }}>
                   <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>
-                    PAYMENT & DISPATCH DETAILS:
+                    PAYMENT & BANK SETTLEMENT:
                   </div>
                   <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#0F172A', marginTop: '4px' }}>
                     Mode: <span style={{ textTransform: 'uppercase', color: '#16A34A' }}>{paymentMethod}</span>
                   </div>
-                  <div style={{ fontSize: '0.76rem', color: '#64748B', marginTop: '2px' }}>
-                    UTR / Txn Ref: <span style={{ fontFamily: 'monospace', fontWeight: 700 }}>{utrReference || 'PENDING'}</span>
+                  <div style={{ fontSize: '0.74rem', color: '#64748B', marginTop: '2px' }}>
+                    Bank: <strong>{company.bankName || 'HDFC Bank Ltd'}</strong> • A/c: <span style={{ fontFamily: 'monospace' }}>{company.accountNumber || '50200012345678'}</span>
                   </div>
-                  <div style={{ fontSize: '0.76rem', color: '#64748B', marginTop: '2px' }}>
-                    Delivery Location: Apex Downtown Flagship Showroom
+                  <div style={{ fontSize: '0.74rem', color: '#64748B', marginTop: '2px' }}>
+                    IFSC: <span style={{ fontFamily: 'monospace', fontWeight: 700 }}>{company.ifscCode || 'HDFC0000042'}</span> {company.upiId ? `• UPI: ${company.upiId}` : ''}
                   </div>
-                  <div style={{ fontSize: '0.76rem', color: '#16A34A', fontWeight: 700, marginTop: '2px' }}>
-                    Status: SETTLED & VERIFIED
+                  <div style={{ fontSize: '0.74rem', color: '#16A34A', fontWeight: 700, marginTop: '2px' }}>
+                    Ref / UTR: <span style={{ fontFamily: 'monospace' }}>{utrReference || 'SETTLED & VERIFIED'}</span>
                   </div>
                 </div>
               </div>
@@ -1451,9 +1503,9 @@ export function InvoiceDocumentGenerator({
                 <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end' }}>
                   <div
                     style={{
-                      width: '130px',
-                      height: '44px',
-                      borderBottom: '1px dashed #94A3B8',
+                      width: '150px',
+                      height: '52px',
+                      borderBottom: '1.5px dashed #94A3B8',
                       marginBottom: '6px',
                       display: 'flex',
                       alignItems: 'center',
@@ -1461,14 +1513,32 @@ export function InvoiceDocumentGenerator({
                       color: '#94A3B8',
                       fontSize: '0.72rem',
                       fontStyle: 'italic',
+                      position: 'relative',
                     }}
                   >
-                    [Seal & Signature]
+                    {company.signatureUrl ? (
+                      <img
+                        src={company.signatureUrl}
+                        alt="Authorized Signature"
+                        style={{
+                          maxHeight: '48px',
+                          maxWidth: '140px',
+                          objectFit: 'contain',
+                        }}
+                      />
+                    ) : (
+                      <span>[Seal & Signature]</span>
+                    )}
                   </div>
                   <div style={{ fontSize: '0.76rem', fontWeight: 800, color: '#0F172A' }}>
-                    For APEX MOTORS PVT LTD
+                    For {company.legalName || company.tradeName || 'APEX MOTORS PVT LTD'}
                   </div>
-                  <div style={{ fontSize: '0.68rem', color: '#64748B' }}>Authorized Signatory</div>
+                  <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#1E443B' }}>
+                    {company.authorizedSignatoryName || 'Authorized Signatory'}
+                  </div>
+                  <div style={{ fontSize: '0.66rem', color: '#64748B' }}>
+                    {company.authorizedSignatoryDesignation || 'Managing Director'}
+                  </div>
                 </div>
               </div>
             </div>

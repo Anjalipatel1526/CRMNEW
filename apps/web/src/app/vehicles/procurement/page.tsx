@@ -28,53 +28,9 @@ export default function ProcurementPage() {
   const [searchQuery, setSearchQuery] = useState('');
 
   // Initial procurement data
-  const [purchaseOrders, setPurchaseOrders] = useState([
-    {
-      id: 'po-01',
-      orderNumber: 'PO-2024-001',
-      supplierName: 'Tata Motors Authorized Central Depot',
-      vehicleDescription: 'Tata Safari Dark Edition 2.0L Kryotec AT (2 units)',
-      expectedCost: 4400000,
-      status: 'approved',
-      expectedDate: '2026-10-28',
-    },
-    {
-      id: 'po-02',
-      orderNumber: 'PO-2024-002',
-      supplierName: 'Mahindra Logistics Auto Pool',
-      vehicleDescription: 'Mahindra Scorpio-N Z8L 4x4 Diesel AT (1 unit)',
-      expectedCost: 2150000,
-      status: 'pending_approval',
-      expectedDate: '2026-11-02',
-    },
-  ]);
-
-  const [tradeIns, setTradeIns] = useState([
-    {
-      id: 'ti-01',
-      customerName: 'Rajesh Sharma',
-      vehicle: '2019 Hyundai Creta SX (O) Manual',
-      odometerKm: 48000,
-      estimatedLow: 850000,
-      estimatedHigh: 920000,
-      offeredPrice: 880000,
-      status: 'appraised',
-      dealId: 'DL-2024-001',
-    },
-  ]);
-
-  const [inspections] = useState([
-    {
-      id: 'insp-01',
-      vehicle: '2022 Toyota Fortuner 4x4 (MH03CP1002)',
-      type: 'intake',
-      inspector: 'Suresh Patil (Senior Mechanic)',
-      grade: 'Grade A-',
-      repairEstimate: 18000,
-      status: 'passed',
-      completedAt: '2026-10-20',
-    },
-  ]);
+  const [purchaseOrders, setPurchaseOrders] = useState<any[]>([]);
+  const [tradeIns, setTradeIns] = useState<any[]>([]);
+  const [inspections] = useState<any[]>([]);
 
   // Filtered datasets based on search
   const filteredOrders = useMemo(() => {
@@ -157,21 +113,21 @@ export default function ProcurementPage() {
       <div className="grid-3" style={{ marginBottom: '20px' }}>
         <StatCard
           title="Active Purchase Orders"
-          value="₹65.5 Lakh"
-          sub="3 incoming vehicle shipments"
+          value={`₹${(purchaseOrders.reduce((sum, p) => sum + (p.expectedCost || 0), 0) / 100000).toFixed(1)} Lakh`}
+          sub={`${purchaseOrders.length} incoming vehicle shipments`}
           icon={<Truck size={18} />}
           accentColor="teal"
         />
         <StatCard
           title="Pending Trade-In Value"
-          value="₹8.80 Lakh"
+          value={`₹${(tradeIns.reduce((sum, t) => sum + (t.offeredPrice || 0), 0) / 100000).toFixed(2)} Lakh`}
           sub="Exchange credit allocated to deals"
           icon={<RefreshCw size={18} />}
           accentColor="indigo"
         />
         <StatCard
           title="Intake Inspection Pass Rate"
-          value="94.2%"
+          value={inspections.length > 0 ? "100%" : "0%"}
           sub="Rigorous 140-point technical checklist"
           icon={<ClipboardCheck size={18} />}
           accentColor="green"
@@ -259,51 +215,81 @@ export default function ProcurementPage() {
           </div>
 
           <div className="app-cards-list">
-            {filteredOrders.map((po, index) => {
-              const palette = APP_CARD_PALETTES[index % APP_CARD_PALETTES.length];
-
-              return (
-                <div
-                  key={po.id}
-                  className="app-row-card"
-                  style={{
-                    ['--grid-cols' as any]: '2fr 2.6fr 1.6fr 1.6fr 1.2fr',
-                    ['--theme-accent' as any]: palette.accent,
-                    ['--theme-border' as any]: palette.border,
-                    ['--theme-glow' as any]: palette.glow,
-                    ['--theme-badge-bg' as any]: palette.badgeBg,
-                    ['--theme-badge-text' as any]: palette.badgeText,
-                  }}
-                >
-                  <div className="app-row-cell-main">
-                    <div className="app-row-avatar">
-                      <Truck size={18} />
-                    </div>
-                    <div className="app-row-title-wrap">
-                      <span className="app-row-title" style={{ color: palette.accent }}>{po.orderNumber}</span>
-                      <span className="app-row-subtitle">{po.supplierName}</span>
-                    </div>
-                  </div>
-
-                  <div style={{ fontSize: '0.86rem', fontWeight: 600, color: '#1E293B' }}>
-                    {po.vehicleDescription}
-                  </div>
-
-                  <div style={{ fontWeight: 700, fontSize: '0.92rem', color: '#0F172A' }}>
-                    ₹{(po.expectedCost / 100000).toFixed(2)} Lakh
-                  </div>
-
-                  <div style={{ fontSize: '0.82rem', color: '#475569', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                    <Clock size={13} style={{ color: '#64748B' }} />
-                    <span>{po.expectedDate}</span>
-                  </div>
-
-                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                    <StatusBadge status={po.status} />
-                  </div>
+            {filteredOrders.length === 0 ? (
+              <div
+                style={{
+                  textAlign: 'center',
+                  padding: '48px 24px',
+                  background: '#FFFFFF',
+                  borderRadius: '16px',
+                  border: '1.5px dashed #CBD5E1',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}
+              >
+                <Truck size={36} style={{ color: '#94A3B8' }} />
+                <div style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A' }}>No Purchase Orders</div>
+                <div style={{ fontSize: '0.82rem', color: '#64748B', maxWidth: '400px' }}>
+                  Supplier vehicle stock orders and incoming shipments will appear here.
                 </div>
-              );
-            })}
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={() => setIsOrderModalOpen(true)}
+                  style={{ marginTop: '6px' }}
+                >
+                  <Plus size={14} /> Create Purchase Order
+                </button>
+              </div>
+            ) : (
+              filteredOrders.map((po, index) => {
+                const palette = APP_CARD_PALETTES[index % APP_CARD_PALETTES.length];
+
+                return (
+                  <div
+                    key={po.id}
+                    className="app-row-card"
+                    style={{
+                      ['--grid-cols' as any]: '2fr 2.6fr 1.6fr 1.6fr 1.2fr',
+                      ['--theme-accent' as any]: palette.accent,
+                      ['--theme-border' as any]: palette.border,
+                      ['--theme-glow' as any]: palette.glow,
+                      ['--theme-badge-bg' as any]: palette.badgeBg,
+                      ['--theme-badge-text' as any]: palette.badgeText,
+                    }}
+                  >
+                    <div className="app-row-cell-main">
+                      <div className="app-row-avatar">
+                        <Truck size={18} />
+                      </div>
+                      <div className="app-row-title-wrap">
+                        <span className="app-row-title" style={{ color: palette.accent }}>{po.orderNumber}</span>
+                        <span className="app-row-subtitle">{po.supplierName}</span>
+                      </div>
+                    </div>
+
+                    <div style={{ fontSize: '0.86rem', fontWeight: 600, color: '#1E293B' }}>
+                      {po.vehicleDescription}
+                    </div>
+
+                    <div style={{ fontWeight: 700, fontSize: '0.92rem', color: '#0F172A' }}>
+                      ₹{(po.expectedCost / 100000).toFixed(2)} Lakh
+                    </div>
+
+                    <div style={{ fontSize: '0.82rem', color: '#475569', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <Clock size={13} style={{ color: '#64748B' }} />
+                      <span>{po.expectedDate}</span>
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                      <StatusBadge status={po.status} />
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
       )}
@@ -323,54 +309,84 @@ export default function ProcurementPage() {
           </div>
 
           <div className="app-cards-list">
-            {filteredTradeIns.map((ti, index) => {
-              const palette = APP_CARD_PALETTES[(index + 2) % APP_CARD_PALETTES.length];
-
-              return (
-                <div
-                  key={ti.id}
-                  className="app-row-card"
-                  style={{
-                    ['--grid-cols' as any]: '2.2fr 1.4fr 1.8fr 1.6fr 1.2fr 1fr',
-                    ['--theme-accent' as any]: palette.accent,
-                    ['--theme-border' as any]: palette.border,
-                    ['--theme-glow' as any]: palette.glow,
-                    ['--theme-badge-bg' as any]: palette.badgeBg,
-                    ['--theme-badge-text' as any]: palette.badgeText,
-                  }}
-                >
-                  <div className="app-row-cell-main">
-                    <div className="app-row-avatar">
-                      <RefreshCw size={18} />
-                    </div>
-                    <div className="app-row-title-wrap">
-                      <span className="app-row-title">{ti.customerName}</span>
-                      <span className="app-row-subtitle">{ti.vehicle}</span>
-                    </div>
-                  </div>
-
-                  <div style={{ fontSize: '0.82rem', color: '#475569', fontWeight: 600 }}>
-                    {ti.odometerKm.toLocaleString()} km
-                  </div>
-
-                  <div style={{ fontSize: '0.82rem', color: '#64748B' }}>
-                    ₹{(ti.estimatedLow / 100000).toFixed(2)}L - ₹{(ti.estimatedHigh / 100000).toFixed(2)}L
-                  </div>
-
-                  <div style={{ fontWeight: 700, fontSize: '0.92rem', color: '#16A34A' }}>
-                    ₹{(ti.offeredPrice / 100000).toFixed(2)} Lakh
-                  </div>
-
-                  <div>
-                    <span className="badge badge-indigo">{ti.dealId}</span>
-                  </div>
-
-                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                    <StatusBadge status={ti.status} />
-                  </div>
+            {filteredTradeIns.length === 0 ? (
+              <div
+                style={{
+                  textAlign: 'center',
+                  padding: '48px 24px',
+                  background: '#FFFFFF',
+                  borderRadius: '16px',
+                  border: '1.5px dashed #CBD5E1',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}
+              >
+                <RefreshCw size={36} style={{ color: '#94A3B8' }} />
+                <div style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A' }}>No Trade-In Appraisals</div>
+                <div style={{ fontSize: '0.82rem', color: '#64748B', maxWidth: '400px' }}>
+                  Customer vehicle exchange valuations and appraisals will appear here.
                 </div>
-              );
-            })}
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => setIsTradeInModalOpen(true)}
+                  style={{ marginTop: '6px' }}
+                >
+                  <RefreshCw size={14} /> New Trade-In Appraisal
+                </button>
+              </div>
+            ) : (
+              filteredTradeIns.map((ti, index) => {
+                const palette = APP_CARD_PALETTES[(index + 2) % APP_CARD_PALETTES.length];
+
+                return (
+                  <div
+                    key={ti.id}
+                    className="app-row-card"
+                    style={{
+                      ['--grid-cols' as any]: '2.2fr 1.4fr 1.8fr 1.6fr 1.2fr 1fr',
+                      ['--theme-accent' as any]: palette.accent,
+                      ['--theme-border' as any]: palette.border,
+                      ['--theme-glow' as any]: palette.glow,
+                      ['--theme-badge-bg' as any]: palette.badgeBg,
+                      ['--theme-badge-text' as any]: palette.badgeText,
+                    }}
+                  >
+                    <div className="app-row-cell-main">
+                      <div className="app-row-avatar">
+                        <RefreshCw size={18} />
+                      </div>
+                      <div className="app-row-title-wrap">
+                        <span className="app-row-title">{ti.customerName}</span>
+                        <span className="app-row-subtitle">{ti.vehicle}</span>
+                      </div>
+                    </div>
+
+                    <div style={{ fontSize: '0.82rem', color: '#475569', fontWeight: 600 }}>
+                      {ti.odometerKm.toLocaleString()} km
+                    </div>
+
+                    <div style={{ fontSize: '0.82rem', color: '#64748B' }}>
+                      ₹{(ti.estimatedLow / 100000).toFixed(2)}L - ₹{(ti.estimatedHigh / 100000).toFixed(2)}L
+                    </div>
+
+                    <div style={{ fontWeight: 700, fontSize: '0.92rem', color: '#16A34A' }}>
+                      ₹{(ti.offeredPrice / 100000).toFixed(2)} Lakh
+                    </div>
+
+                    <div>
+                      <span className="badge badge-indigo">{ti.dealId}</span>
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                      <StatusBadge status={ti.status} />
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
       )}
@@ -390,56 +406,78 @@ export default function ProcurementPage() {
           </div>
 
           <div className="app-cards-list">
-            {filteredInspections.map((insp, index) => {
-              const palette = APP_CARD_PALETTES[(index + 4) % APP_CARD_PALETTES.length];
-
-              return (
-                <div
-                  key={insp.id}
-                  className="app-row-card"
-                  style={{
-                    ['--grid-cols' as any]: '2.4fr 1.2fr 2fr 1.4fr 1.6fr 1fr',
-                    ['--theme-accent' as any]: palette.accent,
-                    ['--theme-border' as any]: palette.border,
-                    ['--theme-glow' as any]: palette.glow,
-                    ['--theme-badge-bg' as any]: palette.badgeBg,
-                    ['--theme-badge-text' as any]: palette.badgeText,
-                  }}
-                >
-                  <div className="app-row-cell-main">
-                    <div className="app-row-avatar">
-                      <ClipboardCheck size={18} />
-                    </div>
-                    <div className="app-row-title-wrap">
-                      <span className="app-row-title">{insp.vehicle}</span>
-                      <span className="app-row-subtitle">Completed: {insp.completedAt}</span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <span style={{ textTransform: 'uppercase', fontSize: '0.74rem', fontWeight: 700, padding: '3px 8px', borderRadius: '6px', background: '#F1F5F9', color: '#475569' }}>
-                      {insp.type}
-                    </span>
-                  </div>
-
-                  <div style={{ fontSize: '0.82rem', color: '#334155', fontWeight: 600 }}>
-                    {insp.inspector}
-                  </div>
-
-                  <div>
-                    <span style={{ fontWeight: 700, fontSize: '0.85rem', color: palette.accent }}>{insp.grade}</span>
-                  </div>
-
-                  <div style={{ fontSize: '0.86rem', fontWeight: 600, color: '#0F172A' }}>
-                    ₹{insp.repairEstimate.toLocaleString()}
-                  </div>
-
-                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                    <StatusBadge status={insp.status} />
-                  </div>
+            {filteredInspections.length === 0 ? (
+              <div
+                style={{
+                  textAlign: 'center',
+                  padding: '48px 24px',
+                  background: '#FFFFFF',
+                  borderRadius: '16px',
+                  border: '1.5px dashed #CBD5E1',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}
+              >
+                <ClipboardCheck size={36} style={{ color: '#94A3B8' }} />
+                <div style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A' }}>No Intake Inspections</div>
+                <div style={{ fontSize: '0.82rem', color: '#64748B', maxWidth: '400px' }}>
+                  140-point technical intake checks and showroom grading reports will be cataloged here.
                 </div>
-              );
-            })}
+              </div>
+            ) : (
+              filteredInspections.map((insp, index) => {
+                const palette = APP_CARD_PALETTES[(index + 4) % APP_CARD_PALETTES.length];
+
+                return (
+                  <div
+                    key={insp.id}
+                    className="app-row-card"
+                    style={{
+                      ['--grid-cols' as any]: '2.4fr 1.2fr 2fr 1.4fr 1.6fr 1fr',
+                      ['--theme-accent' as any]: palette.accent,
+                      ['--theme-border' as any]: palette.border,
+                      ['--theme-glow' as any]: palette.glow,
+                      ['--theme-badge-bg' as any]: palette.badgeBg,
+                      ['--theme-badge-text' as any]: palette.badgeText,
+                    }}
+                  >
+                    <div className="app-row-cell-main">
+                      <div className="app-row-avatar">
+                        <ClipboardCheck size={18} />
+                      </div>
+                      <div className="app-row-title-wrap">
+                        <span className="app-row-title">{insp.vehicle}</span>
+                        <span className="app-row-subtitle">Completed: {insp.completedAt}</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <span style={{ textTransform: 'uppercase', fontSize: '0.74rem', fontWeight: 700, padding: '3px 8px', borderRadius: '6px', background: '#F1F5F9', color: '#475569' }}>
+                        {insp.type}
+                      </span>
+                    </div>
+
+                    <div style={{ fontSize: '0.82rem', color: '#334155', fontWeight: 600 }}>
+                      {insp.inspector}
+                    </div>
+
+                    <div>
+                      <span style={{ fontWeight: 700, fontSize: '0.85rem', color: palette.accent }}>{insp.grade}</span>
+                    </div>
+
+                    <div style={{ fontSize: '0.86rem', fontWeight: 600, color: '#0F172A' }}>
+                      ₹{insp.repairEstimate.toLocaleString()}
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                      <StatusBadge status={insp.status} />
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
       )}

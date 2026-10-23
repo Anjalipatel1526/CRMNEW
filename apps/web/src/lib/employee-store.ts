@@ -48,279 +48,28 @@ export interface Employee {
   accessControl: EmployeeAccessControl;
 }
 
-const STORAGE_KEY = 'crm_employees_v1';
+const STORAGE_KEY = 'crm_employees_v2';
 
-export const INITIAL_EMPLOYEES: Employee[] = [
-  {
-    id: 'emp-1',
-    employeeCode: 'APEX-EMP-001',
-    fullName: 'Vikram Singhania',
-    email: 'admin@apexmotors.com',
-    phone: '+91 98200 11223',
-    designation: 'Managing Director & Tenant Admin',
-    department: 'Management',
-    branch: 'All Branches',
-    joiningDate: '2021-04-01',
-    salary: '₹2,50,000 / mo',
-    status: 'active',
-    password: 'ApexAdmin@2024#Master',
-    avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-    leaveBalance: {
-      casual: { total: 12, used: 2 },
-      sick: { total: 7, used: 1 },
-      paid: { total: 18, used: 4 },
-    },
-    leaveHistory: [
-      {
-        id: 'lv-101',
-        leaveType: 'paid',
-        startDate: '2024-02-10',
-        endDate: '2024-02-14',
-        days: 4,
-        reason: 'Annual Family Vacation',
-        appliedOn: '2024-01-25',
-        status: 'approved',
-        approvedBy: 'Board of Directors',
-      },
-      {
-        id: 'lv-102',
-        leaveType: 'casual',
-        startDate: '2024-05-18',
-        endDate: '2024-05-19',
-        days: 2,
-        reason: 'Personal legal documentation',
-        appliedOn: '2024-05-12',
-        status: 'approved',
-        approvedBy: 'Self Approved (Admin)',
-      },
-    ],
-    accessControl: {
-      pipeline: true,
-      customers: true,
-      inventory: true,
-      procurement: true,
-      deals: true,
-      finance: true,
-      testDrives: true,
-      documents: true,
-      reports: true,
-      settings: true,
-    },
-  },
-  {
-    id: 'emp-2',
-    employeeCode: 'APEX-EMP-002',
-    fullName: 'Kavita Chawla',
-    email: 'manager.west@apexmotors.com',
-    phone: '+91 98330 45678',
-    designation: 'General Manager — Westside Automall',
-    department: 'Operations',
-    branch: 'Apex Westside Automall',
-    joiningDate: '2022-06-15',
-    salary: '₹1,40,000 / mo',
-    status: 'active',
-    password: 'Kavita@Apex2024$GM',
-    avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80',
-    leaveBalance: {
-      casual: { total: 12, used: 4 },
-      sick: { total: 7, used: 2 },
-      paid: { total: 18, used: 6 },
-    },
-    leaveHistory: [
-      {
-        id: 'lv-201',
-        leaveType: 'paid',
-        startDate: '2024-03-04',
-        endDate: '2024-03-09',
-        days: 6,
-        reason: 'Outstation Family Function',
-        appliedOn: '2024-02-20',
-        status: 'approved',
-        approvedBy: 'Vikram Singhania',
-      },
-      {
-        id: 'lv-202',
-        leaveType: 'sick',
-        startDate: '2024-07-02',
-        endDate: '2024-07-03',
-        days: 2,
-        reason: 'Viral Fever & Medical Rest',
-        appliedOn: '2024-07-02',
-        status: 'approved',
-        approvedBy: 'Vikram Singhania',
-      },
-    ],
-    accessControl: {
-      pipeline: true,
-      customers: true,
-      inventory: true,
-      procurement: true,
-      deals: true,
-      finance: true,
-      testDrives: true,
-      documents: true,
-      reports: true,
-      settings: false,
-    },
-  },
-  {
-    id: 'emp-3',
-    employeeCode: 'APEX-EMP-003',
-    fullName: 'John Fernandes',
-    email: 'sales.john@apexmotors.com',
-    phone: '+91 98190 88776',
-    designation: 'Senior Sales Executive & Test Pilot',
-    department: 'Sales',
-    branch: 'Apex Downtown Flagship',
-    joiningDate: '2023-01-10',
-    salary: '₹75,000 / mo',
-    status: 'active',
-    password: 'John@SalesApex99',
-    avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
-    leaveBalance: {
-      casual: { total: 12, used: 3 },
-      sick: { total: 7, used: 0 },
-      paid: { total: 18, used: 3 },
-    },
-    leaveHistory: [
-      {
-        id: 'lv-301',
-        leaveType: 'casual',
-        startDate: '2024-04-12',
-        endDate: '2024-04-14',
-        days: 3,
-        reason: 'Brother Wedding Ceremony',
-        appliedOn: '2024-04-01',
-        status: 'approved',
-        approvedBy: 'Kavita Chawla',
-      },
-    ],
-    accessControl: {
-      pipeline: true,
-      customers: true,
-      inventory: true,
-      procurement: false,
-      deals: true,
-      finance: false,
-      testDrives: true,
-      documents: true,
-      reports: false,
-      settings: false,
-    },
-  },
-  {
-    id: 'emp-4',
-    employeeCode: 'APEX-EMP-004',
-    fullName: 'Sarah Dsouza',
-    email: 'service.sarah@apexmotors.com',
-    phone: '+91 97690 12345',
-    designation: 'Head of Quality Inspection & Detailing',
-    department: 'Service',
-    branch: 'Apex Downtown Flagship',
-    joiningDate: '2023-03-20',
-    salary: '₹68,000 / mo',
-    status: 'active',
-    password: 'Sarah@Inspection2024',
-    avatarUrl: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&auto=format&fit=crop&q=80',
-    leaveBalance: {
-      casual: { total: 12, used: 2 },
-      sick: { total: 7, used: 3 },
-      paid: { total: 18, used: 0 },
-    },
-    leaveHistory: [
-      {
-        id: 'lv-401',
-        leaveType: 'sick',
-        startDate: '2024-06-11',
-        endDate: '2024-06-13',
-        days: 3,
-        reason: 'Severe food poisoning',
-        appliedOn: '2024-06-11',
-        status: 'approved',
-        approvedBy: 'Vikram Singhania',
-      },
-    ],
-    accessControl: {
-      pipeline: false,
-      customers: false,
-      inventory: true,
-      procurement: true,
-      deals: false,
-      finance: false,
-      testDrives: false,
-      documents: true,
-      reports: false,
-      settings: false,
-    },
-  },
-  {
-    id: 'emp-5',
-    employeeCode: 'APEX-EMP-005',
-    fullName: 'Amitabh Sen',
-    email: 'finance.amitabh@apexmotors.com',
-    phone: '+91 98210 99443',
-    designation: 'Finance Controller & Taxation Specialist',
-    department: 'Finance',
-    branch: 'Apex Downtown Flagship',
-    joiningDate: '2022-11-01',
-    salary: '₹95,000 / mo',
-    status: 'active',
-    password: 'Amitabh@FinGST#2024',
-    leaveBalance: {
-      casual: { total: 12, used: 1 },
-      sick: { total: 7, used: 1 },
-      paid: { total: 18, used: 5 },
-    },
-    leaveHistory: [
-      {
-        id: 'lv-501',
-        leaveType: 'paid',
-        startDate: '2024-01-15',
-        endDate: '2024-01-19',
-        days: 5,
-        reason: 'Family trip to Goa',
-        appliedOn: '2024-01-02',
-        status: 'approved',
-        approvedBy: 'Vikram Singhania',
-      },
-    ],
-    accessControl: {
-      pipeline: false,
-      customers: true,
-      inventory: false,
-      procurement: false,
-      deals: true,
-      finance: true,
-      testDrives: false,
-      documents: true,
-      reports: true,
-      settings: false,
-    },
-  },
-];
+export const INITIAL_EMPLOYEES: Employee[] = [];
 
 export function getEmployees(): Employee[] {
   if (typeof window === 'undefined') return INITIAL_EMPLOYEES;
   try {
+    // Purge legacy mock employees from previous sessions
+    localStorage.removeItem('crm_employees_v1');
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_EMPLOYEES));
-      return INITIAL_EMPLOYEES;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify([]));
+      return [];
     }
     const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed) && parsed.length > 0) {
-      return parsed.map((emp) => {
-        if (!emp.avatarUrl) {
-          const init = INITIAL_EMPLOYEES.find((i) => i.id === emp.id || i.employeeCode === emp.employeeCode);
-          if (init?.avatarUrl) return { ...emp, avatarUrl: init.avatarUrl };
-        }
-        return emp;
-      });
+    if (Array.isArray(parsed)) {
+      return parsed;
     }
-    return INITIAL_EMPLOYEES;
+    return [];
   } catch (err) {
     console.error('Failed to read employees from storage:', err);
-    return INITIAL_EMPLOYEES;
+    return [];
   }
 }
 
