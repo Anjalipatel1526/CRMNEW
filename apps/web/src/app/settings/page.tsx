@@ -59,7 +59,6 @@ import {
   Calendar,
   Phone,
   Mail,
-  MapPin,
   Lock,
   Unlock,
   Trash2,
@@ -70,11 +69,12 @@ import {
   FileText,
   BadgePercent,
   SlidersHorizontal,
-  Edit3,
   Camera,
   Upload,
+  Edit3,
+  Pencil,
+  MapPin,
   X,
-  Image as ImageIcon,
 } from 'lucide-react';
 
 export default function SettingsPage() {
@@ -95,7 +95,58 @@ export default function SettingsPage() {
   const [selectedEmployeeForAccess, setSelectedEmployeeForAccess] = useState<Employee | null>(null);
   const [selectedEmployeeForCreds, setSelectedEmployeeForCreds] = useState<Employee | null>(null);
   const [selectedProfileCardEmp, setSelectedProfileCardEmp] = useState<Employee | null>(null);
+  const [isEditingDossier, setIsEditingDossier] = useState(false);
+  const [editDossierForm, setEditDossierForm] = useState<Partial<Employee>>({});
   const [expandedCardIds, setExpandedCardIds] = useState<Record<string, boolean>>({});
+
+  const PRESET_AVATARS = [
+    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=150&auto=format&fit=crop&q=80',
+  ];
+
+  const openEmployeeDossier = (emp: Employee) => {
+    setSelectedProfileCardEmp(emp);
+    setEditDossierForm({ ...emp });
+    setIsEditingDossier(false);
+  };
+
+  const handleSaveDossierChanges = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!selectedProfileCardEmp) return;
+    const updated = updateEmployee(selectedProfileCardEmp.id, editDossierForm);
+    if (updated) {
+      setSelectedProfileCardEmp(updated);
+      setEmployees(getEmployees());
+      setIsEditingDossier(false);
+      showToast(`Employee details for ${updated.fullName} updated successfully!`);
+    }
+  };
+
+  const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>, target: 'add' | 'edit') => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 3 * 1024 * 1024) {
+      showToast('Image size exceeds 3MB. Please select a smaller photo.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const result = event.target?.result as string;
+      if (result) {
+        if (target === 'add') {
+          setNewEmpForm((prev) => ({ ...prev, avatarUrl: result }));
+        } else {
+          setEditDossierForm((prev) => ({ ...prev, avatarUrl: result }));
+        }
+        showToast('Photo uploaded successfully!');
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   const toggleEmployeeCard = (id: string) => {
     setExpandedCardIds((prev) => ({
@@ -139,20 +190,7 @@ export default function SettingsPage() {
     branch: 'Apex Downtown Flagship',
     salary: '₹75,000 / mo',
     password: '',
-    avatar: '',
-  });
-
-  const [isEditingCard, setIsEditingCard] = useState(false);
-  const [editEmpForm, setEditEmpForm] = useState({
-    fullName: '',
-    email: '',
-    phone: '',
-    designation: '',
-    department: 'Sales' as any,
-    branch: 'Apex Downtown Flagship',
-    salary: '',
-    password: '',
-    avatar: '',
+    avatarUrl: '',
   });
 
   // Form states for new leave
@@ -251,62 +289,6 @@ export default function SettingsPage() {
     }
   };
 
-  // Image Upload Handler
-  const handleImageUpload = (
-    e: React.ChangeEvent<HTMLInputElement>,
-    setter: (val: string) => void
-  ) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 3 * 1024 * 1024) {
-      showToast('Image size should be less than 3MB');
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        setter(reader.result);
-      }
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleStartEdit = (emp: Employee) => {
-    setEditEmpForm({
-      fullName: emp.fullName,
-      email: emp.email,
-      phone: emp.phone,
-      designation: emp.designation,
-      department: emp.department,
-      branch: emp.branch,
-      salary: emp.salary,
-      password: emp.password,
-      avatar: emp.avatar || '',
-    });
-    setIsEditingCard(true);
-  };
-
-  const handleSaveEdit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedProfileCardEmp) return;
-    const updated = updateEmployee(selectedProfileCardEmp.id, {
-      fullName: editEmpForm.fullName.trim(),
-      email: editEmpForm.email.trim(),
-      phone: editEmpForm.phone.trim(),
-      designation: editEmpForm.designation.trim(),
-      department: editEmpForm.department,
-      branch: editEmpForm.branch.trim(),
-      salary: editEmpForm.salary.trim(),
-      password: editEmpForm.password.trim(),
-      avatar: editEmpForm.avatar,
-    });
-    if (updated) {
-      setSelectedProfileCardEmp(updated);
-      setIsEditingCard(false);
-      showToast(`Employee profile for ${updated.fullName} updated successfully!`);
-    }
-  };
-
   // Create Employee
   const handleCreateEmployee = (e: React.FormEvent) => {
     e.preventDefault();
@@ -321,7 +303,7 @@ export default function SettingsPage() {
       branch: newEmpForm.branch,
       salary: newEmpForm.salary,
       password: newEmpForm.password.trim() || `Apex@${Math.floor(1000 + Math.random() * 9000)}!Pass`,
-      avatar: newEmpForm.avatar,
+      avatarUrl: newEmpForm.avatarUrl || undefined,
     });
 
     setIsNewEmployeeModalOpen(false);
@@ -334,7 +316,7 @@ export default function SettingsPage() {
       branch: 'Apex Downtown Flagship',
       salary: '₹75,000 / mo',
       password: '',
-      avatar: '',
+      avatarUrl: '',
     });
     showToast(`Employee ${created.fullName} (${created.employeeCode}) onboarded successfully!`);
   };
@@ -1054,7 +1036,7 @@ export default function SettingsPage() {
                   {/* Clean, uncluttered row */}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
                     <div
-                      onClick={() => setSelectedProfileCardEmp(emp)}
+                      onClick={() => openEmployeeDossier(emp)}
                       style={{ display: 'flex', alignItems: 'center', gap: '14px', cursor: 'pointer' }}
                       title="Click to view full employee card in middle of page"
                     >
@@ -1074,14 +1056,14 @@ export default function SettingsPage() {
                           overflow: 'hidden',
                         }}
                       >
-                        {emp.avatar ? (
+                        {emp.avatarUrl ? (
                           <img
-                            src={emp.avatar}
+                            src={emp.avatarUrl}
                             alt={emp.fullName}
                             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                           />
                         ) : (
-                          emp.fullName.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
+                          emp.fullName.split(' ').map((n) => n[0]).join('').slice(0, 2)
                         )}
                       </div>
 
@@ -1691,46 +1673,128 @@ export default function SettingsPage() {
           maxWidth="720px"
         >
           <form onSubmit={handleCreateEmployee} className="inspo-form-wrapper">
-            {/* Employee Profile Image Upload Option */}
-            <div className="form-group" style={{ marginBottom: '14px' }}>
-              <label className="form-label" style={{ fontWeight: 700 }}>Employee Profile Image / Photo</label>
-              <div className="avatar-upload-wrap">
-                <div className="avatar-preview-box">
-                  {newEmpForm.avatar ? (
-                    <img src={newEmpForm.avatar} alt="Employee Avatar" className="avatar-preview-img" />
-                  ) : (
-                    <Camera size={22} />
-                  )}
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <label className="avatar-upload-btn">
-                      <Upload size={13} />
-                      <span>{newEmpForm.avatar ? 'Change Photo' : 'Upload Employee Photo'}</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        style={{ display: 'none' }}
-                        onChange={(e) =>
-                          handleImageUpload(e, (val) =>
-                            setNewEmpForm((prev) => ({ ...prev, avatar: val }))
-                          )
-                        }
-                      />
-                    </label>
-                    {newEmpForm.avatar && (
-                      <button
-                        type="button"
-                        className="avatar-remove-btn"
-                        onClick={() => setNewEmpForm((prev) => ({ ...prev, avatar: '' }))}
-                      >
-                        Remove
-                      </button>
-                    )}
+            {/* Employee Photo Upload Section */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '16px',
+                padding: '12px 14px',
+                backgroundColor: '#F8FAFC',
+                borderRadius: '12px',
+                border: '1.5px dashed #CBD5E1',
+                marginBottom: '14px',
+              }}
+            >
+              <div
+                style={{
+                  width: '64px',
+                  height: '64px',
+                  borderRadius: '14px',
+                  backgroundColor: '#E2E8F0',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                  overflow: 'hidden',
+                  border: '1.5px solid #CBD5E1',
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.05)',
+                }}
+              >
+                {newEmpForm.avatarUrl ? (
+                  <img
+                    src={newEmpForm.avatarUrl}
+                    alt="Preview"
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', color: '#64748B' }}>
+                    <Camera size={22} style={{ color: '#0284C7' }} />
+                    <span style={{ fontSize: '0.62rem', fontWeight: 700 }}>PHOTO</span>
                   </div>
-                  <span style={{ fontSize: '0.72rem', color: '#64748B' }}>
-                    Recommended JPG, PNG, or WEBP up to 3MB. Displays on staff dossiers & CRM cards.
-                  </span>
+                )}
+              </div>
+
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: '0.84rem', fontWeight: 700, color: '#0F172A', marginBottom: '2px' }}>
+                  Employee Profile Photo <span style={{ fontSize: '0.74rem', color: '#64748B', fontWeight: 500 }}>(Optional)</span>
+                </div>
+                <div style={{ fontSize: '0.74rem', color: '#64748B', marginBottom: '8px' }}>
+                  Upload a photo from your computer or pick from dealership executive avatars.
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <label
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      padding: '5px 12px',
+                      borderRadius: '8px',
+                      border: '1px solid #CBD5E1',
+                      background: '#FFFFFF',
+                      fontSize: '0.76rem',
+                      fontWeight: 700,
+                      color: '#0F172A',
+                      cursor: 'pointer',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                    }}
+                  >
+                    <Upload size={13} style={{ color: '#0284C7' }} />
+                    <span>Upload Image</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleImageFileChange(e, 'add')}
+                      style={{ display: 'none' }}
+                    />
+                  </label>
+
+                  {newEmpForm.avatarUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setNewEmpForm((prev) => ({ ...prev, avatarUrl: '' }))}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        padding: '5px 10px',
+                        borderRadius: '8px',
+                        border: '1px solid #FCA5A5',
+                        background: '#FEF2F2',
+                        color: '#DC2626',
+                        fontSize: '0.74rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <Trash2 size={12} /> Remove
+                    </button>
+                  )}
+
+                  {/* Preset Avatar options */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: 'auto' }}>
+                    <span style={{ fontSize: '0.7rem', color: '#64748B', fontWeight: 600 }}>Presets:</span>
+                    {PRESET_AVATARS.slice(0, 4).map((url, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setNewEmpForm((prev) => ({ ...prev, avatarUrl: url }))}
+                        title={`Select preset avatar ${idx + 1}`}
+                        style={{
+                          width: '26px',
+                          height: '26px',
+                          borderRadius: '50%',
+                          border: newEmpForm.avatarUrl === url ? '2px solid #0284C7' : '1px solid #CBD5E1',
+                          overflow: 'hidden',
+                          cursor: 'pointer',
+                          padding: 0,
+                        }}
+                      >
+                        <img src={url} alt={`Preset ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
@@ -2259,20 +2323,21 @@ export default function SettingsPage() {
       )}
 
       {/* ========================================================
-          CENTERED EMPLOYEE STAFF DOSSIER MODAL (MATCHING IMAGE 2 EXACTLY)
+          CENTERED EMPLOYEE PROFILE CARD MODAL
+          (Appears in the middle of the screen when employee is clicked)
           ======================================================== */}
       {selectedProfileCardEmp && (
         <Modal
           isOpen={!!selectedProfileCardEmp}
           onClose={() => {
             setSelectedProfileCardEmp(null);
-            setIsEditingCard(false);
+            setIsEditingDossier(false);
           }}
-          maxWidth="700px"
+          maxWidth="680px"
           headerContent={
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div style={{ fontSize: '1.08rem', fontWeight: 800, color: '#0F172A' }}>
-                {isEditingCard ? 'Edit Employee Details' : 'Dealership Staff Dossier'}
+              <div style={{ fontSize: '1.08rem', fontWeight: 800, color: 'var(--text, #0F172A)' }}>
+                Staff &amp; Employee Dossier
               </div>
               <span
                 className="badge"
@@ -2284,11 +2349,9 @@ export default function SettingsPage() {
                   textTransform: 'uppercase',
                   fontWeight: 700,
                   letterSpacing: '0.04em',
-                  padding: '3px 10px',
-                  borderRadius: '999px',
                 }}
               >
-                DEPARTMENT: {selectedProfileCardEmp.department}
+                Dept: {selectedProfileCardEmp.department}
               </span>
             </div>
           }
@@ -2296,13 +2359,7 @@ export default function SettingsPage() {
             <div className="modal-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <button
                 type="button"
-                onClick={() => {
-                  if (isEditingCard) {
-                    setIsEditingCard(false);
-                  } else {
-                    handleStartEdit(selectedProfileCardEmp);
-                  }
-                }}
+                onClick={() => setIsEditingDossier((prev) => !prev)}
                 className="modal-header-edit-btn"
                 style={{
                   display: 'inline-flex',
@@ -2310,22 +2367,30 @@ export default function SettingsPage() {
                   gap: '5px',
                   padding: '5px 12px',
                   borderRadius: '999px',
-                  border: '1px solid #CBD5E1',
-                  background: '#F8FAFC',
+                  border: '1px solid #E2E8F0',
+                  background: isEditingDossier ? '#0284C7' : '#FFFFFF',
+                  color: isEditingDossier ? '#FFFFFF' : '#0F172A',
                   fontSize: '0.78rem',
-                  fontWeight: 600,
-                  color: '#0F172A',
+                  fontWeight: 700,
                   cursor: 'pointer',
-                  transition: 'all 0.15s ease',
+                  transition: 'all 0.18s ease',
                 }}
               >
-                <Edit3 size={13} /> {isEditingCard ? 'View Dossier' : 'Edit Details'}
+                {isEditingDossier ? (
+                  <>
+                    <Check size={13} /> View Mode
+                  </>
+                ) : (
+                  <>
+                    <Pencil size={13} /> Edit Details
+                  </>
+                )}
               </button>
               <button
                 type="button"
                 onClick={() => {
                   setSelectedProfileCardEmp(null);
-                  setIsEditingCard(false);
+                  setIsEditingDossier(false);
                 }}
                 className="modal-header-close-btn"
                 style={{
@@ -2333,12 +2398,12 @@ export default function SettingsPage() {
                   height: '30px',
                   borderRadius: '50%',
                   border: '1px solid #E2E8F0',
-                  background: '#F8FAFC',
+                  background: '#FFFFFF',
                   display: 'inline-flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   cursor: 'pointer',
-                  color: '#0F172A',
+                  color: '#64748B',
                 }}
                 aria-label="Close"
               >
@@ -2351,21 +2416,18 @@ export default function SettingsPage() {
               <button
                 type="button"
                 onClick={() => {
-                  if (isEditingCard) {
-                    setIsEditingCard(false);
-                  } else {
-                    setSelectedProfileCardEmp(null);
-                  }
+                  setSelectedProfileCardEmp(null);
+                  setIsEditingDossier(false);
                 }}
                 className="btn btn-secondary btn-sm"
                 style={{ borderRadius: '999px', padding: '0.45rem 1.25rem' }}
               >
-                &lt; {isEditingCard ? 'Back to Dossier' : 'Cancel'}
+                &lt; Cancel
               </button>
-              {isEditingCard ? (
+              {isEditingDossier ? (
                 <button
                   type="button"
-                  onClick={handleSaveEdit}
+                  onClick={handleSaveDossierChanges}
                   className="unique-lead-submit-btn"
                   style={{
                     borderRadius: '999px',
@@ -2377,12 +2439,13 @@ export default function SettingsPage() {
                     fontWeight: 700,
                   }}
                 >
-                  Save Changes ✓
+                  <span>Save Changes</span>
+                  <Check size={14} />
                 </button>
               ) : (
                 <button
                   type="button"
-                  onClick={() => handleStartEdit(selectedProfileCardEmp)}
+                  onClick={() => setIsEditingDossier(true)}
                   className="unique-lead-submit-btn"
                   style={{
                     borderRadius: '999px',
@@ -2394,436 +2457,426 @@ export default function SettingsPage() {
                     fontWeight: 700,
                   }}
                 >
-                  Edit Employee Details &rarr;
+                  <span>Edit Details</span>
+                  <ChevronRight size={14} />
                 </button>
               )}
             </div>
           }
         >
-          {isEditingCard ? (
-            /* ================= EDIT MODE ================= */
-            <form onSubmit={handleSaveEdit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              {/* Employee Photo Upload Field */}
-              <div className="form-group" style={{ marginBottom: '8px' }}>
-                <label className="form-label" style={{ fontWeight: 700 }}>Employee Profile Photo</label>
-                <div className="avatar-upload-wrap">
-                  <div className="avatar-preview-box">
-                    {editEmpForm.avatar ? (
-                      <img src={editEmpForm.avatar} alt="Employee Avatar" className="avatar-preview-img" />
-                    ) : (
-                      <Camera size={22} />
-                    )}
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <label className="avatar-upload-btn">
-                        <Upload size={13} />
-                        <span>{editEmpForm.avatar ? 'Change Photo' : 'Upload Employee Photo'}</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {/* 1. Identity & Profile Banner (Styled identically to Image 2) */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '14px',
+                padding: '16px',
+                borderRadius: '16px',
+                background: 'linear-gradient(135deg, #F0F9FF 0%, #EEF2FF 100%)',
+                border: '1px solid rgba(2, 132, 199, 0.22)',
+              }}
+            >
+              <div
+                style={{
+                  width: '56px',
+                  height: '56px',
+                  borderRadius: '14px',
+                  background: '#0284C7',
+                  color: '#FFFFFF',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 800,
+                  fontSize: '1.2rem',
+                  letterSpacing: '0.02em',
+                  boxShadow: '0 4px 12px rgba(2, 132, 199, 0.25)',
+                  flexShrink: 0,
+                  overflow: 'hidden',
+                  position: 'relative',
+                }}
+              >
+                {(isEditingDossier ? editDossierForm.avatarUrl : selectedProfileCardEmp.avatarUrl) ? (
+                  <img
+                    src={(isEditingDossier ? editDossierForm.avatarUrl : selectedProfileCardEmp.avatarUrl)}
+                    alt={selectedProfileCardEmp.fullName}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                ) : (
+                  selectedProfileCardEmp.fullName.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
+                )}
+              </div>
+
+              <div style={{ flex: 1, minWidth: 0 }}>
+                {isEditingDossier ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                      <div>
+                        <label style={{ fontSize: '0.72rem', fontWeight: 700, color: '#475569' }}>Full Name</label>
+                        <input
+                          type="text"
+                          className="form-input"
+                          style={{ height: '32px', fontSize: '0.82rem' }}
+                          value={editDossierForm.fullName || ''}
+                          onChange={(e) => setEditDossierForm({ ...editDossierForm, fullName: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '0.72rem', fontWeight: 700, color: '#475569' }}>Department</label>
+                        <select
+                          className="form-select"
+                          style={{ height: '32px', fontSize: '0.82rem' }}
+                          value={editDossierForm.department || 'Sales'}
+                          onChange={(e) => setEditDossierForm({ ...editDossierForm, department: e.target.value as any })}
+                        >
+                          <option value="Sales">Sales</option>
+                          <option value="Finance">Finance</option>
+                          <option value="Operations">Operations</option>
+                          <option value="Service">Service</option>
+                          <option value="Management">Management</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <label
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          padding: '3px 8px',
+                          borderRadius: '6px',
+                          border: '1px solid #CBD5E1',
+                          background: '#FFFFFF',
+                          fontSize: '0.72rem',
+                          fontWeight: 700,
+                          color: '#0F172A',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <Camera size={12} style={{ color: '#0284C7' }} />
+                        <span>Change Photo</span>
                         <input
                           type="file"
                           accept="image/*"
+                          onChange={(e) => handleImageFileChange(e, 'edit')}
                           style={{ display: 'none' }}
-                          onChange={(e) =>
-                            handleImageUpload(e, (val) =>
-                              setEditEmpForm((prev) => ({ ...prev, avatar: val }))
-                            )
-                          }
                         />
                       </label>
-                      {editEmpForm.avatar && (
+                      {editDossierForm.avatarUrl && (
                         <button
                           type="button"
-                          className="avatar-remove-btn"
-                          onClick={() => setEditEmpForm((prev) => ({ ...prev, avatar: '' }))}
-                        >
-                          Remove
-                        </button>
-                      )}
-                    </div>
-                    <span style={{ fontSize: '0.72rem', color: '#64748B' }}>
-                      JPG, PNG, or WEBP up to 3MB. Displays in all employee cards and directory rows.
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="form-grid-2">
-                <div className="form-group">
-                  <label className="form-label">Full Name <span className="req-star">*</span></label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    value={editEmpForm.fullName}
-                    onChange={(e) => setEditEmpForm({ ...editEmpForm, fullName: e.target.value })}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Designation <span className="req-star">*</span></label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    value={editEmpForm.designation}
-                    onChange={(e) => setEditEmpForm({ ...editEmpForm, designation: e.target.value })}
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="form-grid-2">
-                <div className="form-group">
-                  <label className="form-label">Department</label>
-                  <select
-                    className="form-select"
-                    value={editEmpForm.department}
-                    onChange={(e) => setEditEmpForm({ ...editEmpForm, department: e.target.value as any })}
-                  >
-                    <option value="Sales">Sales</option>
-                    <option value="Finance">Finance & Accounts</option>
-                    <option value="Operations">Operations</option>
-                    <option value="Service">Service</option>
-                    <option value="Management">Management</option>
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Dealership Branch</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    value={editEmpForm.branch}
-                    onChange={(e) => setEditEmpForm({ ...editEmpForm, branch: e.target.value })}
-                    placeholder="e.g. Apex Downtown Flagship"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="form-grid-2">
-                <div className="form-group">
-                  <label className="form-label">Corporate Email <span className="req-star">*</span></label>
-                  <input
-                    type="email"
-                    className="form-input"
-                    value={editEmpForm.email}
-                    onChange={(e) => setEditEmpForm({ ...editEmpForm, email: e.target.value })}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Phone <span className="req-star">*</span></label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    value={editEmpForm.phone}
-                    onChange={(e) => setEditEmpForm({ ...editEmpForm, phone: e.target.value })}
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="form-grid-2">
-                <div className="form-group">
-                  <label className="form-label">Base Monthly Salary / CTC</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    value={editEmpForm.salary}
-                    onChange={(e) => setEditEmpForm({ ...editEmpForm, salary: e.target.value })}
-                    placeholder="e.g. ₹95,000 / mo"
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Dealership CRM Password</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    value={editEmpForm.password}
-                    onChange={(e) => setEditEmpForm({ ...editEmpForm, password: e.target.value })}
-                    placeholder="CRM access password"
-                  />
-                </div>
-              </div>
-            </form>
-          ) : (
-            /* ================= VIEW DOSSIER MODE (MATCHING IMAGE 2) ================= */
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {/* 1. Customer/Staff Identity & Profile Banner (Exact Image 2 linear gradient) */}
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '14px',
-                  padding: '16px',
-                  borderRadius: '16px',
-                  background: 'linear-gradient(135deg, #F0F9FF 0%, #EEF2FF 100%)',
-                  border: '1px solid rgba(2, 132, 199, 0.22)',
-                }}
-              >
-                <div
-                  style={{
-                    width: '52px',
-                    height: '52px',
-                    borderRadius: '14px',
-                    background: '#0284C7',
-                    color: '#FFFFFF',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontWeight: 800,
-                    fontSize: '1.15rem',
-                    letterSpacing: '0.02em',
-                    boxShadow: '0 4px 12px rgba(2, 132, 199, 0.25)',
-                    flexShrink: 0,
-                    overflow: 'hidden',
-                  }}
-                >
-                  {selectedProfileCardEmp.avatar ? (
-                    <img
-                      src={selectedProfileCardEmp.avatar}
-                      alt={selectedProfileCardEmp.fullName}
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                    />
-                  ) : (
-                    selectedProfileCardEmp.fullName.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
-                  )}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                    <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#0F172A' }}>
-                      {selectedProfileCardEmp.fullName}
-                    </h3>
-                    <span
-                      style={{
-                        fontSize: '0.72rem',
-                        fontWeight: 700,
-                        padding: '2px 8px',
-                        borderRadius: '999px',
-                        background: '#E0F2FE',
-                        color: '#0369A1',
-                        border: '1px solid rgba(2, 132, 199, 0.25)',
-                      }}
-                    >
-                      {selectedProfileCardEmp.department}
-                    </span>
-                    <span
-                      style={{
-                        fontSize: '0.72rem',
-                        fontWeight: 700,
-                        padding: '2px 8px',
-                        borderRadius: '999px',
-                        background: '#DCFCE7',
-                        color: '#15803D',
-                        border: '1px solid rgba(22, 163, 74, 0.25)',
-                      }}
-                    >
-                      Active Staff ✓
-                    </span>
-                    <span
-                      style={{
-                        fontFamily: 'monospace',
-                        fontWeight: 700,
-                        fontSize: '0.74rem',
-                        color: '#2563EB',
-                        background: '#EFF6FF',
-                        padding: '2px 8px',
-                        borderRadius: '6px',
-                        border: '1px solid #DBEAFE',
-                      }}
-                    >
-                      {selectedProfileCardEmp.employeeCode}
-                    </span>
-                  </div>
-                  <div style={{ fontSize: '0.8rem', color: '#64748B', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                      <Phone size={13} style={{ color: '#0284C7' }} />
-                      <a href={`tel:${selectedProfileCardEmp.phone}`} style={{ color: '#0F172A', textDecoration: 'none', fontWeight: 600 }}>
-                        {selectedProfileCardEmp.phone}
-                      </a>
-                    </span>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                      <Mail size={13} style={{ color: '#0284C7' }} />
-                      <a href={`mailto:${selectedProfileCardEmp.email}`} style={{ color: '#0F172A', textDecoration: 'none', fontWeight: 600 }}>
-                        {selectedProfileCardEmp.email}
-                      </a>
-                    </span>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                      <MapPin size={13} style={{ color: '#0284C7' }} />
-                      {selectedProfileCardEmp.branch}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* 2. Grid of Information (Exact 2x2 Image 2 structure) */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                {/* Card 1: CRM Login Credentials */}
-                <div style={{ padding: '12px 14px', borderRadius: '12px', background: '#FFFFFF', border: '1px solid #E2E8F0' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', color: '#64748B', letterSpacing: '0.04em' }}>
-                      CRM Login Credentials
-                    </span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <button
-                        type="button"
-                        onClick={() => setRevealedPasswords((prev) => ({ ...prev, [selectedProfileCardEmp.id]: !prev[selectedProfileCardEmp.id] }))}
-                        style={{ background: 'none', border: 'none', color: '#64748B', cursor: 'pointer', padding: '2px' }}
-                        title={revealedPasswords[selectedProfileCardEmp.id] ? 'Hide' : 'Reveal password'}
-                      >
-                        {revealedPasswords[selectedProfileCardEmp.id] ? <EyeOff size={14} /> : <Eye size={14} />}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleCopy(`ID: ${selectedProfileCardEmp.employeeCode}\nPassword: ${selectedProfileCardEmp.password}`, selectedProfileCardEmp.id)}
-                        style={{ background: 'none', border: 'none', color: '#2563EB', cursor: 'pointer', padding: '2px' }}
-                        title="Copy credentials"
-                      >
-                        {copiedId === selectedProfileCardEmp.id ? <Check size={14} style={{ color: '#10B981' }} /> : <Copy size={14} />}
-                      </button>
-                    </div>
-                  </div>
-                  <div style={{ fontWeight: 800, fontSize: '0.95rem', color: '#0F172A', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ fontFamily: 'monospace', color: '#2563EB' }}>{selectedProfileCardEmp.employeeCode}</span>
-                    <span style={{ color: '#CBD5E1' }}>/</span>
-                    <span style={{ fontFamily: 'monospace', letterSpacing: revealedPasswords[selectedProfileCardEmp.id] ? '0' : '0.15em' }}>
-                      {revealedPasswords[selectedProfileCardEmp.id] ? selectedProfileCardEmp.password : '••••••••••••'}
-                    </span>
-                  </div>
-                  <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: '2px' }}>
-                    Clearance: <strong style={{ color: '#16A34A' }}>Active Dealership Portal Access ✓</strong>
-                  </div>
-                </div>
-
-                {/* Card 2: Compensation & Appointment */}
-                <div style={{ padding: '12px 14px', borderRadius: '12px', background: '#FFFFFF', border: '1px solid #E2E8F0' }}>
-                  <span style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', color: '#64748B', letterSpacing: '0.04em' }}>
-                    Compensation & Appointment
-                  </span>
-                  <div style={{ fontWeight: 800, fontSize: '0.95rem', color: '#15803D', marginTop: '3px' }}>
-                    {selectedProfileCardEmp.salary}
-                  </div>
-                  <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: '2px' }}>
-                    Designation: <strong>{selectedProfileCardEmp.designation}</strong>
-                  </div>
-                </div>
-
-                {/* Card 3: Leave Record Balances */}
-                <div style={{ padding: '12px 14px', borderRadius: '12px', background: '#FFFFFF', border: '1px solid #E2E8F0' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', color: '#64748B', letterSpacing: '0.04em' }}>
-                      Leave Record Balances
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedEmployeeForLeave(selectedProfileCardEmp)}
-                      style={{ background: 'none', border: 'none', color: '#2563EB', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', padding: 0 }}
-                    >
-                      History ({selectedProfileCardEmp.leaveHistory.length}) &rarr;
-                    </button>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 800, fontSize: '0.92rem', color: '#0F172A', marginTop: '3px' }}>
-                    <span>Casual: <strong style={{ color: '#0284C7' }}>{selectedProfileCardEmp.leaveBalance.casual.total - selectedProfileCardEmp.leaveBalance.casual.used}d</strong></span>
-                    <span>·</span>
-                    <span>Sick: <strong style={{ color: '#D97706' }}>{selectedProfileCardEmp.leaveBalance.sick.total - selectedProfileCardEmp.leaveBalance.sick.used}d</strong></span>
-                    <span>·</span>
-                    <span>Paid: <strong style={{ color: '#16A34A' }}>{selectedProfileCardEmp.leaveBalance.paid.total - selectedProfileCardEmp.leaveBalance.paid.used}d</strong></span>
-                  </div>
-                  <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: '2px' }}>
-                    Status: <strong style={{ color: '#16A34A' }}>In Good Standing</strong> · Recorded leaves tracked
-                  </div>
-                </div>
-
-                {/* Card 4: Authorized CRM Sections */}
-                <div style={{ padding: '12px 14px', borderRadius: '12px', background: '#FFFFFF', border: '1px solid #E2E8F0' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', color: '#64748B', letterSpacing: '0.04em' }}>
-                      Authorized CRM Sections
-                    </span>
-                    <span style={{ fontSize: '0.68rem', color: '#94A3B8' }}>Click to toggle</span>
-                  </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '4px' }}>
-                    {[
-                      { key: 'pipeline' as const, label: 'Pipeline' },
-                      { key: 'customers' as const, label: 'Customers' },
-                      { key: 'inventory' as const, label: 'Inventory' },
-                      { key: 'procurement' as const, label: 'Procure' },
-                      { key: 'deals' as const, label: 'Deals' },
-                      { key: 'finance' as const, label: 'Finance' },
-                      { key: 'testDrives' as const, label: 'Test Drive' },
-                      { key: 'documents' as const, label: 'Docs' },
-                      { key: 'reports' as const, label: 'Reports' },
-                      { key: 'settings' as const, label: 'Settings' },
-                    ].map((s) => {
-                      const hasAccess = selectedProfileCardEmp.accessControl[s.key];
-                      return (
-                        <button
-                          key={s.key}
-                          type="button"
-                          onClick={() => handleToggleCardAccess(s.key)}
-                          title={`Click to ${hasAccess ? 'revoke' : 'grant'} ${s.label}`}
+                          onClick={() => setEditDossierForm({ ...editDossierForm, avatarUrl: '' })}
                           style={{
-                            fontSize: '0.68rem',
-                            fontWeight: 700,
-                            padding: '2px 6px',
-                            borderRadius: '6px',
-                            border: hasAccess ? '1px solid #BBF7D0' : '1px solid #E2E8F0',
-                            backgroundColor: hasAccess ? '#F0FDF4' : '#F8FAFC',
-                            color: hasAccess ? '#15803D' : '#94A3B8',
-                            cursor: 'pointer',
                             display: 'inline-flex',
                             alignItems: 'center',
                             gap: '3px',
+                            padding: '3px 8px',
+                            borderRadius: '6px',
+                            border: '1px solid #FCA5A5',
+                            background: '#FEF2F2',
+                            color: '#DC2626',
+                            fontSize: '0.72rem',
+                            fontWeight: 700,
+                            cursor: 'pointer',
                           }}
                         >
-                          <span>{hasAccess ? '✓' : '✕'}</span>
-                          <span>{s.label}</span>
+                          <Trash2 size={11} /> Remove Photo
                         </button>
-                      );
-                    })}
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <h3 style={{ margin: 0, fontSize: '1.18rem', fontWeight: 800, color: '#0F172A' }}>
+                        {selectedProfileCardEmp.fullName}
+                      </h3>
+                      <span
+                        style={{
+                          fontSize: '0.72rem',
+                          fontWeight: 700,
+                          padding: '2px 8px',
+                          borderRadius: '999px',
+                          background: '#E0F2FE',
+                          color: '#0369A1',
+                          border: '1px solid rgba(2, 132, 199, 0.25)',
+                          fontFamily: 'monospace',
+                        }}
+                      >
+                        {selectedProfileCardEmp.employeeCode}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: '0.72rem',
+                          fontWeight: 700,
+                          padding: '2px 8px',
+                          borderRadius: '999px',
+                          background: '#EEF2FF',
+                          color: '#4338CA',
+                          border: '1px solid rgba(79, 70, 229, 0.25)',
+                        }}
+                      >
+                        {selectedProfileCardEmp.department}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: '0.72rem',
+                          fontWeight: 700,
+                          padding: '2px 8px',
+                          borderRadius: '999px',
+                          background: '#DCFCE7',
+                          color: '#15803D',
+                          border: '1px solid rgba(22, 163, 74, 0.25)',
+                        }}
+                      >
+                        Active Staff ✓
+                      </span>
+                    </div>
+
+                    <div
+                      style={{
+                        fontSize: '0.8rem',
+                        color: '#64748B',
+                        marginTop: '4px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '14px',
+                        flexWrap: 'wrap',
+                      }}
+                    >
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <Phone size={13} style={{ color: '#0284C7' }} />
+                        <a href={`tel:${selectedProfileCardEmp.phone}`} style={{ color: '#0F172A', fontWeight: 700, textDecoration: 'none' }}>
+                          {selectedProfileCardEmp.phone}
+                        </a>
+                      </span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <Mail size={13} style={{ color: '#0284C7' }} />
+                        <a href={`mailto:${selectedProfileCardEmp.email}`} style={{ color: '#0F172A', fontWeight: 700, textDecoration: 'none' }}>
+                          {selectedProfileCardEmp.email}
+                        </a>
+                      </span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <MapPin size={13} style={{ color: '#0284C7' }} />
+                        {selectedProfileCardEmp.branch}
+                      </span>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* 2. Grid of Information Cards (Styled identically to Image 2) */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              {/* Card 1: CRM Login Credentials */}
+              <div style={{ padding: '12px 14px', borderRadius: '12px', background: '#FFFFFF', border: '1px solid #E2E8F0', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                  <span style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', color: '#64748B', letterSpacing: '0.04em' }}>
+                    CRM Login Credentials
+                  </span>
+                  <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#16A34A', background: '#F0FDF4', padding: '2px 6px', borderRadius: '4px' }}>
+                    Active
+                  </span>
+                </div>
+
+                {isEditingDossier ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '0.72rem', color: '#64748B' }}>Password</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      style={{ height: '32px', fontSize: '0.82rem' }}
+                      value={editDossierForm.password || ''}
+                      onChange={(e) => setEditDossierForm({ ...editDossierForm, password: e.target.value })}
+                      placeholder="Enter new CRM password"
+                    />
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.82rem' }}>
+                      <span style={{ color: '#64748B' }}>ID:</span>
+                      <span style={{ fontFamily: 'monospace', fontWeight: 800, color: '#0284C7' }}>{selectedProfileCardEmp.employeeCode}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.82rem' }}>
+                      <span style={{ color: '#64748B' }}>Pass:</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ fontFamily: 'monospace', fontWeight: 800, color: '#0F172A', letterSpacing: revealedPasswords[selectedProfileCardEmp.id] ? '0' : '0.12em' }}>
+                          {revealedPasswords[selectedProfileCardEmp.id] ? selectedProfileCardEmp.password : '••••••••'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setRevealedPasswords((prev) => ({ ...prev, [selectedProfileCardEmp.id]: !prev[selectedProfileCardEmp.id] }))}
+                          style={{ background: 'none', border: 'none', color: '#64748B', cursor: 'pointer', padding: '2px' }}
+                          title={revealedPasswords[selectedProfileCardEmp.id] ? 'Hide' : 'Show'}
+                        >
+                          {revealedPasswords[selectedProfileCardEmp.id] ? <EyeOff size={13} /> : <Eye size={13} />}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleCopy(selectedProfileCardEmp.password, `pass-${selectedProfileCardEmp.id}`)}
+                          style={{ background: 'none', border: 'none', color: '#0284C7', cursor: 'pointer', padding: '2px' }}
+                          title="Copy Password"
+                        >
+                          {copiedId === `pass-${selectedProfileCardEmp.id}` ? <Check size={13} style={{ color: '#10B981' }} /> : <Copy size={13} />}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Card 2: Designation & Compensation */}
+              <div style={{ padding: '12px 14px', borderRadius: '12px', background: '#FFFFFF', border: '1px solid #E2E8F0', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
+                <span style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', color: '#64748B', letterSpacing: '0.04em' }}>
+                  Designation &amp; Compensation
+                </span>
+
+                {isEditingDossier ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px' }}>
+                    <div>
+                      <label style={{ fontSize: '0.72rem', color: '#64748B' }}>Designation</label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        style={{ height: '30px', fontSize: '0.8rem' }}
+                        value={editDossierForm.designation || ''}
+                        onChange={(e) => setEditDossierForm({ ...editDossierForm, designation: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.72rem', color: '#64748B' }}>Monthly Salary</label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        style={{ height: '30px', fontSize: '0.8rem' }}
+                        value={editDossierForm.salary || ''}
+                        onChange={(e) => setEditDossierForm({ ...editDossierForm, salary: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ fontWeight: 800, fontSize: '0.92rem', color: '#0F172A', marginTop: '4px' }}>
+                      {selectedProfileCardEmp.designation}
+                    </div>
+                    <div style={{ fontSize: '0.78rem', color: '#16A34A', fontWeight: 800, marginTop: '3px' }}>
+                      {selectedProfileCardEmp.salary} <span style={{ color: '#64748B', fontWeight: 500 }}>(Base Monthly CTC)</span>
+                    </div>
+                    <div style={{ fontSize: '0.72rem', color: '#94A3B8', marginTop: '2px' }}>
+                      Joined: {selectedProfileCardEmp.joiningDate}
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Card 3: Leave Record Balances */}
+              <div style={{ padding: '12px 14px', borderRadius: '12px', background: '#FFFFFF', border: '1px solid #E2E8F0', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                  <span style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', color: '#64748B', letterSpacing: '0.04em' }}>
+                    Leave Record Balances
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedEmployeeForLeave(selectedProfileCardEmp)}
+                    style={{ background: 'none', border: 'none', color: '#0284C7', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', padding: 0 }}
+                  >
+                    Leave Logs ({selectedProfileCardEmp.leaveHistory.length}) &rarr;
+                  </button>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', textAlign: 'center', marginTop: '4px' }}>
+                  <div style={{ background: '#F8FAFC', padding: '6px 4px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                    <div style={{ fontSize: '0.65rem', fontWeight: 700, color: '#64748B' }}>CASUAL</div>
+                    <div style={{ fontSize: '1.05rem', fontWeight: 900, color: '#0F172A' }}>
+                      {selectedProfileCardEmp.leaveBalance.casual.total - selectedProfileCardEmp.leaveBalance.casual.used}
+                    </div>
+                    <div style={{ fontSize: '0.62rem', color: '#94A3B8' }}>of {selectedProfileCardEmp.leaveBalance.casual.total} left</div>
+                  </div>
+
+                  <div style={{ background: '#F8FAFC', padding: '6px 4px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                    <div style={{ fontSize: '0.65rem', fontWeight: 700, color: '#64748B' }}>SICK</div>
+                    <div style={{ fontSize: '1.05rem', fontWeight: 900, color: '#0F172A' }}>
+                      {selectedProfileCardEmp.leaveBalance.sick.total - selectedProfileCardEmp.leaveBalance.sick.used}
+                    </div>
+                    <div style={{ fontSize: '0.62rem', color: '#94A3B8' }}>of {selectedProfileCardEmp.leaveBalance.sick.total} left</div>
+                  </div>
+
+                  <div style={{ background: '#F8FAFC', padding: '6px 4px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                    <div style={{ fontSize: '0.65rem', fontWeight: 700, color: '#64748B' }}>PAID</div>
+                    <div style={{ fontSize: '1.05rem', fontWeight: 900, color: '#0F172A' }}>
+                      {selectedProfileCardEmp.leaveBalance.paid.total - selectedProfileCardEmp.leaveBalance.paid.used}
+                    </div>
+                    <div style={{ fontSize: '0.62rem', color: '#94A3B8' }}>of {selectedProfileCardEmp.leaveBalance.paid.total} left</div>
                   </div>
                 </div>
               </div>
 
-              {/* 3. Statutory Compliance Strip (matches PAN / Statutory RTO Eligibility in Image 2) */}
-              <div
-                style={{
-                  padding: '12px 14px',
-                  borderRadius: '12px',
-                  background: '#FFFFFF',
-                  border: '1px solid #E2E8F0',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  flexWrap: 'wrap',
-                  gap: '10px',
-                }}
-              >
-                <div>
+              {/* Card 4: Authorized CRM Sections */}
+              <div style={{ padding: '12px 14px', borderRadius: '12px', background: '#FFFFFF', border: '1px solid #E2E8F0', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
                   <span style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', color: '#64748B', letterSpacing: '0.04em' }}>
-                    Permanent Staff Code
+                    Authorized CRM Sections
                   </span>
-                  <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#2563EB', fontFamily: 'monospace', marginTop: '2px' }}>
-                    {selectedProfileCardEmp.employeeCode}
-                  </div>
+                  <span style={{ fontSize: '0.68rem', color: '#64748B' }}>Click to toggle</span>
                 </div>
-                <div>
-                  <span style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', color: '#64748B', letterSpacing: '0.04em' }}>
-                    Statutory CRM Eligibility
-                  </span>
-                  <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#15803D', marginTop: '2px' }}>
-                    Enterprise Clearance Level 3 ✓
-                  </div>
-                </div>
-                <div>
-                  <span style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', color: '#64748B', letterSpacing: '0.04em' }}>
-                    Dealership Branch
-                  </span>
-                  <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#0F172A', marginTop: '2px' }}>
-                    {selectedProfileCardEmp.branch}
-                  </div>
+
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginTop: '4px' }}>
+                  {[
+                    { key: 'pipeline' as const, label: 'Pipeline' },
+                    { key: 'customers' as const, label: 'Customers' },
+                    { key: 'inventory' as const, label: 'Inventory' },
+                    { key: 'procurement' as const, label: 'Procurement' },
+                    { key: 'deals' as const, label: 'Deals' },
+                    { key: 'finance' as const, label: 'Finance' },
+                    { key: 'testDrives' as const, label: 'Test Drives' },
+                    { key: 'documents' as const, label: 'Documents' },
+                    { key: 'reports' as const, label: 'Reports' },
+                    { key: 'settings' as const, label: 'Settings' },
+                  ].map((s) => {
+                    const currentAccess = isEditingDossier && editDossierForm.accessControl
+                      ? editDossierForm.accessControl[s.key]
+                      : selectedProfileCardEmp.accessControl[s.key];
+
+                    return (
+                      <button
+                        key={s.key}
+                        type="button"
+                        onClick={() => {
+                          if (isEditingDossier) {
+                            const updatedAccess = {
+                              ...(editDossierForm.accessControl || selectedProfileCardEmp.accessControl),
+                              [s.key]: !currentAccess,
+                            };
+                            setEditDossierForm({ ...editDossierForm, accessControl: updatedAccess });
+                          } else {
+                            handleToggleCardAccess(s.key);
+                          }
+                        }}
+                        title={`Click to ${currentAccess ? 'revoke' : 'grant'} ${s.label}`}
+                        style={{
+                          fontSize: '0.72rem',
+                          fontWeight: 700,
+                          padding: '3px 8px',
+                          borderRadius: '6px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          backgroundColor: currentAccess ? '#ECFDF5' : '#F8FAFC',
+                          color: currentAccess ? '#065F46' : '#94A3B8',
+                          border: currentAccess ? '1px solid #A7F3D0' : '1px solid #E2E8F0',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        <span style={{ fontSize: '0.76rem' }}>{currentAccess ? '✓' : '✕'}</span>
+                        <span>{s.label}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>
-          )}
+          </div>
         </Modal>
       )}
 

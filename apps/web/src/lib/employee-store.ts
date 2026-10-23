@@ -38,7 +38,7 @@ export interface Employee {
   salary: string;
   status: 'active' | 'on_leave' | 'inactive';
   password: string; // Dealership CRM access password
-  avatar?: string; // Optional image URL or base64 data URL
+  avatarUrl?: string; // Dealership staff photo / avatar
   leaveBalance: {
     casual: { total: number; used: number };
     sick: { total: number; used: number };
@@ -64,6 +64,7 @@ export const INITIAL_EMPLOYEES: Employee[] = [
     salary: '₹2,50,000 / mo',
     status: 'active',
     password: 'ApexAdmin@2024#Master',
+    avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
     leaveBalance: {
       casual: { total: 12, used: 2 },
       sick: { total: 7, used: 1 },
@@ -119,6 +120,7 @@ export const INITIAL_EMPLOYEES: Employee[] = [
     salary: '₹1,40,000 / mo',
     status: 'active',
     password: 'Kavita@Apex2024$GM',
+    avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80',
     leaveBalance: {
       casual: { total: 12, used: 4 },
       sick: { total: 7, used: 2 },
@@ -174,6 +176,7 @@ export const INITIAL_EMPLOYEES: Employee[] = [
     salary: '₹75,000 / mo',
     status: 'active',
     password: 'John@SalesApex99',
+    avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
     leaveBalance: {
       casual: { total: 12, used: 3 },
       sick: { total: 7, used: 0 },
@@ -218,6 +221,7 @@ export const INITIAL_EMPLOYEES: Employee[] = [
     salary: '₹68,000 / mo',
     status: 'active',
     password: 'Sarah@Inspection2024',
+    avatarUrl: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&auto=format&fit=crop&q=80',
     leaveBalance: {
       casual: { total: 12, used: 2 },
       sick: { total: 7, used: 3 },
@@ -304,7 +308,16 @@ export function getEmployees(): Employee[] {
       return INITIAL_EMPLOYEES;
     }
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_EMPLOYEES;
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      return parsed.map((emp) => {
+        if (!emp.avatarUrl) {
+          const init = INITIAL_EMPLOYEES.find((i) => i.id === emp.id || i.employeeCode === emp.employeeCode);
+          if (init?.avatarUrl) return { ...emp, avatarUrl: init.avatarUrl };
+        }
+        return emp;
+      });
+    }
+    return INITIAL_EMPLOYEES;
   } catch (err) {
     console.error('Failed to read employees from storage:', err);
     return INITIAL_EMPLOYEES;
@@ -339,7 +352,7 @@ export function addEmployee(employeeData: Partial<Employee>): Employee {
     salary: employeeData.salary || '₹60,000 / mo',
     status: employeeData.status || 'active',
     password: employeeData.password || `Apex@${Math.floor(1000 + Math.random() * 9000)}!Secure`,
-    avatar: employeeData.avatar || '',
+    avatarUrl: employeeData.avatarUrl || '',
     leaveBalance: {
       casual: { total: 12, used: 0 },
       sick: { total: 7, used: 0 },
