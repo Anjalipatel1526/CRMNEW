@@ -19,7 +19,7 @@ export const DEFAULT_MODULES: DealershipModule[] = [
   {
     id: 'mod-overview',
     label: 'Overview',
-    href: '/',
+    href: '/dashboard',
     icon: 'LayoutDashboard',
     category: 'Core CRM',
     description: 'Executive dashboard, revenue velocity, quick pipeline KPI metrics and high-priority dealership alerts.',
@@ -148,9 +148,17 @@ export function getModules(): DealershipModule[] {
     }
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed) && parsed.length > 0) {
+      // Ensure mod-overview href points to /dashboard
+      let updated = false;
+      for (const m of parsed) {
+        if (m.id === 'mod-overview' && m.href === '/') {
+          m.href = '/dashboard';
+          updated = true;
+        }
+      }
+
       // Ensure any newly added default modules (like employees or test-drives) are merged
       const existingIds = new Set(parsed.map((m: any) => m.id));
-      let updated = false;
       for (const def of DEFAULT_MODULES) {
         if (!existingIds.has(def.id)) {
           parsed.push(def);

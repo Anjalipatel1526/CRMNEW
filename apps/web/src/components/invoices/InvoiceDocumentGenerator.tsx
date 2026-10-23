@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { api } from '@/lib/api-client';
 import { Customer } from '@crm/shared-types';
-import { getCompanyProfile, CompanyProfile } from '@/lib/company-store';
+import { getCompanyProfile, DEFAULT_COMPANY_PROFILE, CompanyProfile } from '@/lib/company-store';
 import {
   FileText,
   Save,
@@ -98,9 +98,10 @@ export function InvoiceDocumentGenerator({
   const [shareDropdownOpen, setShareDropdownOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const [company, setCompany] = useState<CompanyProfile>(getCompanyProfile());
+  const [company, setCompany] = useState<CompanyProfile>(DEFAULT_COMPANY_PROFILE);
 
   useEffect(() => {
+    setCompany(getCompanyProfile());
     const handleCompanyChanged = () => {
       setCompany(getCompanyProfile());
     };

@@ -154,6 +154,7 @@ export function resetCompanyProfile(): CompanyProfile {
   if (typeof window === 'undefined') return DEFAULT_COMPANY_PROFILE;
   try {
     localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(CREDS_KEY);
     window.dispatchEvent(new CustomEvent('crm-company-profile-changed', { detail: DEFAULT_COMPANY_PROFILE }));
     return DEFAULT_COMPANY_PROFILE;
   } catch (err) {

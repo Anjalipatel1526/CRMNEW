@@ -6,6 +6,7 @@ import { WordFadeIn } from '@/components/ui/WordFadeIn';
 import {
   getCompanyProfile,
   saveCompanyProfile,
+  resetCompanyProfile,
   saveUserCredentials,
   CompanyProfile,
   DEFAULT_COMPANY_PROFILE,
@@ -17,6 +18,13 @@ import {
   DEFAULT_MODULES,
 } from '@/lib/modules-registry';
 import { api } from '@/lib/api-client';
+import {
+  INDIAN_STATES,
+  POPULAR_CITIES,
+  lookupPincode,
+  fetchPincodeDetails,
+  getStateAndPincodeForCity,
+} from '@/lib/location-data';
 import {
   Building2,
   CreditCard,
@@ -36,13 +44,11 @@ import {
   EyeOff,
   Image as ImageIcon,
   CheckCircle2,
-  FileCheck2,
   MapPin,
   Mail,
   Phone,
   Globe,
   Landmark,
-  BadgePercent,
   Compass,
 } from 'lucide-react';
 
@@ -76,8 +82,17 @@ export default function OnboardingPage() {
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
 
   useEffect(() => {
-    const existing = getCompanyProfile();
-    setFormData(existing);
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('edit') === 'true') {
+        const existing = getCompanyProfile();
+        setFormData(existing);
+      } else {
+        // Clear all mock/test data so fields start completely empty
+        resetCompanyProfile();
+        setFormData(DEFAULT_COMPANY_PROFILE);
+      }
+    }
     setModulesList(getModules());
   }, []);
 
@@ -89,6 +104,76 @@ export default function OnboardingPage() {
         delete next[field];
         return next;
       });
+    }
+  };
+
+  // Auto-fill and dropdown handler for City selection
+  const handleCitySelect = (cityName: string) => {
+    const info = getStateAndPincodeForCity(cityName) || POPULAR_CITIES.find(
+      (c) => c.city.toLowerCase() === cityName.toLowerCase().trim()
+    );
+    const matchedState = info?.state || formData.state;
+    const matchedPincode =
+      (!formData.pincode || formData.pincode.length !== 6) && info?.pincode
+        ? info.pincode
+        : formData.pincode;
+
+    setFormData((prev) => ({
+      ...prev,
+      city: cityName,
+      state: matchedState,
+      pincode: matchedPincode,
+    }));
+    clearError('city');
+    if (matchedState) clearError('state');
+    if (matchedPincode && matchedPincode.length === 6) clearError('pincode');
+  };
+
+  // State selection handler
+  const handleStateSelect = (stateName: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      state: stateName,
+    }));
+    clearError('state');
+  };
+
+  // Pincode input & auto-detection handler (instant local lookup + async postal API verification)
+  const handlePincodeChange = async (val: string) => {
+    const clean = val.replace(/\D/g, '').slice(0, 6);
+    setFormData((prev) => ({ ...prev, pincode: clean }));
+    clearError('pincode');
+
+    if (clean.length === 6) {
+      // 1. Instant local offline lookup
+      const instant = lookupPincode(clean);
+      if (instant && (instant.city || instant.state)) {
+        setFormData((prev) => ({
+          ...prev,
+          pincode: clean,
+          city: instant.city || prev.city,
+          state: instant.state || prev.state,
+        }));
+        if (instant.city) clearError('city');
+        if (instant.state) clearError('state');
+      }
+
+      // 2. Background async query for pin-specific post office & district
+      try {
+        const live = await fetchPincodeDetails(clean);
+        if (live && (live.city || live.state)) {
+          setFormData((prev) => ({
+            ...prev,
+            pincode: clean,
+            city: live.city || prev.city,
+            state: live.state || prev.state,
+          }));
+          if (live.city) clearError('city');
+          if (live.state) clearError('state');
+        }
+      } catch {
+        // silent
+      }
     }
   };
 
@@ -297,8 +382,14 @@ export default function OnboardingPage() {
 
     if (!credentials.password) {
       newErrors.password = 'Password is mandatory';
-    } else if (credentials.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
+    } else if (credentials.password.length < 8) {
+      newErrors.password = 'Password must be at least 8 characters long';
+    } else if (!/[A-Z]/.test(credentials.password)) {
+      newErrors.password = 'Password must contain at least one capital letter (A-Z)';
+    } else if (!/[a-z]/.test(credentials.password)) {
+      newErrors.password = 'Password must contain at least one small letter (a-z)';
+    } else if (!/[0-9]/.test(credentials.password)) {
+      newErrors.password = 'Password must contain at least one numeric digit (0-9)';
     }
 
     if (!credentials.confirmPassword) {
@@ -334,7 +425,6 @@ export default function OnboardingPage() {
   };
 
   const handleNextFromStep4 = () => {
-    // Populate default admin name from signatory if empty
     if (!credentials.fullName && formData.authorizedSignatoryName) {
       setCredentials((prev) => ({
         ...prev,
@@ -374,9 +464,7 @@ export default function OnboardingPage() {
       if (ctx?.tenant) {
         ctx.tenant.name = updatedCompany.tradeName || updatedCompany.legalName;
       }
-    } catch (err) {
-      // ignore
-    }
+    } catch (err) {}
 
     // 5. Open success modal then redirect to login page
     setIsSuccessModalOpen(true);
@@ -393,7 +481,7 @@ export default function OnboardingPage() {
   ];
 
   return (
-    <div style={{ maxWidth: '1080px', margin: '0 auto', paddingBottom: '5rem', paddingTop: '1.25rem' }}>
+    <div style={{ maxWidth: '1040px', margin: '0 auto', paddingBottom: '5rem', paddingTop: '0.75rem', width: '100%' }}>
       {/* Decorative Atmosphere Glows matching Pearl Green Theme */}
       <div
         style={{
@@ -409,60 +497,17 @@ export default function OnboardingPage() {
         }}
       />
 
-      {/* Hero Header with Brand Pill */}
-      <div style={{ position: 'relative', zIndex: 1, marginBottom: '32px', textAlign: 'center' }}>
-        <div
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '6px 16px',
-            borderRadius: '999px',
-            background: 'linear-gradient(180deg, #FFFFFF 0%, #F4F7F5 100%)',
-            border: '1px solid rgba(30, 68, 59, 0.16)',
-            boxShadow: '0 2px 8px rgba(30, 68, 59, 0.06)',
-            color: '#1E443B',
-            fontSize: '0.74rem',
-            fontWeight: 800,
-            letterSpacing: '0.06em',
-            textTransform: 'uppercase',
-            marginBottom: '14px',
-          }}
-        >
-          <Sparkles size={13} style={{ color: '#234E43' }} />
-          <span>Automotive Enterprise Dealership Setup</span>
-        </div>
-
-        <h1
-          style={{
-            fontSize: '2.4rem',
-            fontWeight: 900,
-            color: '#17191A',
-            letterSpacing: '-0.035em',
-            margin: 0,
-            lineHeight: 1.2,
-          }}
-        >
+      {/* Hero Header without the pill badge */}
+      <div style={{ position: 'relative', zIndex: 1, marginBottom: '28px', textAlign: 'center' }}>
+        <h1 className="onboarding-title">
           <WordFadeIn text="Dealership Legal Entity & Branding Setup" />
         </h1>
-
-        <p
-          style={{
-            fontSize: '0.94rem',
-            color: '#5E6360',
-            maxWidth: '680px',
-            margin: '10px auto 0',
-            lineHeight: 1.5,
-          }}
-        >
-          Configure official dealership credentials, upload brand insignia for top navigation and invoice watermarks, and customize active operational modules.
-        </p>
 
         {/* Dynamic Progress Indicator */}
         <div
           style={{
-            maxWidth: '320px',
-            margin: '16px auto 0',
+            maxWidth: '300px',
+            margin: '14px auto 0',
             display: 'flex',
             alignItems: 'center',
             gap: '10px',
@@ -493,25 +538,9 @@ export default function OnboardingPage() {
         </div>
       </div>
 
-      {/* Floating Capsule Step Navigation Dock (Pearl Green & Pearl White Luxury Theme) */}
-      <div
-        style={{
-          position: 'relative',
-          zIndex: 1,
-          display: 'grid',
-          gridTemplateColumns: 'repeat(5, 1fr)',
-          gap: '6px',
-          backgroundColor: 'rgba(255, 255, 255, 0.92)',
-          backdropFilter: 'blur(16px)',
-          padding: '6px',
-          borderRadius: '999px',
-          border: '1.5px solid rgba(30, 68, 59, 0.12)',
-          boxShadow: '0 16px 36px -12px rgba(30, 68, 59, 0.1), 0 0 0 1px rgba(255, 255, 255, 0.8) inset',
-          marginBottom: '28px',
-        }}
-      >
+      {/* Floating Capsule Step Navigation Dock (Responsive) */}
+      <div className="onboarding-nav-dock">
         {STEPS.map((step) => {
-          const StepIcon = step.icon;
           const isActive = activeStep === step.num;
           const isDone = activeStep > step.num;
 
@@ -524,14 +553,8 @@ export default function OnboardingPage() {
                   setActiveStep(step.num as any);
                 }
               }}
+              className={`onboarding-nav-pill ${isActive ? 'active' : ''}`}
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                padding: '11px 12px',
-                borderRadius: '999px',
-                border: 'none',
                 background: isActive
                   ? 'linear-gradient(135deg, #26554A 0%, #173830 100%)'
                   : isDone
@@ -540,7 +563,6 @@ export default function OnboardingPage() {
                 color: isActive ? '#FFFFFF' : isDone ? '#1E443B' : '#5E6360',
                 boxShadow: isActive ? '0 8px 20px -4px rgba(30, 68, 59, 0.36)' : 'none',
                 cursor: step.num < activeStep ? 'pointer' : 'default',
-                transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
               }}
             >
               <div
@@ -565,6 +587,7 @@ export default function OnboardingPage() {
                 {isDone ? <Check size={12} strokeWidth={3} /> : step.num}
               </div>
               <span
+                className="step-label-text"
                 style={{
                   fontSize: '0.8rem',
                   fontWeight: isActive ? 800 : 700,
@@ -599,7 +622,7 @@ export default function OnboardingPage() {
             fontSize: '0.84rem',
             fontWeight: 700,
             boxShadow: '0 4px 14px rgba(220, 38, 38, 0.05)',
-            animation: 'fadeIn 0.2s ease',
+            boxSizing: 'border-box',
           }}
         >
           <div
@@ -625,19 +648,9 @@ export default function OnboardingPage() {
 
       {/* ================= STEP 1: IDENTITY, LOGO & DETAILS ================= */}
       {activeStep === 1 && (
-        <div
-          style={{
-            position: 'relative',
-            zIndex: 1,
-            backgroundColor: '#FFFFFF',
-            borderRadius: '26px',
-            border: '1px solid rgba(30, 68, 59, 0.12)',
-            padding: '36px 40px',
-            boxShadow: '0 20px 50px -20px rgba(30, 68, 59, 0.09), 0 1px 0 rgba(255, 255, 255, 0.9) inset',
-          }}
-        >
+        <div className="onboarding-card">
           {/* Step Header */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '26px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
             <div>
               <div
                 style={{
@@ -655,34 +668,20 @@ export default function OnboardingPage() {
                 <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#234E43' }} />
                 <span>Section 01 of 05</span>
               </div>
-              <h2 style={{ fontSize: '1.35rem', fontWeight: 900, color: '#17191A', margin: 0, letterSpacing: '-0.02em' }}>
+              <h2 style={{ fontSize: '1.3rem', fontWeight: 900, color: '#17191A', margin: 0, letterSpacing: '-0.02em' }}>
                 Dealership Entity, Brand Logo & Contact
               </h2>
             </div>
           </div>
 
           {/* Dealership Logo Upload Atelier Card */}
-          <div
-            style={{
-              padding: '24px',
-              background: 'linear-gradient(135deg, rgba(35, 78, 67, 0.04) 0%, rgba(250, 251, 249, 1) 100%)',
-              borderRadius: '20px',
-              border: errors.logoUrl ? '1.5px solid #DC2626' : '1px solid rgba(30, 68, 59, 0.14)',
-              marginBottom: '26px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              flexWrap: 'wrap',
-              gap: '18px',
-              boxShadow: '0 4px 16px rgba(30, 68, 59, 0.03)',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+          <div className="onboarding-logo-box" style={{ borderColor: errors.logoUrl ? '#DC2626' : undefined }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
               <div
                 style={{
-                  width: '84px',
-                  height: '84px',
-                  borderRadius: '18px',
+                  width: '80px',
+                  height: '80px',
+                  borderRadius: '16px',
                   backgroundColor: '#FFFFFF',
                   border: '1.5px dashed rgba(30, 68, 59, 0.22)',
                   display: 'flex',
@@ -691,7 +690,6 @@ export default function OnboardingPage() {
                   overflow: 'hidden',
                   boxShadow: '0 4px 14px rgba(30, 68, 59, 0.06)',
                   flexShrink: 0,
-                  position: 'relative',
                 }}
               >
                 {formData.logoUrl ? (
@@ -712,7 +710,7 @@ export default function OnboardingPage() {
 
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <h3 style={{ fontSize: '1rem', fontWeight: 800, color: '#17191A', margin: 0 }}>
+                  <h3 style={{ fontSize: '0.98rem', fontWeight: 800, color: '#17191A', margin: 0 }}>
                     Dealership Brand Emblem / Logo
                   </h3>
                   <span
@@ -729,8 +727,8 @@ export default function OnboardingPage() {
                     Asset
                   </span>
                 </div>
-                <p style={{ fontSize: '0.82rem', color: '#5E6360', margin: '4px 0 0' }}>
-                  Will appear on your top navigation dock, official GST invoices, and delivery gate dossiers.
+                <p style={{ fontSize: '0.8rem', color: '#5E6360', margin: '4px 0 0', lineHeight: 1.4 }}>
+                  Appears on your top navigation dock, official GST invoices, and delivery dossiers.
                 </p>
                 <div style={{ fontSize: '0.72rem', color: '#8A918D', marginTop: '3px' }}>
                   PNG, JPG, or SVG format with transparent background recommended.
@@ -738,13 +736,13 @@ export default function OnboardingPage() {
               </div>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div className="onboarding-logo-actions">
               <label
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '8px',
-                  padding: '10px 20px',
+                  padding: '10px 18px',
                   borderRadius: '999px',
                   background: 'linear-gradient(135deg, #26554A 0%, #173830 100%)',
                   color: '#FFFFFF',
@@ -752,7 +750,7 @@ export default function OnboardingPage() {
                   fontWeight: 800,
                   cursor: 'pointer',
                   boxShadow: '0 4px 14px rgba(30, 68, 59, 0.28)',
-                  transition: 'all 0.2s ease',
+                  boxSizing: 'border-box',
                 }}
               >
                 <Upload size={14} />
@@ -785,8 +783,8 @@ export default function OnboardingPage() {
             </div>
           </div>
 
-          {/* Legal Name & Trade Name */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+          {/* Legal Name & Trade Name (Responsive 2 cols -> 1 col) */}
+          <div className="onboarding-grid-2">
             <div>
               <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', fontWeight: 800, color: '#17191A', marginBottom: '8px' }}>
                 <Building2 size={14} style={{ color: '#234E43' }} />
@@ -864,62 +862,8 @@ export default function OnboardingPage() {
             </div>
           </div>
 
-          {/* Tagline & Business Model */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '20px', marginBottom: '20px' }}>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 800, color: '#17191A', marginBottom: '8px' }}>
-                Dealership Tagline / Motto
-              </label>
-              <input
-                type="text"
-                className="form-input"
-                style={{
-                  width: '100%',
-                  boxSizing: 'border-box',
-                  background: '#FAFBF9',
-                  border: '1.5px solid rgba(30, 68, 59, 0.12)',
-                  borderRadius: '14px',
-                  padding: '12px 16px',
-                  fontSize: '0.9rem',
-                  fontWeight: 600,
-                }}
-                value={formData.tagline || ''}
-                onChange={(e) => setFormData({ ...formData, tagline: e.target.value })}
-                placeholder="e.g. Precision Engineering & Pure Driving Pleasure"
-              />
-            </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 800, color: '#17191A', marginBottom: '8px' }}>
-                Dealership Business Model
-              </label>
-              <select
-                className="form-select"
-                style={{
-                  width: '100%',
-                  boxSizing: 'border-box',
-                  background: '#FAFBF9',
-                  border: '1.5px solid rgba(30, 68, 59, 0.12)',
-                  borderRadius: '14px',
-                  padding: '12px 16px',
-                  fontSize: '0.9rem',
-                  fontWeight: 600,
-                  color: '#17191A',
-                }}
-                value={formData.dealershipType}
-                onChange={(e) => setFormData({ ...formData, dealershipType: e.target.value as any })}
-              >
-                <option value="authorized_franchise">Authorized OEM Franchise Showroom</option>
-                <option value="multibrand_preowned">Multi-Brand Certified Pre-Owned Automall</option>
-                <option value="luxury_supercars">Luxury, Exotic & Supercar Atelier</option>
-                <option value="electric_mobility">Electric Vehicle (EV) Experience Center</option>
-                <option value="commercial_fleet">Commercial Fleet & Commercial Vehicles</option>
-              </select>
-            </div>
-          </div>
-
           {/* Email, Phone & Website */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '22px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '18px', marginBottom: '20px' }}>
             <div>
               <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', fontWeight: 800, color: '#17191A', marginBottom: '8px' }}>
                 <Mail size={14} style={{ color: '#234E43' }} />
@@ -956,7 +900,7 @@ export default function OnboardingPage() {
             <div>
               <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', fontWeight: 800, color: '#17191A', marginBottom: '8px' }}>
                 <Phone size={14} style={{ color: '#234E43' }} />
-                <span>Contact Mobile Phone (10 Digits)</span>
+                <span>Contact Phone (10 Digits)</span>
                 <span style={{ color: '#DC2626' }}>*</span>
               </label>
               <input
@@ -1011,7 +955,7 @@ export default function OnboardingPage() {
             </div>
           </div>
 
-          {/* Physical Address, City, State, Pincode */}
+          {/* Physical Address */}
           <div style={{ marginBottom: '20px' }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', fontWeight: 800, color: '#17191A', marginBottom: '8px' }}>
               <MapPin size={14} style={{ color: '#234E43' }} />
@@ -1045,14 +989,15 @@ export default function OnboardingPage() {
             )}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '28px' }}>
+          {/* Location Grid (Responsive 3 cols -> 2 cols on mobile) */}
+          <div className="onboarding-grid-location">
+            {/* City Dropdown */}
             <div>
               <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 800, color: '#17191A', marginBottom: '8px' }}>
                 City <span style={{ color: '#DC2626' }}>*</span>
               </label>
-              <input
-                type="text"
-                className="form-input"
+              <select
+                className="form-select"
                 style={{
                   width: '100%',
                   boxSizing: 'border-box',
@@ -1062,14 +1007,40 @@ export default function OnboardingPage() {
                   padding: '12px 16px',
                   fontSize: '0.9rem',
                   fontWeight: 600,
+                  color: '#17191A',
                 }}
                 value={formData.city}
-                onChange={(e) => {
-                  setFormData({ ...formData, city: e.target.value });
-                  clearError('city');
-                }}
-                placeholder="Mumbai"
-              />
+                onChange={(e) => handleCitySelect(e.target.value)}
+              >
+                <option value="">-- Select City --</option>
+                {/* Dynamic option for currently saved / custom / auto-detected city */}
+                {formData.city && !POPULAR_CITIES.some((c) => c.city.toLowerCase() === formData.city.toLowerCase()) && (
+                  <option value={formData.city}>
+                    📍 {formData.city} (Selected)
+                  </option>
+                )}
+                {/* Top Metros */}
+                <optgroup label="⭐ Top Metros & Commercial Hubs">
+                  {POPULAR_CITIES.slice(0, 10).map((c) => (
+                    <option key={`metro-${c.city}`} value={c.city}>
+                      {c.city}
+                    </option>
+                  ))}
+                </optgroup>
+                {/* All states alphabetical */}
+                {Array.from(new Set(POPULAR_CITIES.map((c) => c.state)))
+                  .sort((a, b) => a.localeCompare(b))
+                  .map((stateName) => (
+                    <optgroup key={stateName} label={stateName}>
+                      {POPULAR_CITIES.filter((c) => c.state === stateName).map((c) => (
+                        <option key={`${stateName}-${c.city}`} value={c.city}>
+                          {c.city}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+              </select>
+
               {errors.city && (
                 <div style={{ color: '#DC2626', fontSize: '0.74rem', fontWeight: 600, marginTop: '5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <AlertCircle size={12} /> {errors.city}
@@ -1077,13 +1048,13 @@ export default function OnboardingPage() {
               )}
             </div>
 
+            {/* State Dropdown */}
             <div>
               <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 800, color: '#17191A', marginBottom: '8px' }}>
                 State <span style={{ color: '#DC2626' }}>*</span>
               </label>
-              <input
-                type="text"
-                className="form-input"
+              <select
+                className="form-select"
                 style={{
                   width: '100%',
                   boxSizing: 'border-box',
@@ -1093,14 +1064,18 @@ export default function OnboardingPage() {
                   padding: '12px 16px',
                   fontSize: '0.9rem',
                   fontWeight: 600,
+                  color: '#17191A',
                 }}
                 value={formData.state}
-                onChange={(e) => {
-                  setFormData({ ...formData, state: e.target.value });
-                  clearError('state');
-                }}
-                placeholder="Maharashtra"
-              />
+                onChange={(e) => handleStateSelect(e.target.value)}
+              >
+                <option value="">-- Select State / UT --</option>
+                {INDIAN_STATES.map((st) => (
+                  <option key={st} value={st}>
+                    {st}
+                  </option>
+                ))}
+              </select>
               {errors.state && (
                 <div style={{ color: '#DC2626', fontSize: '0.74rem', fontWeight: 600, marginTop: '5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <AlertCircle size={12} /> {errors.state}
@@ -1108,6 +1083,7 @@ export default function OnboardingPage() {
               )}
             </div>
 
+            {/* Pincode Input with instant auto-fill */}
             <div>
               <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 800, color: '#17191A', marginBottom: '8px' }}>
                 Pincode (6 Digits) <span style={{ color: '#DC2626' }}>*</span>
@@ -1126,10 +1102,7 @@ export default function OnboardingPage() {
                   fontWeight: 600,
                 }}
                 value={formData.pincode}
-                onChange={(e) => {
-                  setFormData({ ...formData, pincode: e.target.value });
-                  clearError('pincode');
-                }}
+                onChange={(e) => handlePincodeChange(e.target.value)}
                 placeholder="400069"
                 maxLength={6}
               />
@@ -1138,28 +1111,6 @@ export default function OnboardingPage() {
                   <AlertCircle size={12} /> {errors.pincode}
                 </div>
               )}
-            </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 800, color: '#17191A', marginBottom: '8px' }}>
-                Country
-              </label>
-              <input
-                type="text"
-                className="form-input"
-                style={{
-                  width: '100%',
-                  boxSizing: 'border-box',
-                  background: '#FAFBF9',
-                  border: '1.5px solid rgba(30, 68, 59, 0.12)',
-                  borderRadius: '14px',
-                  padding: '12px 16px',
-                  fontSize: '0.9rem',
-                  fontWeight: 600,
-                }}
-                value={formData.country || 'India'}
-                onChange={(e) => setFormData({ ...formData, country: e.target.value })}
-              />
             </div>
           </div>
 
@@ -1181,7 +1132,6 @@ export default function OnboardingPage() {
                 border: 'none',
                 cursor: 'pointer',
                 boxShadow: '0 8px 24px -6px rgba(30, 68, 59, 0.38)',
-                transition: 'all 0.2s ease',
               }}
             >
               <span>Continue to Tax & Banking</span>
@@ -1193,19 +1143,8 @@ export default function OnboardingPage() {
 
       {/* ================= STEP 2: TAX & BANKING ================= */}
       {activeStep === 2 && (
-        <div
-          style={{
-            position: 'relative',
-            zIndex: 1,
-            backgroundColor: '#FFFFFF',
-            borderRadius: '26px',
-            border: '1px solid rgba(30, 68, 59, 0.12)',
-            padding: '36px 40px',
-            boxShadow: '0 20px 50px -20px rgba(30, 68, 59, 0.09), 0 1px 0 rgba(255, 255, 255, 0.9) inset',
-          }}
-        >
-          {/* Step Header */}
-          <div style={{ marginBottom: '26px' }}>
+        <div className="onboarding-card">
+          <div style={{ marginBottom: '24px' }}>
             <div
               style={{
                 display: 'inline-flex',
@@ -1222,7 +1161,7 @@ export default function OnboardingPage() {
               <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#234E43' }} />
               <span>Section 02 of 05</span>
             </div>
-            <h2 style={{ fontSize: '1.35rem', fontWeight: 900, color: '#17191A', margin: 0, letterSpacing: '-0.02em' }}>
+            <h2 style={{ fontSize: '1.3rem', fontWeight: 900, color: '#17191A', margin: 0, letterSpacing: '-0.02em' }}>
               Statutory Tax & Settlement Bank Coordinates
             </h2>
             <p style={{ fontSize: '0.84rem', color: '#5E6360', marginTop: '4px' }}>
@@ -1230,10 +1169,10 @@ export default function OnboardingPage() {
             </p>
           </div>
 
-          {/* GSTIN & PAN Card */}
+          {/* GSTIN & PAN Card (Responsive 1.2fr 1fr 1fr -> 1 col) */}
           <div
             style={{
-              padding: '24px',
+              padding: '22px',
               backgroundColor: '#FAFBF9',
               borderRadius: '20px',
               border: '1px solid rgba(30, 68, 59, 0.12)',
@@ -1247,7 +1186,7 @@ export default function OnboardingPage() {
               </h3>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: '18px' }}>
+            <div className="onboarding-grid-tax">
               <div>
                 <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 800, color: '#17191A', marginBottom: '8px' }}>
                   GSTIN Registration Number <span style={{ color: '#DC2626' }}>*</span>
@@ -1346,10 +1285,10 @@ export default function OnboardingPage() {
             </div>
           </div>
 
-          {/* Banking Coordinates Card */}
+          {/* Banking Coordinates Card (Responsive grid) */}
           <div
             style={{
-              padding: '24px',
+              padding: '22px',
               backgroundColor: '#FAFBF9',
               borderRadius: '20px',
               border: '1px solid rgba(30, 68, 59, 0.12)',
@@ -1363,7 +1302,7 @@ export default function OnboardingPage() {
               </h3>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '18px', marginBottom: '18px' }}>
+            <div className="onboarding-grid-bank">
               <div>
                 <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 800, color: '#17191A', marginBottom: '8px' }}>
                   Bank Name <span style={{ color: '#DC2626' }}>*</span>
@@ -1462,7 +1401,7 @@ export default function OnboardingPage() {
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '18px' }}>
+            <div className="onboarding-grid-branch">
               <div>
                 <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 800, color: '#17191A', marginBottom: '8px' }}>
                   Branch Name & Location <span style={{ color: '#DC2626' }}>*</span>
@@ -1568,19 +1507,8 @@ export default function OnboardingPage() {
 
       {/* ================= STEP 3: INVOICE AUTHORIZED SIGNATURE PHOTO ================= */}
       {activeStep === 3 && (
-        <div
-          style={{
-            position: 'relative',
-            zIndex: 1,
-            backgroundColor: '#FFFFFF',
-            borderRadius: '26px',
-            border: '1px solid rgba(30, 68, 59, 0.12)',
-            padding: '36px 40px',
-            boxShadow: '0 20px 50px -20px rgba(30, 68, 59, 0.09), 0 1px 0 rgba(255, 255, 255, 0.9) inset',
-          }}
-        >
-          {/* Step Header */}
-          <div style={{ marginBottom: '26px' }}>
+        <div className="onboarding-card">
+          <div style={{ marginBottom: '24px' }}>
             <div
               style={{
                 display: 'inline-flex',
@@ -1597,7 +1525,7 @@ export default function OnboardingPage() {
               <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#234E43' }} />
               <span>Section 03 of 05</span>
             </div>
-            <h2 style={{ fontSize: '1.35rem', fontWeight: 900, color: '#17191A', margin: 0, letterSpacing: '-0.02em' }}>
+            <h2 style={{ fontSize: '1.3rem', fontWeight: 900, color: '#17191A', margin: 0, letterSpacing: '-0.02em' }}>
               Invoice Authorized Signatory & Digital Signature Photo
             </h2>
             <p style={{ fontSize: '0.84rem', color: '#5E6360', marginTop: '4px' }}>
@@ -1605,8 +1533,8 @@ export default function OnboardingPage() {
             </p>
           </div>
 
-          {/* Signatory Name & Designation */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '24px' }}>
+          {/* Signatory Name & Designation (Responsive 1fr 1fr -> 1 col) */}
+          <div className="onboarding-grid-2">
             <div>
               <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 800, color: '#17191A', marginBottom: '8px' }}>
                 Authorized Signatory Full Name <span style={{ color: '#DC2626' }}>*</span>
@@ -1677,7 +1605,7 @@ export default function OnboardingPage() {
           {/* Signature Photo Upload Card */}
           <div
             style={{
-              padding: '28px',
+              padding: '24px',
               background: 'linear-gradient(135deg, rgba(35, 78, 67, 0.04) 0%, rgba(250, 251, 249, 1) 100%)',
               borderRadius: '20px',
               border: errors.signatureUrl ? '1.5px solid #DC2626' : '1.5px solid rgba(30, 68, 59, 0.14)',
@@ -1703,7 +1631,7 @@ export default function OnboardingPage() {
                   alignItems: 'center',
                   justifyContent: 'space-between',
                   backgroundColor: '#FFFFFF',
-                  padding: '18px 24px',
+                  padding: '18px 20px',
                   borderRadius: '16px',
                   border: '1.5px solid rgba(30, 68, 59, 0.18)',
                   boxShadow: '0 4px 16px rgba(30, 68, 59, 0.04)',
@@ -1711,12 +1639,12 @@ export default function OnboardingPage() {
                   gap: '14px',
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                   <div
                     style={{
-                      height: '64px',
-                      minWidth: '160px',
-                      padding: '6px 16px',
+                      height: '60px',
+                      minWidth: '140px',
+                      padding: '6px 14px',
                       backgroundColor: '#F8FAF9',
                       borderRadius: '10px',
                       border: '1px dashed rgba(30, 68, 59, 0.2)',
@@ -1728,15 +1656,15 @@ export default function OnboardingPage() {
                     <img
                       src={formData.signatureUrl}
                       alt="Authorized Signature"
-                      style={{ maxHeight: '52px', maxWidth: '180px', objectFit: 'contain' }}
+                      style={{ maxHeight: '48px', maxWidth: '160px', objectFit: 'contain' }}
                     />
                   </div>
                   <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#24754E', fontSize: '0.88rem', fontWeight: 800 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#24754E', fontSize: '0.86rem', fontWeight: 800 }}>
                       <CheckCircle2 size={16} />
-                      <span>Signature Photo Uploaded & Linked to Invoices</span>
+                      <span>Signature Photo Uploaded</span>
                     </div>
-                    <div style={{ fontSize: '0.76rem', color: '#5E6360', marginTop: '2px' }}>
+                    <div style={{ fontSize: '0.74rem', color: '#5E6360', marginTop: '2px' }}>
                       Signatory: {formData.authorizedSignatoryName || 'Principal Officer'}
                     </div>
                   </div>
@@ -1748,7 +1676,7 @@ export default function OnboardingPage() {
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: '6px',
-                      padding: '9px 18px',
+                      padding: '9px 16px',
                       borderRadius: '999px',
                       background: 'linear-gradient(135deg, #26554A 0%, #173830 100%)',
                       color: '#FFFFFF',
@@ -1793,19 +1721,20 @@ export default function OnboardingPage() {
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '10px',
-                  padding: '40px 24px',
+                  padding: '36px 20px',
                   borderRadius: '16px',
                   border: '2px dashed rgba(30, 68, 59, 0.25)',
                   backgroundColor: '#FFFFFF',
                   cursor: 'pointer',
                   transition: 'all 0.2s ease',
                   boxShadow: '0 2px 10px rgba(0, 0, 0, 0.02)',
+                  boxSizing: 'border-box',
                 }}
               >
                 <div
                   style={{
-                    width: '52px',
-                    height: '52px',
+                    width: '48px',
+                    height: '48px',
                     borderRadius: '50%',
                     backgroundColor: 'rgba(35, 78, 67, 0.08)',
                     color: '#1E443B',
@@ -1814,13 +1743,13 @@ export default function OnboardingPage() {
                     justifyContent: 'center',
                   }}
                 >
-                  <PenTool size={24} />
+                  <PenTool size={22} />
                 </div>
                 <div style={{ textAlign: 'center' }}>
-                  <span style={{ fontSize: '0.92rem', fontWeight: 800, color: '#17191A', display: 'block' }}>
+                  <span style={{ fontSize: '0.9rem', fontWeight: 800, color: '#17191A', display: 'block' }}>
                     Click to Upload Signature Photo
                   </span>
-                  <span style={{ fontSize: '0.76rem', color: '#5E6360', marginTop: '2px', display: 'block' }}>
+                  <span style={{ fontSize: '0.74rem', color: '#5E6360', marginTop: '2px', display: 'block' }}>
                     PNG or JPG image (High-contrast with transparent background recommended)
                   </span>
                 </div>
@@ -1884,18 +1813,8 @@ export default function OnboardingPage() {
 
       {/* ================= STEP 4: PLUGIN IN / PLUGIN OUT (ACCESS CONTROL) ================= */}
       {activeStep === 4 && (
-        <div
-          style={{
-            position: 'relative',
-            zIndex: 1,
-            backgroundColor: '#FFFFFF',
-            borderRadius: '26px',
-            border: '1px solid rgba(30, 68, 59, 0.12)',
-            padding: '36px 40px',
-            boxShadow: '0 20px 50px -20px rgba(30, 68, 59, 0.09), 0 1px 0 rgba(255, 255, 255, 0.9) inset',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '14px', marginBottom: '24px' }}>
+        <div className="onboarding-card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '14px', marginBottom: '22px' }}>
             <div>
               <div
                 style={{
@@ -1913,7 +1832,7 @@ export default function OnboardingPage() {
                 <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#234E43' }} />
                 <span>Section 04 of 05</span>
               </div>
-              <h2 style={{ fontSize: '1.35rem', fontWeight: 900, color: '#17191A', margin: 0, letterSpacing: '-0.02em' }}>
+              <h2 style={{ fontSize: '1.3rem', fontWeight: 900, color: '#17191A', margin: 0, letterSpacing: '-0.02em' }}>
                 Department Modules & Plugin Access Control
               </h2>
               <p style={{ fontSize: '0.84rem', color: '#5E6360', marginTop: '4px' }}>
@@ -1963,24 +1882,24 @@ export default function OnboardingPage() {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              padding: '14px 20px',
+              padding: '12px 18px',
               backgroundColor: 'rgba(35, 78, 67, 0.05)',
               borderRadius: '16px',
-              marginBottom: '24px',
+              marginBottom: '22px',
               border: '1px solid rgba(35, 78, 67, 0.12)',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.86rem', fontWeight: 800, color: '#1E443B' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.84rem', fontWeight: 800, color: '#1E443B' }}>
               <Layers size={18} />
               <span>Active Department Plugins: <strong>{activePluginsCount}</strong> of {modulesList.length} Connected</span>
             </div>
-            <span style={{ fontSize: '0.76rem', color: '#5E6360' }}>
+            <span style={{ fontSize: '0.74rem', color: '#5E6360' }}>
               Real-time sync to navigation dock
             </span>
           </div>
 
           {/* Modules Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(310px, 1fr))', gap: '16px', marginBottom: '28px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(290px, 1fr))', gap: '16px', marginBottom: '28px' }}>
             {modulesList.map((mod) => {
               const isPlugged = mod.isPluggedIn;
 
@@ -1988,7 +1907,7 @@ export default function OnboardingPage() {
                 <div
                   key={mod.id}
                   style={{
-                    padding: '20px',
+                    padding: '18px',
                     borderRadius: '18px',
                     backgroundColor: isPlugged ? '#FFFFFF' : '#FAFBF9',
                     border: '1.5px solid',
@@ -2050,11 +1969,11 @@ export default function OnboardingPage() {
                       </button>
                     </div>
 
-                    <div style={{ fontSize: '0.96rem', fontWeight: 800, color: '#17191A', marginBottom: '6px' }}>
+                    <div style={{ fontSize: '0.94rem', fontWeight: 800, color: '#17191A', marginBottom: '6px' }}>
                       {mod.label}
                     </div>
 
-                    <p style={{ fontSize: '0.78rem', color: '#5E6360', margin: 0, lineHeight: 1.45 }}>
+                    <p style={{ fontSize: '0.76rem', color: '#5E6360', margin: 0, lineHeight: 1.45 }}>
                       {mod.description}
                     </p>
                   </div>
@@ -2120,18 +2039,8 @@ export default function OnboardingPage() {
       {/* ================= STEP 5: CREATE USER ID & PASSWORD (LAST STAGE) ================= */}
       {activeStep === 5 && (
         <form onSubmit={handleFinalSubmit}>
-          <div
-            style={{
-              position: 'relative',
-              zIndex: 1,
-              backgroundColor: '#FFFFFF',
-              borderRadius: '26px',
-              border: '1px solid rgba(30, 68, 59, 0.12)',
-              padding: '36px 40px',
-              boxShadow: '0 20px 50px -20px rgba(30, 68, 59, 0.09), 0 1px 0 rgba(255, 255, 255, 0.9) inset',
-            }}
-          >
-            <div style={{ marginBottom: '26px' }}>
+          <div className="onboarding-card">
+            <div style={{ marginBottom: '24px' }}>
               <div
                 style={{
                   display: 'inline-flex',
@@ -2150,7 +2059,7 @@ export default function OnboardingPage() {
                 <Shield size={13} />
                 <span>FINAL STAGE</span>
               </div>
-              <h2 style={{ fontSize: '1.35rem', fontWeight: 900, color: '#17191A', margin: 0, letterSpacing: '-0.02em' }}>
+              <h2 style={{ fontSize: '1.3rem', fontWeight: 900, color: '#17191A', margin: 0, letterSpacing: '-0.02em' }}>
                 Step 5: Create Administrator Account Credentials
               </h2>
               <p style={{ fontSize: '0.84rem', color: '#5E6360', marginTop: '4px' }}>
@@ -2163,7 +2072,7 @@ export default function OnboardingPage() {
                 backgroundColor: '#FAFBF9',
                 borderRadius: '20px',
                 border: '1px solid rgba(30, 68, 59, 0.12)',
-                padding: '28px',
+                padding: '24px',
                 marginBottom: '26px',
               }}
             >
@@ -2256,8 +2165,8 @@ export default function OnboardingPage() {
                 )}
               </div>
 
-              {/* Password & Confirm Password */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '18px' }}>
+              {/* Password & Confirm Password (Responsive 1fr 1fr -> 1 col) */}
+              <div className="onboarding-grid-creds">
                 <div>
                   <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 800, color: '#17191A', marginBottom: '8px' }}>
                     Create Password <span style={{ color: '#DC2626' }}>*</span>
@@ -2294,7 +2203,7 @@ export default function OnboardingPage() {
                         setCredentials({ ...credentials, password: e.target.value });
                         clearError('password');
                       }}
-                      placeholder="Minimum 6 characters"
+                      placeholder="Min. 8 characters (1 uppercase, 1 lowercase, 1 number)"
                     />
                     <button
                       type="button"
@@ -2315,10 +2224,142 @@ export default function OnboardingPage() {
                     </button>
                   </div>
                   {errors.password && (
-                    <div style={{ color: '#DC2626', fontSize: '0.74rem', fontWeight: 600, marginTop: '5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <div style={{ color: '#DC2626', fontSize: '0.74rem', fontWeight: 600, marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                       <AlertCircle size={12} /> {errors.password}
                     </div>
                   )}
+
+                  {/* Live Password Strength & Requirements Checklist */}
+                  <div style={{ marginTop: '10px' }}>
+                    {credentials.password ? (
+                      (() => {
+                        const hasUpper = /[A-Z]/.test(credentials.password);
+                        const hasLower = /[a-z]/.test(credentials.password);
+                        const hasNumber = /[0-9]/.test(credentials.password);
+                        const hasMinLength = credentials.password.length >= 8;
+                        const isStrong = hasUpper && hasLower && hasNumber && hasMinLength;
+
+                        return (
+                          <>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '5px' }}>
+                              <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#5E6360' }}>
+                                Password Strength:
+                              </span>
+                              <span
+                                style={{
+                                  fontSize: '0.72rem',
+                                  fontWeight: 800,
+                                  color: isStrong ? '#15803D' : (hasUpper || hasLower) && (hasNumber || hasMinLength) ? '#D97706' : '#DC2626',
+                                }}
+                              >
+                                {isStrong ? 'Strong Password ✓' : (hasUpper || hasLower) && (hasNumber || hasMinLength) ? 'Medium (Needs capital/numeric)' : 'Weak Password'}
+                              </span>
+                            </div>
+
+                            {/* Progress bar */}
+                            <div style={{ display: 'flex', gap: '4px', height: '4px', borderRadius: '4px', overflow: 'hidden', backgroundColor: 'rgba(30, 68, 59, 0.08)', marginBottom: '8px' }}>
+                              <div
+                                style={{
+                                  flex: 1,
+                                  height: '100%',
+                                  backgroundColor: credentials.password.length > 0 ? (isStrong ? '#15803D' : '#D97706') : 'transparent',
+                                  transition: 'all 0.2s ease',
+                                }}
+                              />
+                              <div
+                                style={{
+                                  flex: 1,
+                                  height: '100%',
+                                  backgroundColor: (hasUpper || hasNumber) && hasLower ? (isStrong ? '#15803D' : '#D97706') : 'transparent',
+                                  transition: 'all 0.2s ease',
+                                }}
+                              />
+                              <div
+                                style={{
+                                  flex: 1,
+                                  height: '100%',
+                                  backgroundColor: isStrong ? '#15803D' : 'transparent',
+                                  transition: 'all 0.2s ease',
+                                }}
+                              />
+                            </div>
+
+                            {/* Checklist tags */}
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                              <span
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  padding: '3px 8px',
+                                  borderRadius: '6px',
+                                  fontSize: '0.69rem',
+                                  fontWeight: 700,
+                                  backgroundColor: hasUpper ? 'rgba(21, 128, 61, 0.1)' : 'rgba(220, 38, 38, 0.08)',
+                                  color: hasUpper ? '#15803D' : '#DC2626',
+                                  border: hasUpper ? '1px solid rgba(21, 128, 61, 0.25)' : '1px solid rgba(220, 38, 38, 0.2)',
+                                }}
+                              >
+                                {hasUpper ? <Check size={10} strokeWidth={3} /> : '✕'} 1 Capital (A-Z)
+                              </span>
+                              <span
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  padding: '3px 8px',
+                                  borderRadius: '6px',
+                                  fontSize: '0.69rem',
+                                  fontWeight: 700,
+                                  backgroundColor: hasLower ? 'rgba(21, 128, 61, 0.1)' : 'rgba(220, 38, 38, 0.08)',
+                                  color: hasLower ? '#15803D' : '#DC2626',
+                                  border: hasLower ? '1px solid rgba(21, 128, 61, 0.25)' : '1px solid rgba(220, 38, 38, 0.2)',
+                                }}
+                              >
+                                {hasLower ? <Check size={10} strokeWidth={3} /> : '✕'} 1 Small (a-z)
+                              </span>
+                              <span
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  padding: '3px 8px',
+                                  borderRadius: '6px',
+                                  fontSize: '0.69rem',
+                                  fontWeight: 700,
+                                  backgroundColor: hasNumber ? 'rgba(21, 128, 61, 0.1)' : 'rgba(220, 38, 38, 0.08)',
+                                  color: hasNumber ? '#15803D' : '#DC2626',
+                                  border: hasNumber ? '1px solid rgba(21, 128, 61, 0.25)' : '1px solid rgba(220, 38, 38, 0.2)',
+                                }}
+                              >
+                                {hasNumber ? <Check size={10} strokeWidth={3} /> : '✕'} 1 Numeric (0-9)
+                              </span>
+                              <span
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  padding: '3px 8px',
+                                  borderRadius: '6px',
+                                  fontSize: '0.69rem',
+                                  fontWeight: 700,
+                                  backgroundColor: hasMinLength ? 'rgba(21, 128, 61, 0.1)' : 'rgba(220, 38, 38, 0.08)',
+                                  color: hasMinLength ? '#15803D' : '#DC2626',
+                                  border: hasMinLength ? '1px solid rgba(21, 128, 61, 0.25)' : '1px solid rgba(220, 38, 38, 0.2)',
+                                }}
+                              >
+                                {hasMinLength ? <Check size={10} strokeWidth={3} /> : '✕'} 8+ Chars
+                              </span>
+                            </div>
+                          </>
+                        );
+                      })()
+                    ) : (
+                      <span style={{ fontSize: '0.72rem', color: '#5E6360', display: 'block' }}>
+                        Must include at least 1 capital letter, 1 small letter, 1 numeric digit, and 8+ characters.
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 <div>
@@ -2421,7 +2462,6 @@ export default function OnboardingPage() {
                   fontWeight: 800,
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: '10px',
                   borderRadius: '999px',
                   border: 'none',
                   background: 'linear-gradient(135deg, #26554A 0%, #173830 100%)',
@@ -2431,7 +2471,6 @@ export default function OnboardingPage() {
                   transition: 'all 0.2s ease',
                 }}
               >
-                <Sparkles size={18} />
                 <span>Complete Onboarding & Create Account</span>
               </button>
             </div>
@@ -2460,25 +2499,26 @@ export default function OnboardingPage() {
               borderRadius: '28px',
               maxWidth: '520px',
               width: '100%',
-              padding: '40px',
+              padding: '36px 30px',
               textAlign: 'center',
               boxShadow: '0 30px 60px -15px rgba(23, 56, 48, 0.35)',
               position: 'relative',
               animation: 'fadeInUp 0.3s ease',
               border: '1px solid rgba(255, 255, 255, 0.9)',
+              boxSizing: 'border-box',
             }}
           >
             <div
               style={{
-                width: '68px',
-                height: '68px',
+                width: '64px',
+                height: '64px',
                 borderRadius: '50%',
                 background: 'linear-gradient(135deg, #26554A 0%, #173830 100%)',
                 color: '#FFFFFF',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                margin: '0 auto 20px',
+                margin: '0 auto 18px',
                 fontSize: '1.8rem',
                 boxShadow: '0 8px 24px -4px rgba(30, 68, 59, 0.35)',
               }}
@@ -2504,11 +2544,11 @@ export default function OnboardingPage() {
               🎉 DEALERSHIP WORKSPACE INITIALIZED
             </div>
 
-            <h2 style={{ fontSize: '1.55rem', fontWeight: 900, color: '#17191A', marginBottom: '8px', letterSpacing: '-0.02em' }}>
+            <h2 style={{ fontSize: '1.45rem', fontWeight: 900, color: '#17191A', marginBottom: '8px', letterSpacing: '-0.02em' }}>
               Welcome, {formData.tradeName || formData.legalName}!
             </h2>
 
-            <p style={{ fontSize: '0.86rem', color: '#5E6360', lineHeight: 1.55, marginBottom: '24px' }}>
+            <p style={{ fontSize: '0.84rem', color: '#5E6360', lineHeight: 1.55, marginBottom: '22px' }}>
               Your brand logo, statutory GSTIN details, digital signature, and administrator User ID (<strong>{credentials.userId}</strong>) have been configured. Sign in to access your customized dashboard.
             </p>
 
@@ -2518,7 +2558,7 @@ export default function OnboardingPage() {
                 borderRadius: '16px',
                 padding: '16px 20px',
                 border: '1px solid rgba(30, 68, 59, 0.12)',
-                marginBottom: '26px',
+                marginBottom: '24px',
                 textAlign: 'left',
                 fontSize: '0.8rem',
               }}
@@ -2553,7 +2593,7 @@ export default function OnboardingPage() {
                 width: '100%',
                 padding: '13px 24px',
                 fontWeight: 800,
-                fontSize: '0.94rem',
+                fontSize: '0.92rem',
                 background: 'linear-gradient(135deg, #26554A 0%, #173830 100%)',
                 color: '#FFFFFF',
                 border: 'none',

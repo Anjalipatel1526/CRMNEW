@@ -5,6 +5,57 @@
    - Cards: Crisp White (#FFFFFF) with smooth 26px radius
    ======================================================== */
 
+/* Landing Page Feature Pills: 2 Up & 2 Down on Mobile */
+.landing-pills-container {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 3rem;
+  max-width: 940px;
+  width: 100%;
+}
+.landing-pill-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background-color: #F8FAF9;
+  border: 1.2px solid rgba(30, 68, 59, 0.12);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #1E443B;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+  white-space: nowrap;
+}
+@media (max-width: 640px) {
+  .landing-pills-container {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    width: 100% !important;
+    max-width: 440px !important;
+    margin-bottom: 2.25rem !important;
+    padding: 0 4px !important;
+    box-sizing: border-box !important;
+  }
+  .landing-pill-item {
+    display: flex !important;
+    align-items: center !important;
+    justifyContent: center !important;
+    padding: 9px 8px !important;
+    font-size: 0.70rem !important;
+    gap: 5px !important;
+    white-space: normal !important;
+    text-align: center !important;
+    line-height: 1.2 !important;
+    min-height: 46px !important;
+    box-sizing: border-box !important;
+  }
+}
+
 :root {
   /* Typography */
   --font: 'Urbanist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -3692,5 +3743,204 @@ input.no-spinner {
   flex-direction: column;
   justify-content: space-between;
 }
+
+/* ========================================================
+   ONBOARDING FLOW RESPONSIVE & LAYOUT STYLES
+   ======================================================== */
+.onboarding-card {
+  position: relative;
+  z-index: 1;
+  background-color: #FFFFFF;
+  border-radius: 26px;
+  border: 1px solid rgba(30, 68, 59, 0.12);
+  padding: 36px 40px;
+  box-shadow: 0 20px 50px -20px rgba(30, 68, 59, 0.09), 0 1px 0 rgba(255, 255, 255, 0.9) inset;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.onboarding-title {
+  font-size: 2.3rem;
+  font-weight: 900;
+  color: #17191A;
+  letter-spacing: -0.035em;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.onboarding-subtitle {
+  font-size: 0.94rem;
+  color: #5E6360;
+  max-width: 680px;
+  margin: 10px auto 0;
+  line-height: 1.5;
+}
+
+.onboarding-nav-dock {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+  background-color: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(16px);
+  padding: 6px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(30, 68, 59, 0.12);
+  box-shadow: 0 16px 36px -12px rgba(30, 68, 59, 0.1), 0 0 0 1px rgba(255, 255, 255, 0.8) inset;
+  margin-bottom: 28px;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.onboarding-nav-pill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 11px 12px;
+  border-radius: 999px;
+  border: none;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
+}
+
+.onboarding-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.onboarding-grid-location {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.onboarding-grid-tax {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 1fr;
+  gap: 18px;
+}
+
+.onboarding-grid-bank {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.onboarding-grid-branch {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 18px;
+}
+
+.onboarding-grid-creds {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+
+.onboarding-logo-box {
+  padding: 24px;
+  background: linear-gradient(135deg, rgba(35, 78, 67, 0.04) 0%, rgba(250, 251, 249, 1) 100%);
+  border-radius: 20px;
+  border: 1px solid rgba(30, 68, 59, 0.14);
+  margin-bottom: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 18px;
+  box-shadow: 0 4px 16px rgba(30, 68, 59, 0.03);
+  box-sizing: border-box;
+}
+
+.onboarding-logo-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Mobile & Small Screen Optimizations */
+@media (max-width: 768px) {
+  .onboarding-card {
+    padding: 22px 16px !important;
+    border-radius: 20px !important;
+  }
+  .onboarding-title {
+    font-size: 1.65rem !important;
+  }
+  .onboarding-subtitle {
+    font-size: 0.84rem !important;
+  }
+  .onboarding-nav-dock {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 4px !important;
+    padding: 4px 6px !important;
+  }
+  .onboarding-nav-pill {
+    padding: 7px 8px !important;
+    flex: 0 0 auto !important;
+  }
+  .onboarding-nav-pill:not(.active) .step-label-text {
+    display: none !important;
+  }
+  .onboarding-nav-pill.active {
+    flex: 1 1 auto !important;
+    padding: 7px 12px !important;
+  }
+  .onboarding-nav-pill.active .step-label-text {
+    display: inline !important;
+  }
+  .onboarding-grid-2 {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+  .onboarding-grid-location {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 12px !important;
+  }
+  .onboarding-grid-location > div:nth-child(3) {
+    grid-column: 1 / -1 !important;
+  }
+  .onboarding-grid-tax {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+  .onboarding-grid-bank {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+  .onboarding-grid-branch {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+  .onboarding-grid-creds {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+  .onboarding-logo-box {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    padding: 18px 14px !important;
+  }
+  .onboarding-logo-actions {
+    width: 100% !important;
+    display: flex !important;
+    gap: 8px !important;
+  }
+  .onboarding-logo-actions label {
+    flex: 1 !important;
+    justify-content: center !important;
+    text-align: center !important;
+  }
+}
+
 
 

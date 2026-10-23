@@ -6,16 +6,18 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { Settings, Bell, LogOut, Building2 } from 'lucide-react';
 import { getModules, DealershipModule } from '@/lib/modules-registry';
-import { getCompanyProfile, CompanyProfile } from '@/lib/company-store';
+import { getCompanyProfile, DEFAULT_COMPANY_PROFILE, CompanyProfile } from '@/lib/company-store';
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { userContext, activeRole, logout } = useAuth();
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [modules, setModules] = useState<DealershipModule[]>([]);
-  const [company, setCompany] = useState<CompanyProfile>(getCompanyProfile());
+  const [company, setCompany] = useState<CompanyProfile>(DEFAULT_COMPANY_PROFILE);
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
+    setIsMounted(true);
     // Initial load
     setModules(getModules());
     setCompany(getCompanyProfile());
@@ -44,46 +46,64 @@ export function Shell({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  // Save current active page to localStorage so page refresh or login preserves it
+  useEffect(() => {
+    if (pathname && pathname !== '/' && pathname !== '/login' && pathname !== '/onboarding') {
+      try {
+        localStorage.setItem('crm_last_active_page', pathname);
+      } catch (e) {}
+    }
+  }, [pathname]);
+
   // Only display plugged-in (active) modules in the top navigation bar
   const activeNavTabs = modules.filter((m) => m.isPluggedIn);
 
   // Active top tab resolution
   const activeTab = (() => {
-    if (pathname === '/') return '/';
+    if (pathname === '/dashboard') return '/dashboard';
     let best = '';
     for (const tab of activeNavTabs) {
-      if (tab.href !== '/' && pathname.startsWith(tab.href) && tab.href.length > best.length) {
+      if (tab.href !== '/' && tab.href !== '/dashboard' && pathname.startsWith(tab.href) && tab.href.length > best.length) {
         best = tab.href;
       }
     }
-    return best || '/';
+    return best || (pathname === '/dashboard' ? '/dashboard' : '');
   })();
 
-  const userInitials = (userContext?.user?.fullName || 'Vikram Singhania')
+  const userDisplayName = isMounted && userContext?.user?.fullName
+    ? userContext.user.fullName
+    : 'Vikram Singhania';
+
+  const userEmail = isMounted && userContext?.user?.email
+    ? userContext.user.email
+    : 'admin@apexmotors.com';
+
+  const userInitials = userDisplayName
     .split(' ')
+    .filter(Boolean)
     .map((n: string) => n[0])
     .join('')
-    .slice(0, 2);
+    .slice(0, 2)
+    .toUpperCase() || 'U';
 
-  if (pathname === '/onboarding') {
-    return (
-      <div className="app-shell" style={{ display: 'block', minHeight: '100vh', width: '100%', padding: '2rem 1.5rem' }}>
-        <div className="app-main" style={{ maxWidth: '1100px', margin: '0 auto', padding: 0 }}>
-          {children}
-        </div>
-      </div>
-    );
-  }
+  const userRoleDisplay = (isMounted && activeRole ? activeRole : 'tenant_admin').replace('_', ' ');
 
-  if (pathname === '/login') {
+  // Full-screen standalone layout for Welcome Landing (/), Onboarding, and Login
+  if (pathname === '/' || pathname === '/onboarding' || pathname === '/login') {
     return (
       <div className="app-shell" style={{ display: 'block', minHeight: '100vh', width: '100%' }}>
-        {children}
+        {pathname === '/onboarding' ? (
+          <div className="app-main" style={{ maxWidth: '1080px', margin: '0 auto', padding: '16px 16px 48px' }}>
+            {children}
+          </div>
+        ) : (
+          children
+        )}
       </div>
     );
   }
 
-  const brandDisplayName = company.tradeName || company.legalName || 'UNAI CRM';
+  const brandDisplayName = isMounted ? (company.tradeName || company.legalName || 'UNAI CRM') : 'UNAI CRM';
 
   return (
     <div className="app-shell" style={{ display: 'block', minHeight: '100vh', width: '100%' }}>
@@ -92,8 +112,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
         {/* Unified Top Navigation Bar (Single Sleek Row: Brand, Nav Tabs filling space, Bell, Settings, Profile Avatar) */}
         <header className="top-bar">
           {/* Left: Brand Title & Dynamic Logo */}
-          <Link href="/" className="brand-link" title={brandDisplayName}>
-            {company.logoUrl ? (
+          <Link href="/dashboard" className="brand-link" title={brandDisplayName}>
+            {isMounted && company.logoUrl ? (
               <img
                 src={company.logoUrl}
                 alt={brandDisplayName}
@@ -182,13 +202,13 @@ export function Shell({ children }: { children: React.ReactNode }) {
                   {/* User Profile Info */}
                   <div style={{ paddingBottom: '12px', borderBottom: '1px solid var(--line)', marginBottom: '12px' }}>
                     <div style={{ fontWeight: 800, fontSize: '0.94rem', color: 'var(--text)' }}>
-                      {userContext?.user?.fullName || 'Vikram Singhania'}
+                      {userDisplayName}
                     </div>
                     <div style={{ fontSize: '0.76rem', color: 'var(--muted)', marginTop: '2px' }}>
-                      {userContext?.user?.email || 'admin@apexmotors.com'}
+                      {userEmail}
                     </div>
                     <div style={{ display: 'inline-flex', marginTop: '8px' }} className="badge badge-green">
-                      {(activeRole || 'tenant_admin').replace('_', ' ')}
+                      {userRoleDisplay}
                     </div>
                   </div>
 
