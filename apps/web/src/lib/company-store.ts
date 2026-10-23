@@ -52,37 +52,66 @@ const STORAGE_KEY = 'crm_dealership_company_profile_v1';
 
 export const DEFAULT_COMPANY_PROFILE: CompanyProfile = {
   id: 'company-default-01',
-  legalName: 'Apex Motors Private Limited',
-  tradeName: 'Apex Motors',
-  tagline: 'Precision Engineering & Luxury Automotive Experience',
+  legalName: '',
+  tradeName: '',
+  tagline: '',
   dealershipType: 'authorized_franchise',
-  email: 'corporate@apexmotors.com',
-  phone: '+91 22 6123 4567',
-  supportPhone: '+91 1800 200 4567',
-  website: 'https://www.apexmotors.com',
-  address: 'Plot 42, Western Express Highway, Andheri East',
-  city: 'Mumbai',
-  state: 'Maharashtra',
-  pincode: '400069',
+  email: '',
+  phone: '',
+  supportPhone: '',
+  website: '',
+  address: '',
+  city: '',
+  state: '',
+  pincode: '',
   country: 'India',
-  gstin: '27AABCA1234F1ZP',
-  pan: 'AABCA1234F',
-  cin: 'U50100MH2020PTC123456',
+  gstin: '',
+  pan: '',
+  cin: '',
   currency: 'INR (₹)',
-  bankName: 'HDFC Bank Ltd',
-  accountNumber: '50200012345678',
-  ifscCode: 'HDFC0000042',
-  branchName: 'Andheri East Commercial Branch',
-  upiId: 'apexmotors@hdfcbank',
+  bankName: '',
+  accountNumber: '',
+  ifscCode: '',
+  branchName: '',
+  upiId: '',
   logoUrl: '',
   watermarkEnabled: true,
   watermarkOpacity: 0.08,
-  authorizedSignatoryName: 'Vikramaditya Singhania',
-  authorizedSignatoryDesignation: 'Managing Director & Authorized Signatory',
+  authorizedSignatoryName: '',
+  authorizedSignatoryDesignation: '',
   signatureUrl: '',
   isOnboarded: false,
   updatedAt: new Date().toISOString(),
 };
+
+const CREDS_KEY = 'crm_user_credentials';
+
+export interface UserCredentials {
+  userId: string;
+  password?: string;
+  fullName: string;
+  email: string;
+  createdAt: string;
+}
+
+export function saveUserCredentials(creds: { userId: string; password?: string; fullName: string; email: string }) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(CREDS_KEY, JSON.stringify({ ...creds, createdAt: new Date().toISOString() }));
+  } catch (err) {
+    console.error('Failed to save user credentials:', err);
+  }
+}
+
+export function getUserCredentials(): UserCredentials | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(CREDS_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (err) {
+    return null;
+  }
+}
 
 export function getCompanyProfile(): CompanyProfile {
   if (typeof window === 'undefined') return DEFAULT_COMPANY_PROFILE;
@@ -92,6 +121,9 @@ export function getCompanyProfile(): CompanyProfile {
       return DEFAULT_COMPANY_PROFILE;
     }
     const parsed = JSON.parse(raw);
+    if (!parsed) {
+      return DEFAULT_COMPANY_PROFILE;
+    }
     return { ...DEFAULT_COMPANY_PROFILE, ...parsed };
   } catch (err) {
     console.error('Failed to load company profile from storage:', err);

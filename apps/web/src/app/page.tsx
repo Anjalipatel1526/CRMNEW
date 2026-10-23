@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api-client';
 import { Modal } from '@/components/ui/Modal';
@@ -38,6 +38,7 @@ import {
 import { Customer, Lead } from '@crm/shared-types';
 
 import { WordFadeIn } from '@/components/ui/WordFadeIn';
+import { getCompanyProfile, CompanyProfile } from '@/lib/company-store';
 
 export interface HotDeal {
   id: string;
@@ -100,6 +101,7 @@ const REVENUE_DATA_6M = [
 const HOT_DEALS: HotDeal[] = [];
 
 export default function DashboardPage() {
+  const [company, setCompany] = useState<CompanyProfile>(getCompanyProfile());
   const [vehicles] = useState(api.getVehicles());
   const [leads] = useState(api.getLeads());
   const [deals] = useState(api.getDeals());
@@ -114,6 +116,13 @@ export default function DashboardPage() {
     lead: Lead;
     customer?: Customer;
   } | null>(null);
+
+  useEffect(() => {
+    setCompany(getCompanyProfile());
+    const handleCompany = () => setCompany(getCompanyProfile());
+    window.addEventListener('crm-company-profile-changed', handleCompany);
+    return () => window.removeEventListener('crm-company-profile-changed', handleCompany);
+  }, []);
 
   const handleSelectLeadCustomer = (lead: Lead) => {
     const custName = (lead.customerName || '').toLowerCase().trim();
@@ -151,6 +160,7 @@ export default function DashboardPage() {
   }, [deals]);
 
   const targetMetCount = activeRevenueData.filter(d => d.revenue >= d.target).length;
+  const brandDisplayName = company.tradeName || company.legalName || 'UNAI CRM';
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -162,7 +172,7 @@ export default function DashboardPage() {
           </h1>
           <p className="hero-subtitle">
             <WordFadeIn
-              text="UNAI CRM · Real-time pipeline velocity, stockyard valuation & delivery gates"
+              text={`${brandDisplayName} · Real-time pipeline velocity, stockyard valuation & delivery gates`}
               baseDelay={0.18}
               staggerDelay={0.035}
             />

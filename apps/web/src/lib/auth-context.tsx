@@ -10,6 +10,7 @@ interface AuthContextType {
   setBranch: (branchId: string) => void;
   activeRole: UserRole;
   switchRole: (role: UserRole) => void;
+  loginUser: (emailOrId: string, fullName?: string, role?: UserRole) => void;
   logout: () => void;
 }
 
@@ -41,6 +42,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }));
   };
 
+  const loginUser = (emailOrId: string, fullName?: string, role: UserRole = 'tenant_admin') => {
+    setActiveRole(role);
+    setUserContext((prev) => ({
+      ...prev,
+      user: {
+        ...prev.user,
+        email: emailOrId.includes('@') ? emailOrId : prev.user.email,
+        fullName: fullName || emailOrId.split('@')[0] || 'Administrator',
+      },
+      membership: {
+        ...prev.membership,
+        roleKey: role,
+      },
+    }));
+  };
+
   const logout = () => {
     if (typeof window !== 'undefined') {
       window.location.href = '/login';
@@ -55,6 +72,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setBranch,
         activeRole,
         switchRole,
+        loginUser,
         logout,
       }}
     >

@@ -28,11 +28,19 @@ export function Shell({ children }: { children: React.ReactNode }) {
       setCompany(getCompanyProfile());
     };
 
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'crm_dealership_company_profile_v1') {
+        setCompany(getCompanyProfile());
+      }
+    };
+
     window.addEventListener('crm-modules-changed', handleModulesChanged);
     window.addEventListener('crm-company-profile-changed', handleCompanyChanged);
+    window.addEventListener('storage', handleStorage);
     return () => {
       window.removeEventListener('crm-modules-changed', handleModulesChanged);
       window.removeEventListener('crm-company-profile-changed', handleCompanyChanged);
+      window.removeEventListener('storage', handleStorage);
     };
   }, []);
 
@@ -57,6 +65,26 @@ export function Shell({ children }: { children: React.ReactNode }) {
     .join('')
     .slice(0, 2);
 
+  if (pathname === '/onboarding') {
+    return (
+      <div className="app-shell" style={{ display: 'block', minHeight: '100vh', width: '100%', padding: '2rem 1.5rem' }}>
+        <div className="app-main" style={{ maxWidth: '1100px', margin: '0 auto', padding: 0 }}>
+          {children}
+        </div>
+      </div>
+    );
+  }
+
+  if (pathname === '/login') {
+    return (
+      <div className="app-shell" style={{ display: 'block', minHeight: '100vh', width: '100%' }}>
+        {children}
+      </div>
+    );
+  }
+
+  const brandDisplayName = company.tradeName || company.legalName || 'UNAI CRM';
+
   return (
     <div className="app-shell" style={{ display: 'block', minHeight: '100vh', width: '100%' }}>
       {/* ====== Main Content Canvas ====== */}
@@ -64,28 +92,29 @@ export function Shell({ children }: { children: React.ReactNode }) {
         {/* Unified Top Navigation Bar (Single Sleek Row: Brand, Nav Tabs filling space, Bell, Settings, Profile Avatar) */}
         <header className="top-bar">
           {/* Left: Brand Title & Dynamic Logo */}
-          <Link href="/" className="brand-link" title={company.tradeName || company.legalName || 'UNAI CRM'}>
+          <Link href="/" className="brand-link" title={brandDisplayName}>
             {company.logoUrl ? (
               <img
                 src={company.logoUrl}
-                alt="Logo"
+                alt={brandDisplayName}
                 style={{
-                  width: '32px',
-                  height: '32px',
+                  width: '34px',
+                  height: '34px',
                   borderRadius: '8px',
                   objectFit: 'contain',
                   backgroundColor: '#FFFFFF',
                   border: '1px solid rgba(30,68,59,0.15)',
                   flexShrink: 0,
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
                 }}
               />
             ) : (
               <div className="brand-badge">
-                {(company.tradeName || company.legalName || 'U').charAt(0).toUpperCase()}
+                {brandDisplayName.charAt(0).toUpperCase()}
               </div>
             )}
-            <span className="brand-title" style={{ maxWidth: '190px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {company.tradeName || company.legalName || 'UNAI CRM'}
+            <span className="brand-title" style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {brandDisplayName}
             </span>
           </Link>
 
@@ -110,16 +139,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
               <Bell size={16} />
               <span className="bell-badge" />
             </button>
-
-            {/* Company Onboarding Wizard Button */}
-            <Link
-              href="/onboarding"
-              className={`pill-btn ${pathname === '/onboarding' ? 'active' : ''}`}
-              title="Dealership Company Onboarding & Plugin Setup"
-            >
-              <Building2 size={15} style={{ color: pathname === '/onboarding' ? '#FFFFFF' : 'var(--pearl-green)' }} />
-              <span className="pill-btn__label">Onboarding</span>
-            </Link>
 
             {/* Settings Option Button */}
             <Link

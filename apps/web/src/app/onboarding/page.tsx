@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
-import Link from 'next/link';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { WordFadeIn } from '@/components/ui/WordFadeIn';
 import {
   getCompanyProfile,
   saveCompanyProfile,
+  saveUserCredentials,
   CompanyProfile,
   DEFAULT_COMPANY_PROFILE,
 } from '@/lib/company-store';
@@ -19,164 +19,144 @@ import {
 import { api } from '@/lib/api-client';
 import {
   Building2,
-  CheckCircle,
-  CheckCircle2,
-  Sparkles,
-  Upload,
-  Camera,
-  Eraser,
+  CreditCard,
   PenTool,
   Layers,
   Shield,
-  CreditCard,
-  MapPin,
-  Phone,
-  Mail,
-  Globe,
-  FileText,
-  BadgePercent,
-  Car,
-  Users,
-  Calendar,
-  BarChart3,
-  UserCheck,
-  Gauge,
+  Upload,
+  Trash2,
+  Check,
   ArrowRight,
   ArrowLeft,
-  Check,
-  X,
-  SlidersHorizontal,
-  RefreshCw,
+  AlertCircle,
+  Sparkles,
+  Lock,
+  User,
   Eye,
+  EyeOff,
+  Image as ImageIcon,
+  CheckCircle2,
+  FileCheck2,
+  MapPin,
+  Mail,
+  Phone,
+  Globe,
+  Landmark,
+  BadgePercent,
+  Compass,
 } from 'lucide-react';
-
-const DEALERSHIP_LOGO_PRESETS = [
-  {
-    name: 'Shield Emblem',
-    url: 'https://images.unsplash.com/photo-1617814076367-b759c7d7e738?auto=format&fit=crop&w=160&q=80',
-    initial: 'A',
-    color: '#1E443B',
-  },
-  {
-    name: 'Monogram Silver',
-    url: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=160&q=80',
-    initial: 'M',
-    color: '#0F172A',
-  },
-  {
-    name: 'Crown Royal',
-    url: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=160&q=80',
-    initial: 'Z',
-    color: '#854D0E',
-  },
-  {
-    name: 'Velocity Crest',
-    url: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=160&q=80',
-    initial: 'V',
-    color: '#2563EB',
-  },
-];
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const [activeStep, setActiveStep] = useState<1 | 2 | 3 | 4>(1);
-  const [formData, setFormData] = useState<CompanyProfile>(getCompanyProfile());
-  const [modulesList, setModulesList] = useState<DealershipModule[]>(getModules());
-  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
-  const [signatureMode, setSignatureMode] = useState<'draw' | 'upload'>('draw');
 
-  // Canvas Drawing for Signature
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [isDrawing, setIsDrawing] = useState(false);
+  // Active Wizard Step: 1 to 5
+  const [activeStep, setActiveStep] = useState<1 | 2 | 3 | 4 | 5>(1);
+
+  // Form Profile State
+  const [formData, setFormData] = useState<CompanyProfile>(DEFAULT_COMPANY_PROFILE);
+
+  // Modules Registry State
+  const [modulesList, setModulesList] = useState<DealershipModule[]>(DEFAULT_MODULES);
+
+  // Account Credentials State (Step 5)
+  const [credentials, setCredentials] = useState({
+    fullName: '',
+    userId: '',
+    password: '',
+    confirmPassword: '',
+  });
+
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // Field Validation Errors
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Success Modal
+  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
 
   useEffect(() => {
-    setFormData(getCompanyProfile());
+    const existing = getCompanyProfile();
+    setFormData(existing);
     setModulesList(getModules());
   }, []);
 
-  // Canvas drawing handlers
-  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    setIsDrawing(true);
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-
-    ctx.beginPath();
-    ctx.moveTo(clientX - rect.left, clientY - rect.top);
-  };
-
-  const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    if (!isDrawing) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-
-    ctx.lineWidth = 2.5;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.strokeStyle = '#0F172A';
-    ctx.lineTo(clientX - rect.left, clientY - rect.top);
-    ctx.stroke();
-  };
-
-  const stopDrawing = () => {
-    if (!isDrawing) return;
-    setIsDrawing(false);
-    const canvas = canvasRef.current;
-    if (canvas) {
-      const dataUrl = canvas.toDataURL('image/png');
-      setFormData((prev) => ({ ...prev, signatureUrl: dataUrl }));
+  // Clear specific field error
+  const clearError = (field: string) => {
+    if (errors[field]) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
     }
   };
 
-  const clearSignature = () => {
-    const canvas = canvasRef.current;
-    if (canvas) {
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-      }
-    }
-    setFormData((prev) => ({ ...prev, signatureUrl: '' }));
+  // Image resize and optimization to guarantee fast localStorage performance
+  const handleOptimizedImage = (
+    file: File,
+    maxWidth: number,
+    maxHeight: number,
+    onSuccess: (dataUrl: string) => void
+  ) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          onSuccess(canvas.toDataURL('image/png', 0.9));
+        } else {
+          onSuccess(e.target?.result as string);
+        }
+      };
+      img.src = e.target?.result as string;
+    };
+    reader.readAsDataURL(file);
   };
 
   // Logo file upload handler
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const dataUrl = event.target?.result as string;
+      handleOptimizedImage(file, 400, 400, (dataUrl) => {
         setFormData((prev) => ({ ...prev, logoUrl: dataUrl }));
-      };
-      reader.readAsDataURL(file);
+        clearError('logoUrl');
+      });
     }
   };
 
-  // Signature file upload handler
+  // Signature photo file upload handler
   const handleSignatureUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const dataUrl = event.target?.result as string;
+      handleOptimizedImage(file, 500, 200, (dataUrl) => {
         setFormData((prev) => ({ ...prev, signatureUrl: dataUrl }));
-      };
-      reader.readAsDataURL(file);
+        clearError('signatureUrl');
+      });
     }
   };
 
-  // Toggle Module Plugin (Plugin In / Plugin Out)
+  // Module plugin toggle
   const handleToggleModule = (modId: string) => {
     setModulesList((prev) =>
       prev.map((mod) => (mod.id === modId ? { ...mod, isPluggedIn: !mod.isPluggedIn } : mod))
@@ -184,86 +164,353 @@ export default function OnboardingPage() {
   };
 
   const handlePluginAll = (active: boolean) => {
-    setModulesList((prev) =>
-      prev.map((mod) => ({ ...mod, isPluggedIn: active }))
-    );
+    setModulesList((prev) => prev.map((mod) => ({ ...mod, isPluggedIn: active })));
   };
 
-  // Form submission: Saves profile and automatically switches company brand name across app
-  const handleCompleteOnboarding = (e: React.FormEvent) => {
-    e.preventDefault();
+  // ================= VALIDATION LOGIC =================
 
-    // 1. Save company profile with persistent storage
-    const updated = saveCompanyProfile(formData);
+  // Step 1 Validation
+  const validateStep1 = (): boolean => {
+    const newErrors: Record<string, string> = {};
+
+    if (!formData.legalName.trim()) {
+      newErrors.legalName = 'Dealership Legal Registered Name is mandatory';
+    }
+    if (!formData.tradeName.trim()) {
+      newErrors.tradeName = 'Trade / Display Brand Name is mandatory';
+    }
+
+    // Gmail / Email validation
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!formData.email.trim()) {
+      newErrors.email = 'Corporate Email / Gmail ID is mandatory';
+    } else if (!emailRegex.test(formData.email.trim())) {
+      newErrors.email = 'Incorrect email address format (e.g. dealership@gmail.com)';
+    }
+
+    // Phone validation (10 digits)
+    const phoneDigits = formData.phone.replace(/\D/g, '');
+    const cleanPhone = phoneDigits.length === 12 && phoneDigits.startsWith('91') ? phoneDigits.slice(2) : phoneDigits;
+    if (!formData.phone.trim()) {
+      newErrors.phone = 'Showroom Contact Phone is mandatory';
+    } else if (cleanPhone.length !== 10) {
+      newErrors.phone = 'Incorrect phone number (must be a valid 10-digit mobile number)';
+    }
+
+    if (!formData.address.trim()) {
+      newErrors.address = 'Showroom Physical Street Address is mandatory';
+    }
+    if (!formData.city.trim()) {
+      newErrors.city = 'City is mandatory';
+    }
+    if (!formData.state.trim()) {
+      newErrors.state = 'State is mandatory';
+    }
+
+    // Pincode validation (6 digits)
+    const pincodeDigits = formData.pincode.replace(/\D/g, '');
+    if (!formData.pincode.trim()) {
+      newErrors.pincode = 'Pincode is mandatory';
+    } else if (pincodeDigits.length !== 6) {
+      newErrors.pincode = 'Incorrect pincode (must be exactly 6 numeric digits)';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  // Step 2 Validation
+  const validateStep2 = (): boolean => {
+    const newErrors: Record<string, string> = {};
+
+    // GSTIN validation (15 chars)
+    const gstinClean = formData.gstin.trim().toUpperCase();
+    if (!gstinClean) {
+      newErrors.gstin = 'GSTIN Number is mandatory';
+    } else if (gstinClean.length !== 15) {
+      newErrors.gstin = 'Incorrect GSTIN format (must be 15 alphanumeric characters)';
+    }
+
+    // PAN validation (10 chars)
+    const panClean = formData.pan.trim().toUpperCase();
+    if (!panClean) {
+      newErrors.pan = 'PAN Number is mandatory';
+    } else if (panClean.length !== 10) {
+      newErrors.pan = 'Incorrect PAN format (must be 10 characters, e.g. ABCDE1234F)';
+    }
+
+    if (!formData.bankName.trim()) {
+      newErrors.bankName = 'Settlement Bank Name is mandatory';
+    }
+
+    // Bank Account validation (at least 9 digits)
+    const accDigits = formData.accountNumber.replace(/\D/g, '');
+    if (!formData.accountNumber.trim()) {
+      newErrors.accountNumber = 'Bank Account Number is mandatory';
+    } else if (accDigits.length < 9) {
+      newErrors.accountNumber = 'Incorrect bank account number (must be at least 9 digits)';
+    }
+
+    // IFSC validation (11 chars)
+    const ifscClean = formData.ifscCode.trim().toUpperCase();
+    if (!ifscClean) {
+      newErrors.ifscCode = 'IFSC Code is mandatory';
+    } else if (ifscClean.length !== 11) {
+      newErrors.ifscCode = 'Incorrect IFSC Code (must be 11 characters, e.g. HDFC0001234)';
+    }
+
+    if (!formData.branchName.trim()) {
+      newErrors.branchName = 'Bank Branch Name is mandatory';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  // Step 3 Validation (Signature)
+  const validateStep3 = (): boolean => {
+    const newErrors: Record<string, string> = {};
+
+    if (!formData.authorizedSignatoryName.trim()) {
+      newErrors.authorizedSignatoryName = 'Authorized Signatory Full Name is mandatory';
+    }
+    if (!formData.authorizedSignatoryDesignation.trim()) {
+      newErrors.authorizedSignatoryDesignation = 'Signatory Designation / Role is mandatory';
+    }
+    if (!formData.signatureUrl) {
+      newErrors.signatureUrl = 'Authorized Signature Photo is mandatory for invoice stamping';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  // Step 5 Validation (User ID & Password)
+  const validateStep5 = (): boolean => {
+    const newErrors: Record<string, string> = {};
+
+    if (!credentials.userId.trim()) {
+      newErrors.userId = 'Admin User ID is mandatory';
+    } else if (credentials.userId.trim().length < 3) {
+      newErrors.userId = 'User ID must be at least 3 characters';
+    }
+
+    if (!credentials.password) {
+      newErrors.password = 'Password is mandatory';
+    } else if (credentials.password.length < 6) {
+      newErrors.password = 'Password must be at least 6 characters';
+    }
+
+    if (!credentials.confirmPassword) {
+      newErrors.confirmPassword = 'Confirm Password is mandatory';
+    } else if (credentials.password !== credentials.confirmPassword) {
+      newErrors.confirmPassword = 'Passwords do not match';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  // Navigation handlers with mandatory checks
+  const handleNextFromStep1 = () => {
+    if (validateStep1()) {
+      setActiveStep(2);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const handleNextFromStep2 = () => {
+    if (validateStep2()) {
+      setActiveStep(3);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const handleNextFromStep3 = () => {
+    if (validateStep3()) {
+      setActiveStep(4);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const handleNextFromStep4 = () => {
+    // Populate default admin name from signatory if empty
+    if (!credentials.fullName && formData.authorizedSignatoryName) {
+      setCredentials((prev) => ({
+        ...prev,
+        fullName: formData.authorizedSignatoryName,
+        userId: prev.userId || (formData.email ? formData.email.split('@')[0] : 'admin'),
+      }));
+    }
+    setActiveStep(5);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Form submission in Step 5: Save everything and route to login
+  const handleFinalSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validateStep5()) return;
+
+    // 1. Save company profile with isOnboarded: true and logoUrl
+    const updatedCompany = saveCompanyProfile({
+      ...formData,
+      isOnboarded: true,
+    });
 
     // 2. Save modules with plugin states
     saveModules(modulesList);
 
-    // 3. Update in-memory userContext tenant name
+    // 3. Save User ID and Password credentials
+    saveUserCredentials({
+      userId: credentials.userId.trim(),
+      password: credentials.password,
+      fullName: credentials.fullName.trim() || formData.authorizedSignatoryName || formData.tradeName || 'Dealership Administrator',
+      email: formData.email.trim(),
+    });
+
+    // 4. Update in-memory userContext tenant name
     try {
       const ctx = api.getUserContext();
-      if (ctx && ctx.tenant) {
-        ctx.tenant.name = updated.tradeName || updated.legalName;
+      if (ctx?.tenant) {
+        ctx.tenant.name = updatedCompany.tradeName || updatedCompany.legalName;
       }
     } catch (err) {
       // ignore
     }
 
-    // 4. Open success confirmation
+    // 5. Open success modal then redirect to login page
     setIsSuccessModalOpen(true);
   };
 
   const activePluginsCount = modulesList.filter((m) => m.isPluggedIn).length;
 
+  const STEPS = [
+    { num: 1, label: 'Identity & Details', icon: Building2 },
+    { num: 2, label: 'Tax & Banking', icon: CreditCard },
+    { num: 3, label: 'Invoice Signature', icon: PenTool },
+    { num: 4, label: 'Plugin Access Control', icon: Layers },
+    { num: 5, label: 'Account Credentials', icon: Shield },
+  ];
+
   return (
-    <div style={{ maxWidth: '1100px', margin: '0 auto', paddingBottom: '5rem' }}>
-      {/* Page Header */}
-      <div style={{ marginBottom: '28px', textAlign: 'center' }}>
+    <div style={{ maxWidth: '1080px', margin: '0 auto', paddingBottom: '5rem', paddingTop: '1.25rem' }}>
+      {/* Decorative Atmosphere Glows matching Pearl Green Theme */}
+      <div
+        style={{
+          position: 'fixed',
+          top: '-140px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: '780px',
+          height: '380px',
+          background: 'radial-gradient(ellipse at center, rgba(35, 78, 67, 0.08) 0%, rgba(35, 78, 67, 0) 70%)',
+          pointerEvents: 'none',
+          zIndex: 0,
+        }}
+      />
+
+      {/* Hero Header with Brand Pill */}
+      <div style={{ position: 'relative', zIndex: 1, marginBottom: '32px', textAlign: 'center' }}>
         <div
           style={{
             display: 'inline-flex',
             alignItems: 'center',
             gap: '8px',
-            padding: '5px 14px',
+            padding: '6px 16px',
             borderRadius: '999px',
-            backgroundColor: 'rgba(30,68,59,0.08)',
+            background: 'linear-gradient(180deg, #FFFFFF 0%, #F4F7F5 100%)',
+            border: '1px solid rgba(30, 68, 59, 0.16)',
+            boxShadow: '0 2px 8px rgba(30, 68, 59, 0.06)',
             color: '#1E443B',
-            fontSize: '0.82rem',
+            fontSize: '0.74rem',
             fontWeight: 800,
-            marginBottom: '10px',
+            letterSpacing: '0.06em',
+            textTransform: 'uppercase',
+            marginBottom: '14px',
           }}
         >
-          <Sparkles size={14} />
-          <span>COMPANY ONBOARDING & MODULAR SETUP</span>
+          <Sparkles size={13} style={{ color: '#234E43' }} />
+          <span>Automotive Enterprise Dealership Setup</span>
         </div>
-        <h1 style={{ fontSize: '2.1rem', fontWeight: 900, color: '#0F172A', letterSpacing: '-0.03em', margin: 0 }}>
+
+        <h1
+          style={{
+            fontSize: '2.4rem',
+            fontWeight: 900,
+            color: '#17191A',
+            letterSpacing: '-0.035em',
+            margin: 0,
+            lineHeight: 1.2,
+          }}
+        >
           <WordFadeIn text="Dealership Legal Entity & Branding Setup" />
         </h1>
-        <p style={{ fontSize: '0.94rem', color: '#64748B', maxWidth: '640px', margin: '8px auto 0' }}>
-          Configure your legal dealership information, upload your logo for authentic invoice watermarks, attach digital signatory credentials, and select your active feature plugins.
+
+        <p
+          style={{
+            fontSize: '0.94rem',
+            color: '#5E6360',
+            maxWidth: '680px',
+            margin: '10px auto 0',
+            lineHeight: 1.5,
+          }}
+        >
+          Configure official dealership credentials, upload brand insignia for top navigation and invoice watermarks, and customize active operational modules.
         </p>
+
+        {/* Dynamic Progress Indicator */}
+        <div
+          style={{
+            maxWidth: '320px',
+            margin: '16px auto 0',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+          }}
+        >
+          <div
+            style={{
+              flex: 1,
+              height: '5px',
+              backgroundColor: 'rgba(30, 68, 59, 0.1)',
+              borderRadius: '999px',
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              style={{
+                width: `${(activeStep / 5) * 100}%`,
+                height: '100%',
+                background: 'linear-gradient(90deg, #2A5A4E 0%, #1E443B 100%)',
+                borderRadius: '999px',
+                transition: 'width 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+              }}
+            />
+          </div>
+          <span style={{ fontSize: '0.74rem', fontWeight: 800, color: '#1E443B' }}>
+            Step {activeStep} of 5
+          </span>
+        </div>
       </div>
 
-      {/* 4-Step Progress Navigation Bar */}
+      {/* Floating Capsule Step Navigation Dock (Pearl Green & Pearl White Luxury Theme) */}
       <div
         style={{
+          position: 'relative',
+          zIndex: 1,
           display: 'grid',
-          gridTemplateColumns: 'repeat(4, 1fr)',
-          gap: '8px',
-          backgroundColor: '#FFFFFF',
-          padding: '8px',
-          borderRadius: '16px',
-          border: '1.5px solid #E2E8F0',
-          boxShadow: '0 4px 16px rgba(0,0,0,0.02)',
+          gridTemplateColumns: 'repeat(5, 1fr)',
+          gap: '6px',
+          backgroundColor: 'rgba(255, 255, 255, 0.92)',
+          backdropFilter: 'blur(16px)',
+          padding: '6px',
+          borderRadius: '999px',
+          border: '1.5px solid rgba(30, 68, 59, 0.12)',
+          boxShadow: '0 16px 36px -12px rgba(30, 68, 59, 0.1), 0 0 0 1px rgba(255, 255, 255, 0.8) inset',
           marginBottom: '28px',
         }}
       >
-        {[
-          { num: 1, label: 'Identity & Details', icon: Building2 },
-          { num: 2, label: 'Tax & Banking', icon: CreditCard },
-          { num: 3, label: 'Watermark & Signature', icon: PenTool },
-          { num: 4, label: 'Plugin Access Control', icon: Layers },
-        ].map((step) => {
+        {STEPS.map((step) => {
           const StepIcon = step.icon;
           const isActive = activeStep === step.num;
           const isDone = activeStep > step.num;
@@ -272,1105 +519,1934 @@ export default function OnboardingPage() {
             <button
               key={step.num}
               type="button"
-              onClick={() => setActiveStep(step.num as any)}
+              onClick={() => {
+                if (step.num < activeStep) {
+                  setActiveStep(step.num as any);
+                }
+              }}
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '8px',
-                padding: '12px 14px',
-                borderRadius: '12px',
+                padding: '11px 12px',
+                borderRadius: '999px',
                 border: 'none',
-                backgroundColor: isActive ? '#1E443B' : isDone ? '#E6F4EF' : 'transparent',
-                color: isActive ? '#FFFFFF' : isDone ? '#1E443B' : '#64748B',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
+                background: isActive
+                  ? 'linear-gradient(135deg, #26554A 0%, #173830 100%)'
+                  : isDone
+                  ? 'rgba(30, 68, 59, 0.08)'
+                  : 'transparent',
+                color: isActive ? '#FFFFFF' : isDone ? '#1E443B' : '#5E6360',
+                boxShadow: isActive ? '0 8px 20px -4px rgba(30, 68, 59, 0.36)' : 'none',
+                cursor: step.num < activeStep ? 'pointer' : 'default',
+                transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
               }}
             >
               <div
                 style={{
-                  width: '24px',
-                  height: '24px',
+                  width: '22px',
+                  height: '22px',
                   borderRadius: '50%',
-                  backgroundColor: isActive ? 'rgba(255,255,255,0.2)' : isDone ? '#1E443B' : '#E2E8F0',
+                  backgroundColor: isActive
+                    ? 'rgba(255, 255, 255, 0.24)'
+                    : isDone
+                    ? '#1E443B'
+                    : 'rgba(30, 68, 59, 0.08)',
                   color: isDone ? '#FFFFFF' : 'inherit',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontSize: '0.74rem',
+                  fontSize: '0.72rem',
                   fontWeight: 800,
+                  flexShrink: 0,
                 }}
               >
-                {isDone ? <Check size={13} /> : step.num}
+                {isDone ? <Check size={12} strokeWidth={3} /> : step.num}
               </div>
-              <span style={{ fontSize: '0.84rem', fontWeight: 700 }}>{step.label}</span>
+              <span
+                style={{
+                  fontSize: '0.8rem',
+                  fontWeight: isActive ? 800 : 700,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  letterSpacing: '-0.01em',
+                }}
+              >
+                {step.label}
+              </span>
             </button>
           );
         })}
       </div>
 
-      <form onSubmit={handleCompleteOnboarding}>
-        {/* ================= STEP 1: IDENTITY & DETAILS ================= */}
-        {activeStep === 1 && (
+      {/* Global Validation Alert Banner */}
+      {Object.keys(errors).length > 0 && (
+        <div
+          style={{
+            position: 'relative',
+            zIndex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            background: 'linear-gradient(90deg, rgba(239, 68, 68, 0.08) 0%, rgba(239, 68, 68, 0.03) 100%)',
+            border: '1.5px solid rgba(220, 38, 38, 0.28)',
+            borderRadius: '16px',
+            padding: '12px 18px',
+            marginBottom: '24px',
+            color: '#B91C1C',
+            fontSize: '0.84rem',
+            fontWeight: 700,
+            boxShadow: '0 4px 14px rgba(220, 38, 38, 0.05)',
+            animation: 'fadeIn 0.2s ease',
+          }}
+        >
           <div
             style={{
-              backgroundColor: '#FFFFFF',
-              borderRadius: '20px',
-              border: '1.5px solid #E2E8F0',
-              padding: '28px',
-              boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
+              width: '28px',
+              height: '28px',
+              borderRadius: '50%',
+              backgroundColor: '#FEE2E2',
+              color: '#DC2626',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
             }}
           >
-            <div style={{ marginBottom: '22px' }}>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0F172A', margin: 0 }}>
-                Step 1: Dealership Entity & Brand Information
-              </h2>
-              <p style={{ fontSize: '0.82rem', color: '#64748B', marginTop: '4px' }}>
-                Enter the official registered company title and showroom trade brand. This name will automatically appear in your top navigation and invoice headers.
-              </p>
-            </div>
+            <AlertCircle size={16} />
+          </div>
+          <div>
+            <span>Please complete all mandatory dealership actions marked in red below to proceed.</span>
+          </div>
+        </div>
+      )}
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '18px', marginBottom: '18px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#0F172A', marginBottom: '6px' }}>
-                  Dealership Legal Registered Name <span style={{ color: '#DC2626' }}>*</span>
-                </label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={formData.legalName}
-                  onChange={(e) => setFormData({ ...formData, legalName: e.target.value })}
-                  placeholder="e.g. Apex Motors Private Limited"
-                  required
-                />
-                <span style={{ fontSize: '0.72rem', color: '#64748B', marginTop: '4px', display: 'block' }}>
-                  Appears on official GST Tax Invoices and delivery challans.
-                </span>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#0F172A', marginBottom: '6px' }}>
-                  Trade / Display Brand Name <span style={{ color: '#DC2626' }}>*</span>
-                </label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={formData.tradeName}
-                  onChange={(e) => setFormData({ ...formData, tradeName: e.target.value })}
-                  placeholder="e.g. Apex Luxury Motors"
-                  required
-                />
-                <span style={{ fontSize: '0.72rem', color: '#64748B', marginTop: '4px', display: 'block' }}>
-                  This name will immediately switch into the top navigation bar title.
-                </span>
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '18px', marginBottom: '18px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#0F172A', marginBottom: '6px' }}>
-                  Dealership Tagline / Motto
-                </label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={formData.tagline || ''}
-                  onChange={(e) => setFormData({ ...formData, tagline: e.target.value })}
-                  placeholder="e.g. Precision Engineering & Pure Driving Pleasure"
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#0F172A', marginBottom: '6px' }}>
-                  Dealership Business Model
-                </label>
-                <select
-                  className="form-select"
-                  value={formData.dealershipType}
-                  onChange={(e) => setFormData({ ...formData, dealershipType: e.target.value as any })}
-                >
-                  <option value="authorized_franchise">Authorized OEM Franchise Showroom</option>
-                  <option value="multibrand_preowned">Multi-Brand Certified Pre-Owned Automall</option>
-                  <option value="luxury_supercars">Luxury, Exotic & Supercar Atelier</option>
-                  <option value="electric_mobility">Electric Vehicle (EV) Experience Center</option>
-                  <option value="commercial_fleet">Commercial Fleet & Commercial Vehicles</option>
-                </select>
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#0F172A', marginBottom: '6px' }}>
-                  Corporate Email Address <span style={{ color: '#DC2626' }}>*</span>
-                </label>
-                <input
-                  type="email"
-                  className="form-input"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  placeholder="corporate@apexmotors.com"
-                  required
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#0F172A', marginBottom: '6px' }}>
-                  Showroom Contact Phone <span style={{ color: '#DC2626' }}>*</span>
-                </label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  placeholder="+91 22 6123 4567"
-                  required
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#0F172A', marginBottom: '6px' }}>
-                  Official Website / Portal
-                </label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={formData.website || ''}
-                  onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-                  placeholder="https://www.apexmotors.com"
-                />
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '16px', borderTop: '1px solid #E2E8F0' }}>
-              <button
-                type="button"
-                onClick={() => setActiveStep(2)}
-                className="btn btn-primary"
-                style={{ padding: '10px 24px', display: 'flex', alignItems: 'center', gap: '8px' }}
+      {/* ================= STEP 1: IDENTITY, LOGO & DETAILS ================= */}
+      {activeStep === 1 && (
+        <div
+          style={{
+            position: 'relative',
+            zIndex: 1,
+            backgroundColor: '#FFFFFF',
+            borderRadius: '26px',
+            border: '1px solid rgba(30, 68, 59, 0.12)',
+            padding: '36px 40px',
+            boxShadow: '0 20px 50px -20px rgba(30, 68, 59, 0.09), 0 1px 0 rgba(255, 255, 255, 0.9) inset',
+          }}
+        >
+          {/* Step Header */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '26px' }}>
+            <div>
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontSize: '0.72rem',
+                  fontWeight: 800,
+                  color: '#1E443B',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.06em',
+                  marginBottom: '4px',
+                }}
               >
-                <span>Continue to Tax & Location</span>
-                <ArrowRight size={16} />
-              </button>
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#234E43' }} />
+                <span>Section 01 of 05</span>
+              </div>
+              <h2 style={{ fontSize: '1.35rem', fontWeight: 900, color: '#17191A', margin: 0, letterSpacing: '-0.02em' }}>
+                Dealership Entity, Brand Logo & Contact
+              </h2>
             </div>
           </div>
-        )}
 
-        {/* ================= STEP 2: TAX, LOCATION & BANKING ================= */}
-        {activeStep === 2 && (
+          {/* Dealership Logo Upload Atelier Card */}
           <div
             style={{
-              backgroundColor: '#FFFFFF',
+              padding: '24px',
+              background: 'linear-gradient(135deg, rgba(35, 78, 67, 0.04) 0%, rgba(250, 251, 249, 1) 100%)',
               borderRadius: '20px',
-              border: '1.5px solid #E2E8F0',
-              padding: '28px',
-              boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
+              border: errors.logoUrl ? '1.5px solid #DC2626' : '1px solid rgba(30, 68, 59, 0.14)',
+              marginBottom: '26px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '18px',
+              boxShadow: '0 4px 16px rgba(30, 68, 59, 0.03)',
             }}
           >
-            <div style={{ marginBottom: '22px' }}>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0F172A', margin: 0 }}>
-                Step 2: Location, Tax Registration & Bank Settlement
-              </h2>
-              <p style={{ fontSize: '0.82rem', color: '#64748B', marginTop: '4px' }}>
-                These registered details and banking coordinates will be printed on all proforma quotations and customer receipts.
-              </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+              <div
+                style={{
+                  width: '84px',
+                  height: '84px',
+                  borderRadius: '18px',
+                  backgroundColor: '#FFFFFF',
+                  border: '1.5px dashed rgba(30, 68, 59, 0.22)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  overflow: 'hidden',
+                  boxShadow: '0 4px 14px rgba(30, 68, 59, 0.06)',
+                  flexShrink: 0,
+                  position: 'relative',
+                }}
+              >
+                {formData.logoUrl ? (
+                  <img
+                    src={formData.logoUrl}
+                    alt="Dealership Logo"
+                    style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '6px' }}
+                  />
+                ) : (
+                  <div style={{ textAlign: 'center', color: '#8A918D' }}>
+                    <ImageIcon size={26} style={{ margin: '0 auto', display: 'block', opacity: 0.6 }} />
+                    <span style={{ fontSize: '0.62rem', fontWeight: 800, display: 'block', marginTop: '3px', letterSpacing: '0.04em' }}>
+                      LOGO
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <h3 style={{ fontSize: '1rem', fontWeight: 800, color: '#17191A', margin: 0 }}>
+                    Dealership Brand Emblem / Logo
+                  </h3>
+                  <span
+                    style={{
+                      fontSize: '0.68rem',
+                      fontWeight: 800,
+                      padding: '2px 8px',
+                      borderRadius: '999px',
+                      backgroundColor: 'rgba(30, 68, 59, 0.08)',
+                      color: '#1E443B',
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    Asset
+                  </span>
+                </div>
+                <p style={{ fontSize: '0.82rem', color: '#5E6360', margin: '4px 0 0' }}>
+                  Will appear on your top navigation dock, official GST invoices, and delivery gate dossiers.
+                </p>
+                <div style={{ fontSize: '0.72rem', color: '#8A918D', marginTop: '3px' }}>
+                  PNG, JPG, or SVG format with transparent background recommended.
+                </div>
+              </div>
             </div>
 
-            <div style={{ marginBottom: '18px' }}>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#0F172A', marginBottom: '6px' }}>
-                Showroom / Yard Physical Street Address <span style={{ color: '#DC2626' }}>*</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <label
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '10px 20px',
+                  borderRadius: '999px',
+                  background: 'linear-gradient(135deg, #26554A 0%, #173830 100%)',
+                  color: '#FFFFFF',
+                  fontSize: '0.82rem',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 14px rgba(30, 68, 59, 0.28)',
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                <Upload size={14} />
+                <span>{formData.logoUrl ? 'Replace Logo' : 'Upload Company Logo'}</span>
+                <input type="file" accept="image/*" onChange={handleLogoUpload} style={{ display: 'none' }} />
+              </label>
+
+              {formData.logoUrl && (
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, logoUrl: '' })}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '10px 16px',
+                    borderRadius: '999px',
+                    border: '1px solid rgba(220, 38, 38, 0.2)',
+                    backgroundColor: '#FEF2F2',
+                    color: '#DC2626',
+                    fontSize: '0.8rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  <Trash2 size={13} />
+                  <span>Remove</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Legal Name & Trade Name */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+            <div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', fontWeight: 800, color: '#17191A', marginBottom: '8px' }}>
+                <Building2 size={14} style={{ color: '#234E43' }} />
+                <span>Dealership Legal Registered Name</span>
+                <span style={{ color: '#DC2626' }}>*</span>
               </label>
               <input
                 type="text"
                 className="form-input"
-                value={formData.address}
-                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                placeholder="Plot 42, Western Express Highway, Andheri East"
-                required
+                style={{
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  background: '#FAFBF9',
+                  border: errors.legalName ? '1.5px solid #DC2626' : '1.5px solid rgba(30, 68, 59, 0.12)',
+                  borderRadius: '14px',
+                  padding: '12px 16px',
+                  fontSize: '0.9rem',
+                  fontWeight: 600,
+                  color: '#17191A',
+                }}
+                value={formData.legalName}
+                onChange={(e) => {
+                  setFormData({ ...formData, legalName: e.target.value });
+                  clearError('legalName');
+                }}
+                placeholder="e.g. Apex Motors Private Limited"
+              />
+              {errors.legalName ? (
+                <div style={{ color: '#DC2626', fontSize: '0.74rem', fontWeight: 600, marginTop: '5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <AlertCircle size={12} /> {errors.legalName}
+                </div>
+              ) : (
+                <span style={{ fontSize: '0.72rem', color: '#5E6360', marginTop: '5px', display: 'block' }}>
+                  Printed on legal GST tax invoices and vehicle ownership transfer documents.
+                </span>
+              )}
+            </div>
+
+            <div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', fontWeight: 800, color: '#17191A', marginBottom: '8px' }}>
+                <Compass size={14} style={{ color: '#234E43' }} />
+                <span>Trade / Display Brand Name</span>
+                <span style={{ color: '#DC2626' }}>*</span>
+              </label>
+              <input
+                type="text"
+                className="form-input"
+                style={{
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  background: '#FAFBF9',
+                  border: errors.tradeName ? '1.5px solid #DC2626' : '1.5px solid rgba(30, 68, 59, 0.12)',
+                  borderRadius: '14px',
+                  padding: '12px 16px',
+                  fontSize: '0.9rem',
+                  fontWeight: 600,
+                  color: '#17191A',
+                }}
+                value={formData.tradeName}
+                onChange={(e) => {
+                  setFormData({ ...formData, tradeName: e.target.value });
+                  clearError('tradeName');
+                }}
+                placeholder="e.g. Apex Luxury Motors"
+              />
+              {errors.tradeName ? (
+                <div style={{ color: '#DC2626', fontSize: '0.74rem', fontWeight: 600, marginTop: '5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <AlertCircle size={12} /> {errors.tradeName}
+                </div>
+              ) : (
+                <span style={{ fontSize: '0.72rem', color: '#5E6360', marginTop: '5px', display: 'block' }}>
+                  Displayed in your top navigation header and showroom title.
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Tagline & Business Model */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '20px', marginBottom: '20px' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 800, color: '#17191A', marginBottom: '8px' }}>
+                Dealership Tagline / Motto
+              </label>
+              <input
+                type="text"
+                className="form-input"
+                style={{
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  background: '#FAFBF9',
+                  border: '1.5px solid rgba(30, 68, 59, 0.12)',
+                  borderRadius: '14px',
+                  padding: '12px 16px',
+                  fontSize: '0.9rem',
+                  fontWeight: 600,
+                }}
+                value={formData.tagline || ''}
+                onChange={(e) => setFormData({ ...formData, tagline: e.target.value })}
+                placeholder="e.g. Precision Engineering & Pure Driving Pleasure"
               />
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px', marginBottom: '24px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#0F172A', marginBottom: '6px' }}>
-                  City <span style={{ color: '#DC2626' }}>*</span>
-                </label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={formData.city}
-                  onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                  placeholder="Mumbai"
-                  required
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#0F172A', marginBottom: '6px' }}>
-                  State <span style={{ color: '#DC2626' }}>*</span>
-                </label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={formData.state}
-                  onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-                  placeholder="Maharashtra"
-                  required
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#0F172A', marginBottom: '6px' }}>
-                  Pincode <span style={{ color: '#DC2626' }}>*</span>
-                </label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={formData.pincode}
-                  onChange={(e) => setFormData({ ...formData, pincode: e.target.value })}
-                  placeholder="400069"
-                  required
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#0F172A', marginBottom: '6px' }}>
-                  Country
-                </label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={formData.country}
-                  onChange={(e) => setFormData({ ...formData, country: e.target.value })}
-                  placeholder="India"
-                  required
-                />
-              </div>
-            </div>
-
-            <div style={{ padding: '16px', background: '#F8FAFC', borderRadius: '12px', border: '1px solid #E2E8F0', marginBottom: '22px' }}>
-              <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#0F172A', marginBottom: '12px' }}>
-                Tax & Statutory Codes
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>
-                    GSTIN (GST Number) <span style={{ color: '#DC2626' }}>*</span>
-                  </label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    value={formData.gstin}
-                    onChange={(e) => setFormData({ ...formData, gstin: e.target.value.toUpperCase() })}
-                    placeholder="27AABCA1234F1ZP"
-                    style={{ fontFamily: 'monospace', fontWeight: 700 }}
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>
-                    Company PAN <span style={{ color: '#DC2626' }}>*</span>
-                  </label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    value={formData.pan}
-                    onChange={(e) => setFormData({ ...formData, pan: e.target.value.toUpperCase() })}
-                    placeholder="AABCA1234F"
-                    style={{ fontFamily: 'monospace', fontWeight: 700 }}
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>
-                    Corporate CIN (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    value={formData.cin || ''}
-                    onChange={(e) => setFormData({ ...formData, cin: e.target.value.toUpperCase() })}
-                    placeholder="U50100MH2020PTC123456"
-                    style={{ fontFamily: 'monospace' }}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div style={{ padding: '16px', background: '#F8FAFC', borderRadius: '12px', border: '1px solid #E2E8F0', marginBottom: '24px' }}>
-              <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#0F172A', marginBottom: '12px' }}>
-                Dealership Bank Coordinates (For Invoice Wire Settlements)
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>
-                    Bank Name
-                  </label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    value={formData.bankName}
-                    onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
-                    placeholder="HDFC Bank Ltd"
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>
-                    Current Account Number
-                  </label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    value={formData.accountNumber}
-                    onChange={(e) => setFormData({ ...formData, accountNumber: e.target.value })}
-                    placeholder="50200012345678"
-                    style={{ fontFamily: 'monospace' }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>
-                    IFSC Code
-                  </label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    value={formData.ifscCode}
-                    onChange={(e) => setFormData({ ...formData, ifscCode: e.target.value.toUpperCase() })}
-                    placeholder="HDFC0000042"
-                    style={{ fontFamily: 'monospace', fontWeight: 700 }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>
-                    UPI Payment ID / VPA
-                  </label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    value={formData.upiId || ''}
-                    onChange={(e) => setFormData({ ...formData, upiId: e.target.value })}
-                    placeholder="dealership@hdfcbank"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '16px', borderTop: '1px solid #E2E8F0' }}>
-              <button
-                type="button"
-                onClick={() => setActiveStep(1)}
-                className="btn btn-secondary"
-                style={{ padding: '10px 20px', display: 'flex', alignItems: 'center', gap: '8px' }}
+            <div>
+              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 800, color: '#17191A', marginBottom: '8px' }}>
+                Dealership Business Model
+              </label>
+              <select
+                className="form-select"
+                style={{
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  background: '#FAFBF9',
+                  border: '1.5px solid rgba(30, 68, 59, 0.12)',
+                  borderRadius: '14px',
+                  padding: '12px 16px',
+                  fontSize: '0.9rem',
+                  fontWeight: 600,
+                  color: '#17191A',
+                }}
+                value={formData.dealershipType}
+                onChange={(e) => setFormData({ ...formData, dealershipType: e.target.value as any })}
               >
-                <ArrowLeft size={16} />
-                <span>Back</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveStep(3)}
-                className="btn btn-primary"
-                style={{ padding: '10px 24px', display: 'flex', alignItems: 'center', gap: '8px' }}
-              >
-                <span>Continue to Watermark & Signature</span>
-                <ArrowRight size={16} />
-              </button>
+                <option value="authorized_franchise">Authorized OEM Franchise Showroom</option>
+                <option value="multibrand_preowned">Multi-Brand Certified Pre-Owned Automall</option>
+                <option value="luxury_supercars">Luxury, Exotic & Supercar Atelier</option>
+                <option value="electric_mobility">Electric Vehicle (EV) Experience Center</option>
+                <option value="commercial_fleet">Commercial Fleet & Commercial Vehicles</option>
+              </select>
             </div>
           </div>
-        )}
 
-        {/* ================= STEP 3: WATERMARK & SIGNATURE ================= */}
-        {activeStep === 3 && (
+          {/* Email, Phone & Website */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '22px' }}>
+            <div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', fontWeight: 800, color: '#17191A', marginBottom: '8px' }}>
+                <Mail size={14} style={{ color: '#234E43' }} />
+                <span>Corporate Email / Gmail ID</span>
+                <span style={{ color: '#DC2626' }}>*</span>
+              </label>
+              <input
+                type="email"
+                className="form-input"
+                style={{
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  background: '#FAFBF9',
+                  border: errors.email ? '1.5px solid #DC2626' : '1.5px solid rgba(30, 68, 59, 0.12)',
+                  borderRadius: '14px',
+                  padding: '12px 16px',
+                  fontSize: '0.9rem',
+                  fontWeight: 600,
+                }}
+                value={formData.email}
+                onChange={(e) => {
+                  setFormData({ ...formData, email: e.target.value });
+                  clearError('email');
+                }}
+                placeholder="dealership@gmail.com"
+              />
+              {errors.email && (
+                <div style={{ color: '#DC2626', fontSize: '0.74rem', fontWeight: 600, marginTop: '5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <AlertCircle size={12} /> {errors.email}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', fontWeight: 800, color: '#17191A', marginBottom: '8px' }}>
+                <Phone size={14} style={{ color: '#234E43' }} />
+                <span>Contact Mobile Phone (10 Digits)</span>
+                <span style={{ color: '#DC2626' }}>*</span>
+              </label>
+              <input
+                type="text"
+                className="form-input"
+                style={{
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  background: '#FAFBF9',
+                  border: errors.phone ? '1.5px solid #DC2626' : '1.5px solid rgba(30, 68, 59, 0.12)',
+                  borderRadius: '14px',
+                  padding: '12px 16px',
+                  fontSize: '0.9rem',
+                  fontWeight: 600,
+                }}
+                value={formData.phone}
+                onChange={(e) => {
+                  setFormData({ ...formData, phone: e.target.value });
+                  clearError('phone');
+                }}
+                placeholder="9820011223"
+              />
+              {errors.phone && (
+                <div style={{ color: '#DC2626', fontSize: '0.74rem', fontWeight: 600, marginTop: '5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <AlertCircle size={12} /> {errors.phone}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', fontWeight: 800, color: '#17191A', marginBottom: '8px' }}>
+                <Globe size={14} style={{ color: '#234E43' }} />
+                <span>Official Web Portal</span>
+              </label>
+              <input
+                type="text"
+                className="form-input"
+                style={{
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  background: '#FAFBF9',
+                  border: '1.5px solid rgba(30, 68, 59, 0.12)',
+                  borderRadius: '14px',
+                  padding: '12px 16px',
+                  fontSize: '0.9rem',
+                  fontWeight: 600,
+                }}
+                value={formData.website || ''}
+                onChange={(e) => setFormData({ ...formData, website: e.target.value })}
+                placeholder="https://www.apexmotors.com"
+              />
+            </div>
+          </div>
+
+          {/* Physical Address, City, State, Pincode */}
+          <div style={{ marginBottom: '20px' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', fontWeight: 800, color: '#17191A', marginBottom: '8px' }}>
+              <MapPin size={14} style={{ color: '#234E43' }} />
+              <span>Showroom Physical Street Address</span>
+              <span style={{ color: '#DC2626' }}>*</span>
+            </label>
+            <input
+              type="text"
+              className="form-input"
+              style={{
+                width: '100%',
+                boxSizing: 'border-box',
+                background: '#FAFBF9',
+                border: errors.address ? '1.5px solid #DC2626' : '1.5px solid rgba(30, 68, 59, 0.12)',
+                borderRadius: '14px',
+                padding: '12px 16px',
+                fontSize: '0.9rem',
+                fontWeight: 600,
+              }}
+              value={formData.address}
+              onChange={(e) => {
+                setFormData({ ...formData, address: e.target.value });
+                clearError('address');
+              }}
+              placeholder="Plot 42, Western Express Highway, Andheri East"
+            />
+            {errors.address && (
+              <div style={{ color: '#DC2626', fontSize: '0.74rem', fontWeight: 600, marginTop: '5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <AlertCircle size={12} /> {errors.address}
+              </div>
+            )}
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '28px' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 800, color: '#17191A', marginBottom: '8px' }}>
+                City <span style={{ color: '#DC2626' }}>*</span>
+              </label>
+              <input
+                type="text"
+                className="form-input"
+                style={{
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  background: '#FAFBF9',
+                  border: errors.city ? '1.5px solid #DC2626' : '1.5px solid rgba(30, 68, 59, 0.12)',
+                  borderRadius: '14px',
+                  padding: '12px 16px',
+                  fontSize: '0.9rem',
+                  fontWeight: 600,
+                }}
+                value={formData.city}
+                onChange={(e) => {
+                  setFormData({ ...formData, city: e.target.value });
+                  clearError('city');
+                }}
+                placeholder="Mumbai"
+              />
+              {errors.city && (
+                <div style={{ color: '#DC2626', fontSize: '0.74rem', fontWeight: 600, marginTop: '5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <AlertCircle size={12} /> {errors.city}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 800, color: '#17191A', marginBottom: '8px' }}>
+                State <span style={{ color: '#DC2626' }}>*</span>
+              </label>
+              <input
+                type="text"
+                className="form-input"
+                style={{
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  background: '#FAFBF9',
+                  border: errors.state ? '1.5px solid #DC2626' : '1.5px solid rgba(30, 68, 59, 0.12)',
+                  borderRadius: '14px',
+                  padding: '12px 16px',
+                  fontSize: '0.9rem',
+                  fontWeight: 600,
+                }}
+                value={formData.state}
+                onChange={(e) => {
+                  setFormData({ ...formData, state: e.target.value });
+                  clearError('state');
+                }}
+                placeholder="Maharashtra"
+              />
+              {errors.state && (
+                <div style={{ color: '#DC2626', fontSize: '0.74rem', fontWeight: 600, marginTop: '5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <AlertCircle size={12} /> {errors.state}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 800, color: '#17191A', marginBottom: '8px' }}>
+                Pincode (6 Digits) <span style={{ color: '#DC2626' }}>*</span>
+              </label>
+              <input
+                type="text"
+                className="form-input"
+                style={{
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  background: '#FAFBF9',
+                  border: errors.pincode ? '1.5px solid #DC2626' : '1.5px solid rgba(30, 68, 59, 0.12)',
+                  borderRadius: '14px',
+                  padding: '12px 16px',
+                  fontSize: '0.9rem',
+                  fontWeight: 600,
+                }}
+                value={formData.pincode}
+                onChange={(e) => {
+                  setFormData({ ...formData, pincode: e.target.value });
+                  clearError('pincode');
+                }}
+                placeholder="400069"
+                maxLength={6}
+              />
+              {errors.pincode && (
+                <div style={{ color: '#DC2626', fontSize: '0.74rem', fontWeight: 600, marginTop: '5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <AlertCircle size={12} /> {errors.pincode}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 800, color: '#17191A', marginBottom: '8px' }}>
+                Country
+              </label>
+              <input
+                type="text"
+                className="form-input"
+                style={{
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  background: '#FAFBF9',
+                  border: '1.5px solid rgba(30, 68, 59, 0.12)',
+                  borderRadius: '14px',
+                  padding: '12px 16px',
+                  fontSize: '0.9rem',
+                  fontWeight: 600,
+                }}
+                value={formData.country || 'India'}
+                onChange={(e) => setFormData({ ...formData, country: e.target.value })}
+              />
+            </div>
+          </div>
+
+          {/* Navigation Action */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '20px', borderTop: '1px solid rgba(30, 68, 59, 0.1)' }}>
+            <button
+              type="button"
+              onClick={handleNextFromStep1}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '13px 30px',
+                borderRadius: '999px',
+                background: 'linear-gradient(135deg, #26554A 0%, #173830 100%)',
+                color: '#FFFFFF',
+                fontSize: '0.9rem',
+                fontWeight: 800,
+                border: 'none',
+                cursor: 'pointer',
+                boxShadow: '0 8px 24px -6px rgba(30, 68, 59, 0.38)',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              <span>Continue to Tax & Banking</span>
+              <ArrowRight size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ================= STEP 2: TAX & BANKING ================= */}
+      {activeStep === 2 && (
+        <div
+          style={{
+            position: 'relative',
+            zIndex: 1,
+            backgroundColor: '#FFFFFF',
+            borderRadius: '26px',
+            border: '1px solid rgba(30, 68, 59, 0.12)',
+            padding: '36px 40px',
+            boxShadow: '0 20px 50px -20px rgba(30, 68, 59, 0.09), 0 1px 0 rgba(255, 255, 255, 0.9) inset',
+          }}
+        >
+          {/* Step Header */}
+          <div style={{ marginBottom: '26px' }}>
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '0.72rem',
+                fontWeight: 800,
+                color: '#1E443B',
+                textTransform: 'uppercase',
+                letterSpacing: '0.06em',
+                marginBottom: '4px',
+              }}
+            >
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#234E43' }} />
+              <span>Section 02 of 05</span>
+            </div>
+            <h2 style={{ fontSize: '1.35rem', fontWeight: 900, color: '#17191A', margin: 0, letterSpacing: '-0.02em' }}>
+              Statutory Tax & Settlement Bank Coordinates
+            </h2>
+            <p style={{ fontSize: '0.84rem', color: '#5E6360', marginTop: '4px' }}>
+              Mandatory tax and banking coordinates automatically stamped on customer proformas, advance booking receipts, and invoice footers.
+            </p>
+          </div>
+
+          {/* GSTIN & PAN Card */}
           <div
             style={{
-              backgroundColor: '#FFFFFF',
+              padding: '24px',
+              backgroundColor: '#FAFBF9',
               borderRadius: '20px',
-              border: '1.5px solid #E2E8F0',
-              padding: '28px',
-              boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
+              border: '1px solid rgba(30, 68, 59, 0.12)',
+              marginBottom: '24px',
             }}
           >
-            <div style={{ marginBottom: '22px' }}>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0F172A', margin: 0 }}>
-                Step 3: Company Logo Watermark & Invoice Authorized Signature
-              </h2>
-              <p style={{ fontSize: '0.82rem', color: '#64748B', marginTop: '4px' }}>
-                Upload your company insignia for the top bar and invoice watermark, and provide the digital signature for invoice authorization.
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+              <Shield size={18} style={{ color: '#234E43' }} />
+              <h3 style={{ fontSize: '0.96rem', fontWeight: 800, color: '#17191A', margin: 0 }}>
+                Government Tax Identification
+              </h3>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: '18px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 800, color: '#17191A', marginBottom: '8px' }}>
+                  GSTIN Registration Number <span style={{ color: '#DC2626' }}>*</span>
+                </label>
+                <input
+                  type="text"
+                  className="form-input"
+                  style={{
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    textTransform: 'uppercase',
+                    fontFamily: 'monospace',
+                    fontWeight: 800,
+                    fontSize: '0.92rem',
+                    background: '#FFFFFF',
+                    border: errors.gstin ? '1.5px solid #DC2626' : '1.5px solid rgba(30, 68, 59, 0.14)',
+                    borderRadius: '14px',
+                    padding: '12px 16px',
+                  }}
+                  value={formData.gstin}
+                  onChange={(e) => {
+                    setFormData({ ...formData, gstin: e.target.value.toUpperCase() });
+                    clearError('gstin');
+                  }}
+                  placeholder="27AADCB2230M1ZP"
+                  maxLength={15}
+                />
+                {errors.gstin ? (
+                  <div style={{ color: '#DC2626', fontSize: '0.74rem', fontWeight: 600, marginTop: '5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <AlertCircle size={12} /> {errors.gstin}
+                  </div>
+                ) : (
+                  <span style={{ fontSize: '0.72rem', color: '#5E6360', marginTop: '5px', display: 'block' }}>
+                    15-character alphanumeric GSTIN.
+                  </span>
+                )}
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 800, color: '#17191A', marginBottom: '8px' }}>
+                  Permanent Account Number (PAN) <span style={{ color: '#DC2626' }}>*</span>
+                </label>
+                <input
+                  type="text"
+                  className="form-input"
+                  style={{
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    textTransform: 'uppercase',
+                    fontFamily: 'monospace',
+                    fontWeight: 800,
+                    fontSize: '0.92rem',
+                    background: '#FFFFFF',
+                    border: errors.pan ? '1.5px solid #DC2626' : '1.5px solid rgba(30, 68, 59, 0.14)',
+                    borderRadius: '14px',
+                    padding: '12px 16px',
+                  }}
+                  value={formData.pan}
+                  onChange={(e) => {
+                    setFormData({ ...formData, pan: e.target.value.toUpperCase() });
+                    clearError('pan');
+                  }}
+                  placeholder="AADCB2230M"
+                  maxLength={10}
+                />
+                {errors.pan && (
+                  <div style={{ color: '#DC2626', fontSize: '0.74rem', fontWeight: 600, marginTop: '5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <AlertCircle size={12} /> {errors.pan}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 800, color: '#17191A', marginBottom: '8px' }}>
+                  Corporate Identity Number (CIN)
+                </label>
+                <input
+                  type="text"
+                  className="form-input"
+                  style={{
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    textTransform: 'uppercase',
+                    fontFamily: 'monospace',
+                    fontSize: '0.9rem',
+                    background: '#FFFFFF',
+                    border: '1.5px solid rgba(30, 68, 59, 0.14)',
+                    borderRadius: '14px',
+                    padding: '12px 16px',
+                  }}
+                  value={formData.cin || ''}
+                  onChange={(e) => setFormData({ ...formData, cin: e.target.value.toUpperCase() })}
+                  placeholder="U50100MH2018PTC309112"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Banking Coordinates Card */}
+          <div
+            style={{
+              padding: '24px',
+              backgroundColor: '#FAFBF9',
+              borderRadius: '20px',
+              border: '1px solid rgba(30, 68, 59, 0.12)',
+              marginBottom: '26px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+              <Landmark size={18} style={{ color: '#234E43' }} />
+              <h3 style={{ fontSize: '0.96rem', fontWeight: 800, color: '#17191A', margin: 0 }}>
+                Dealership Primary Bank Settlement Account
+              </h3>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '18px', marginBottom: '18px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 800, color: '#17191A', marginBottom: '8px' }}>
+                  Bank Name <span style={{ color: '#DC2626' }}>*</span>
+                </label>
+                <input
+                  type="text"
+                  className="form-input"
+                  style={{
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    background: '#FFFFFF',
+                    border: errors.bankName ? '1.5px solid #DC2626' : '1.5px solid rgba(30, 68, 59, 0.14)',
+                    borderRadius: '14px',
+                    padding: '12px 16px',
+                    fontSize: '0.9rem',
+                    fontWeight: 600,
+                  }}
+                  value={formData.bankName}
+                  onChange={(e) => {
+                    setFormData({ ...formData, bankName: e.target.value });
+                    clearError('bankName');
+                  }}
+                  placeholder="e.g. HDFC Bank Ltd"
+                />
+                {errors.bankName && (
+                  <div style={{ color: '#DC2626', fontSize: '0.72rem', fontWeight: 600, marginTop: '4px' }}>
+                    {errors.bankName}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 800, color: '#17191A', marginBottom: '8px' }}>
+                  Account Number <span style={{ color: '#DC2626' }}>*</span>
+                </label>
+                <input
+                  type="text"
+                  className="form-input"
+                  style={{
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    fontFamily: 'monospace',
+                    fontWeight: 800,
+                    background: '#FFFFFF',
+                    border: errors.accountNumber ? '1.5px solid #DC2626' : '1.5px solid rgba(30, 68, 59, 0.14)',
+                    borderRadius: '14px',
+                    padding: '12px 16px',
+                    fontSize: '0.9rem',
+                  }}
+                  value={formData.accountNumber}
+                  onChange={(e) => {
+                    setFormData({ ...formData, accountNumber: e.target.value });
+                    clearError('accountNumber');
+                  }}
+                  placeholder="50200049281726"
+                />
+                {errors.accountNumber && (
+                  <div style={{ color: '#DC2626', fontSize: '0.72rem', fontWeight: 600, marginTop: '4px' }}>
+                    {errors.accountNumber}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 800, color: '#17191A', marginBottom: '8px' }}>
+                  IFSC Code <span style={{ color: '#DC2626' }}>*</span>
+                </label>
+                <input
+                  type="text"
+                  className="form-input"
+                  style={{
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    textTransform: 'uppercase',
+                    fontFamily: 'monospace',
+                    fontWeight: 800,
+                    background: '#FFFFFF',
+                    border: errors.ifscCode ? '1.5px solid #DC2626' : '1.5px solid rgba(30, 68, 59, 0.14)',
+                    borderRadius: '14px',
+                    padding: '12px 16px',
+                    fontSize: '0.9rem',
+                  }}
+                  value={formData.ifscCode}
+                  onChange={(e) => {
+                    setFormData({ ...formData, ifscCode: e.target.value.toUpperCase() });
+                    clearError('ifscCode');
+                  }}
+                  placeholder="HDFC0000060"
+                  maxLength={11}
+                />
+                {errors.ifscCode && (
+                  <div style={{ color: '#DC2626', fontSize: '0.72rem', fontWeight: 600, marginTop: '4px' }}>
+                    {errors.ifscCode}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '18px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 800, color: '#17191A', marginBottom: '8px' }}>
+                  Branch Name & Location <span style={{ color: '#DC2626' }}>*</span>
+                </label>
+                <input
+                  type="text"
+                  className="form-input"
+                  style={{
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    background: '#FFFFFF',
+                    border: errors.branchName ? '1.5px solid #DC2626' : '1.5px solid rgba(30, 68, 59, 0.14)',
+                    borderRadius: '14px',
+                    padding: '12px 16px',
+                    fontSize: '0.9rem',
+                    fontWeight: 600,
+                  }}
+                  value={formData.branchName}
+                  onChange={(e) => {
+                    setFormData({ ...formData, branchName: e.target.value });
+                    clearError('branchName');
+                  }}
+                  placeholder="Andheri East Corporate Branch, Mumbai"
+                />
+                {errors.branchName && (
+                  <div style={{ color: '#DC2626', fontSize: '0.72rem', fontWeight: 600, marginTop: '4px' }}>
+                    {errors.branchName}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 800, color: '#17191A', marginBottom: '8px' }}>
+                  UPI Payment ID / VPA
+                </label>
+                <input
+                  type="text"
+                  className="form-input"
+                  style={{
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    background: '#FFFFFF',
+                    border: '1.5px solid rgba(30, 68, 59, 0.14)',
+                    borderRadius: '14px',
+                    padding: '12px 16px',
+                    fontSize: '0.9rem',
+                    fontWeight: 600,
+                  }}
+                  value={formData.upiId || ''}
+                  onChange={(e) => setFormData({ ...formData, upiId: e.target.value })}
+                  placeholder="dealership@hdfcbank"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '20px', borderTop: '1px solid rgba(30, 68, 59, 0.1)' }}>
+            <button
+              type="button"
+              onClick={() => setActiveStep(1)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '11px 22px',
+                borderRadius: '999px',
+                background: 'rgba(30, 68, 59, 0.07)',
+                color: '#1E443B',
+                fontSize: '0.84rem',
+                fontWeight: 800,
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              <ArrowLeft size={16} />
+              <span>Back</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleNextFromStep2}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '13px 30px',
+                borderRadius: '999px',
+                background: 'linear-gradient(135deg, #26554A 0%, #173830 100%)',
+                color: '#FFFFFF',
+                fontSize: '0.9rem',
+                fontWeight: 800,
+                border: 'none',
+                cursor: 'pointer',
+                boxShadow: '0 8px 24px -6px rgba(30, 68, 59, 0.38)',
+              }}
+            >
+              <span>Continue to Invoice Signature</span>
+              <ArrowRight size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ================= STEP 3: INVOICE AUTHORIZED SIGNATURE PHOTO ================= */}
+      {activeStep === 3 && (
+        <div
+          style={{
+            position: 'relative',
+            zIndex: 1,
+            backgroundColor: '#FFFFFF',
+            borderRadius: '26px',
+            border: '1px solid rgba(30, 68, 59, 0.12)',
+            padding: '36px 40px',
+            boxShadow: '0 20px 50px -20px rgba(30, 68, 59, 0.09), 0 1px 0 rgba(255, 255, 255, 0.9) inset',
+          }}
+        >
+          {/* Step Header */}
+          <div style={{ marginBottom: '26px' }}>
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '0.72rem',
+                fontWeight: 800,
+                color: '#1E443B',
+                textTransform: 'uppercase',
+                letterSpacing: '0.06em',
+                marginBottom: '4px',
+              }}
+            >
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#234E43' }} />
+              <span>Section 03 of 05</span>
+            </div>
+            <h2 style={{ fontSize: '1.35rem', fontWeight: 900, color: '#17191A', margin: 0, letterSpacing: '-0.02em' }}>
+              Invoice Authorized Signatory & Digital Signature Photo
+            </h2>
+            <p style={{ fontSize: '0.84rem', color: '#5E6360', marginTop: '4px' }}>
+              Upload the official signature image of the authorized signatory. This image is digitally stamped across all generated tax invoices and gate clearance receipts.
+            </p>
+          </div>
+
+          {/* Signatory Name & Designation */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '24px' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 800, color: '#17191A', marginBottom: '8px' }}>
+                Authorized Signatory Full Name <span style={{ color: '#DC2626' }}>*</span>
+              </label>
+              <input
+                type="text"
+                className="form-input"
+                style={{
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  background: '#FAFBF9',
+                  border: errors.authorizedSignatoryName ? '1.5px solid #DC2626' : '1.5px solid rgba(30, 68, 59, 0.12)',
+                  borderRadius: '14px',
+                  padding: '12px 16px',
+                  fontSize: '0.9rem',
+                  fontWeight: 600,
+                }}
+                value={formData.authorizedSignatoryName}
+                onChange={(e) => {
+                  setFormData({ ...formData, authorizedSignatoryName: e.target.value });
+                  clearError('authorizedSignatoryName');
+                }}
+                placeholder="e.g. Vikramaditya Singhania"
+              />
+              {errors.authorizedSignatoryName ? (
+                <div style={{ color: '#DC2626', fontSize: '0.74rem', fontWeight: 600, marginTop: '5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <AlertCircle size={12} /> {errors.authorizedSignatoryName}
+                </div>
+              ) : (
+                <span style={{ fontSize: '0.72rem', color: '#5E6360', marginTop: '5px', display: 'block' }}>
+                  Printed beneath the legal seal and signature box on GST invoices.
+                </span>
+              )}
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 800, color: '#17191A', marginBottom: '8px' }}>
+                Signatory Designation / Role <span style={{ color: '#DC2626' }}>*</span>
+              </label>
+              <input
+                type="text"
+                className="form-input"
+                style={{
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  background: '#FAFBF9',
+                  border: errors.authorizedSignatoryDesignation ? '1.5px solid #DC2626' : '1.5px solid rgba(30, 68, 59, 0.12)',
+                  borderRadius: '14px',
+                  padding: '12px 16px',
+                  fontSize: '0.9rem',
+                  fontWeight: 600,
+                }}
+                value={formData.authorizedSignatoryDesignation}
+                onChange={(e) => {
+                  setFormData({ ...formData, authorizedSignatoryDesignation: e.target.value });
+                  clearError('authorizedSignatoryDesignation');
+                }}
+                placeholder="e.g. Managing Director & Principal Dealer"
+              />
+              {errors.authorizedSignatoryDesignation && (
+                <div style={{ color: '#DC2626', fontSize: '0.74rem', fontWeight: 600, marginTop: '5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <AlertCircle size={12} /> {errors.authorizedSignatoryDesignation}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Signature Photo Upload Card */}
+          <div
+            style={{
+              padding: '28px',
+              background: 'linear-gradient(135deg, rgba(35, 78, 67, 0.04) 0%, rgba(250, 251, 249, 1) 100%)',
+              borderRadius: '20px',
+              border: errors.signatureUrl ? '1.5px solid #DC2626' : '1.5px solid rgba(30, 68, 59, 0.14)',
+              marginBottom: '26px',
+            }}
+          >
+            <div style={{ marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <h3 style={{ fontSize: '1rem', fontWeight: 800, color: '#17191A', margin: 0 }}>
+                  Upload Signatory Photo / Transparent Signature
+                </h3>
+                <span style={{ color: '#DC2626', fontWeight: 800 }}>*</span>
+              </div>
+              <p style={{ fontSize: '0.82rem', color: '#5E6360', margin: '4px 0 0' }}>
+                Upload high-contrast photo or scanned signature (transparent PNG recommended) to embed on all billing records.
               </p>
             </div>
 
-            {/* Logo Upload & Watermark Settings */}
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: '1.2fr 1fr',
-                gap: '24px',
-                padding: '20px',
-                backgroundColor: '#F8FAFC',
-                borderRadius: '16px',
-                border: '1px solid #E2E8F0',
-                marginBottom: '24px',
-              }}
-            >
-              {/* Logo Upload Box */}
-              <div>
-                <label style={{ display: 'block', fontSize: '0.86rem', fontWeight: 800, color: '#0F172A', marginBottom: '8px' }}>
-                  Company Logo (Used for App Branding & Invoice Watermark)
-                </label>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '14px' }}>
+            {formData.signatureUrl ? (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  backgroundColor: '#FFFFFF',
+                  padding: '18px 24px',
+                  borderRadius: '16px',
+                  border: '1.5px solid rgba(30, 68, 59, 0.18)',
+                  boxShadow: '0 4px 16px rgba(30, 68, 59, 0.04)',
+                  flexWrap: 'wrap',
+                  gap: '14px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
                   <div
                     style={{
-                      width: '74px',
-                      height: '74px',
-                      borderRadius: '14px',
-                      backgroundColor: '#FFFFFF',
-                      border: '1.5px dashed #CBD5E1',
+                      height: '64px',
+                      minWidth: '160px',
+                      padding: '6px 16px',
+                      backgroundColor: '#F8FAF9',
+                      borderRadius: '10px',
+                      border: '1px dashed rgba(30, 68, 59, 0.2)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      overflow: 'hidden',
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
-                      flexShrink: 0,
                     }}
                   >
-                    {formData.logoUrl ? (
-                      <img
-                        src={formData.logoUrl}
-                        alt="Logo"
-                        style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '4px' }}
-                      />
-                    ) : (
-                      <span style={{ fontSize: '1.8rem', fontWeight: 900, color: '#1E443B' }}>
-                        {(formData.tradeName || 'A').charAt(0).toUpperCase()}
-                      </span>
-                    )}
+                    <img
+                      src={formData.signatureUrl}
+                      alt="Authorized Signature"
+                      style={{ maxHeight: '52px', maxWidth: '180px', objectFit: 'contain' }}
+                    />
                   </div>
-
                   <div>
-                    <label
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        padding: '8px 16px',
-                        borderRadius: '8px',
-                        backgroundColor: '#1E443B',
-                        color: '#FFFFFF',
-                        fontSize: '0.8rem',
-                        fontWeight: 700,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      <Upload size={14} />
-                      <span>Upload Logo File</span>
-                      <input type="file" accept="image/*" onChange={handleLogoUpload} style={{ display: 'none' }} />
-                    </label>
-
-                    {formData.logoUrl && (
-                      <button
-                        type="button"
-                        onClick={() => setFormData({ ...formData, logoUrl: '' })}
-                        style={{
-                          marginLeft: '8px',
-                          padding: '8px 12px',
-                          borderRadius: '8px',
-                          border: '1px solid #CBD5E1',
-                          background: '#FFFFFF',
-                          color: '#DC2626',
-                          fontSize: '0.78rem',
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                        }}
-                      >
-                        Remove
-                      </button>
-                    )}
-
-                    <div style={{ fontSize: '0.72rem', color: '#64748B', marginTop: '6px' }}>
-                      Supports PNG, JPG, or SVG (Transparent background recommended).
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#24754E', fontSize: '0.88rem', fontWeight: 800 }}>
+                      <CheckCircle2 size={16} />
+                      <span>Signature Photo Uploaded & Linked to Invoices</span>
+                    </div>
+                    <div style={{ fontSize: '0.76rem', color: '#5E6360', marginTop: '2px' }}>
+                      Signatory: {formData.authorizedSignatoryName || 'Principal Officer'}
                     </div>
                   </div>
                 </div>
 
-                {/* Preset Options */}
-                <div style={{ marginTop: '12px' }}>
-                  <span style={{ fontSize: '0.74rem', color: '#64748B', fontWeight: 600 }}>Or choose a luxury preset insignia:</span>
-                  <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
-                    {DEALERSHIP_LOGO_PRESETS.map((p) => (
-                      <button
-                        key={p.name}
-                        type="button"
-                        onClick={() => setFormData({ ...formData, logoUrl: p.url })}
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <label
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '9px 18px',
+                      borderRadius: '999px',
+                      background: 'linear-gradient(135deg, #26554A 0%, #173830 100%)',
+                      color: '#FFFFFF',
+                      fontSize: '0.8rem',
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      boxShadow: '0 4px 12px rgba(30, 68, 59, 0.25)',
+                    }}
+                  >
+                    <Upload size={13} />
+                    <span>Change Photo</span>
+                    <input type="file" accept="image/*" onChange={handleSignatureUpload} style={{ display: 'none' }} />
+                  </label>
+
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, signatureUrl: '' })}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '9px 16px',
+                      borderRadius: '999px',
+                      border: '1px solid rgba(220, 38, 38, 0.2)',
+                      backgroundColor: '#FEF2F2',
+                      color: '#DC2626',
+                      fontSize: '0.8rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <Trash2 size={13} />
+                    <span>Remove</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <label
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '10px',
+                  padding: '40px 24px',
+                  borderRadius: '16px',
+                  border: '2px dashed rgba(30, 68, 59, 0.25)',
+                  backgroundColor: '#FFFFFF',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  boxShadow: '0 2px 10px rgba(0, 0, 0, 0.02)',
+                }}
+              >
+                <div
+                  style={{
+                    width: '52px',
+                    height: '52px',
+                    borderRadius: '50%',
+                    backgroundColor: 'rgba(35, 78, 67, 0.08)',
+                    color: '#1E443B',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <PenTool size={24} />
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <span style={{ fontSize: '0.92rem', fontWeight: 800, color: '#17191A', display: 'block' }}>
+                    Click to Upload Signature Photo
+                  </span>
+                  <span style={{ fontSize: '0.76rem', color: '#5E6360', marginTop: '2px', display: 'block' }}>
+                    PNG or JPG image (High-contrast with transparent background recommended)
+                  </span>
+                </div>
+                <input type="file" accept="image/*" onChange={handleSignatureUpload} style={{ display: 'none' }} />
+              </label>
+            )}
+
+            {errors.signatureUrl && (
+              <div style={{ color: '#DC2626', fontSize: '0.76rem', fontWeight: 600, marginTop: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <AlertCircle size={13} /> {errors.signatureUrl}
+              </div>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '20px', borderTop: '1px solid rgba(30, 68, 59, 0.1)' }}>
+            <button
+              type="button"
+              onClick={() => setActiveStep(2)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '11px 22px',
+                borderRadius: '999px',
+                background: 'rgba(30, 68, 59, 0.07)',
+                color: '#1E443B',
+                fontSize: '0.84rem',
+                fontWeight: 800,
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              <ArrowLeft size={16} />
+              <span>Back</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleNextFromStep3}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '13px 30px',
+                borderRadius: '999px',
+                background: 'linear-gradient(135deg, #26554A 0%, #173830 100%)',
+                color: '#FFFFFF',
+                fontSize: '0.9rem',
+                fontWeight: 800,
+                border: 'none',
+                cursor: 'pointer',
+                boxShadow: '0 8px 24px -6px rgba(30, 68, 59, 0.38)',
+              }}
+            >
+              <span>Continue to Plugin Access Control</span>
+              <ArrowRight size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ================= STEP 4: PLUGIN IN / PLUGIN OUT (ACCESS CONTROL) ================= */}
+      {activeStep === 4 && (
+        <div
+          style={{
+            position: 'relative',
+            zIndex: 1,
+            backgroundColor: '#FFFFFF',
+            borderRadius: '26px',
+            border: '1px solid rgba(30, 68, 59, 0.12)',
+            padding: '36px 40px',
+            boxShadow: '0 20px 50px -20px rgba(30, 68, 59, 0.09), 0 1px 0 rgba(255, 255, 255, 0.9) inset',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '14px', marginBottom: '24px' }}>
+            <div>
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontSize: '0.72rem',
+                  fontWeight: 800,
+                  color: '#1E443B',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.06em',
+                  marginBottom: '4px',
+                }}
+              >
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#234E43' }} />
+                <span>Section 04 of 05</span>
+              </div>
+              <h2 style={{ fontSize: '1.35rem', fontWeight: 900, color: '#17191A', margin: 0, letterSpacing: '-0.02em' }}>
+                Department Modules & Plugin Access Control
+              </h2>
+              <p style={{ fontSize: '0.84rem', color: '#5E6360', marginTop: '4px' }}>
+                Plugin In (Activate) or Plugin Out (Deactivate) specific dealership departments. Plugged-in modules automatically appear in your top navigation dock.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button
+                type="button"
+                onClick={() => handlePluginAll(true)}
+                style={{
+                  padding: '7px 16px',
+                  borderRadius: '999px',
+                  border: '1px solid rgba(30, 68, 59, 0.2)',
+                  background: 'rgba(30, 68, 59, 0.06)',
+                  fontSize: '0.78rem',
+                  fontWeight: 800,
+                  color: '#1E443B',
+                  cursor: 'pointer',
+                }}
+              >
+                Plugin In All ({modulesList.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => handlePluginAll(false)}
+                style={{
+                  padding: '7px 16px',
+                  borderRadius: '999px',
+                  border: '1px solid rgba(0, 0, 0, 0.1)',
+                  background: '#F8FAF9',
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
+                  color: '#5E6360',
+                  cursor: 'pointer',
+                }}
+              >
+                Plugin Out All
+              </button>
+            </div>
+          </div>
+
+          {/* Plugin Ribbon */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '14px 20px',
+              backgroundColor: 'rgba(35, 78, 67, 0.05)',
+              borderRadius: '16px',
+              marginBottom: '24px',
+              border: '1px solid rgba(35, 78, 67, 0.12)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.86rem', fontWeight: 800, color: '#1E443B' }}>
+              <Layers size={18} />
+              <span>Active Department Plugins: <strong>{activePluginsCount}</strong> of {modulesList.length} Connected</span>
+            </div>
+            <span style={{ fontSize: '0.76rem', color: '#5E6360' }}>
+              Real-time sync to navigation dock
+            </span>
+          </div>
+
+          {/* Modules Grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(310px, 1fr))', gap: '16px', marginBottom: '28px' }}>
+            {modulesList.map((mod) => {
+              const isPlugged = mod.isPluggedIn;
+
+              return (
+                <div
+                  key={mod.id}
+                  style={{
+                    padding: '20px',
+                    borderRadius: '18px',
+                    backgroundColor: isPlugged ? '#FFFFFF' : '#FAFBF9',
+                    border: '1.5px solid',
+                    borderColor: isPlugged ? 'rgba(35, 78, 67, 0.35)' : 'rgba(30, 68, 59, 0.1)',
+                    boxShadow: isPlugged ? '0 8px 24px -8px rgba(35, 78, 67, 0.14)' : 'none',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                  }}
+                >
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                      <span
                         style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          padding: '5px 10px',
-                          borderRadius: '8px',
-                          border: '1px solid #CBD5E1',
-                          background: '#FFFFFF',
-                          cursor: 'pointer',
-                          fontSize: '0.72rem',
-                          fontWeight: 700,
-                          color: '#334155',
+                          fontSize: '0.7rem',
+                          fontWeight: 800,
+                          padding: '3px 10px',
+                          borderRadius: '999px',
+                          backgroundColor: isPlugged ? 'rgba(35, 78, 67, 0.1)' : '#F1F5F9',
+                          color: isPlugged ? '#1E443B' : '#5E6360',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.04em',
                         }}
                       >
-                        <span
-                          style={{
-                            width: '16px',
-                            height: '16px',
-                            borderRadius: '4px',
-                            backgroundColor: p.color,
-                            color: '#FFF',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: '0.62rem',
-                          }}
-                        >
-                          {p.initial}
-                        </span>
-                        <span>{p.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                        {mod.category}
+                      </span>
 
-                {/* Watermark Opacity Controls */}
-                <div style={{ marginTop: '18px', paddingTop: '14px', borderTop: '1px solid #E2E8F0' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 700, color: '#0F172A' }}>
-                      <input
-                        type="checkbox"
-                        checked={formData.watermarkEnabled}
-                        onChange={(e) => setFormData({ ...formData, watermarkEnabled: e.target.checked })}
-                        style={{ width: '16px', height: '16px', accentColor: '#1E443B' }}
-                      />
-                      <span>Enable Diagonal Invoice Watermark</span>
-                    </label>
-                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#1E443B' }}>
-                      {Math.round((formData.watermarkOpacity || 0.08) * 100)}% Opacity
+                      {/* Pill toggle */}
+                      <button
+                        type="button"
+                        onClick={() => handleToggleModule(mod.id)}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '6px 14px',
+                          borderRadius: '999px',
+                          border: 'none',
+                          background: isPlugged
+                            ? 'linear-gradient(135deg, #26554A 0%, #173830 100%)'
+                            : 'rgba(30, 68, 59, 0.1)',
+                          color: isPlugged ? '#FFFFFF' : '#5E6360',
+                          fontSize: '0.74rem',
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                          boxShadow: isPlugged ? '0 2px 8px rgba(30, 68, 59, 0.2)' : 'none',
+                        }}
+                      >
+                        {isPlugged ? (
+                          <>
+                            <Check size={12} strokeWidth={3} />
+                            <span>Plugged In</span>
+                          </>
+                        ) : (
+                          <span>Plugged Out</span>
+                        )}
+                      </button>
+                    </div>
+
+                    <div style={{ fontSize: '0.96rem', fontWeight: 800, color: '#17191A', marginBottom: '6px' }}>
+                      {mod.label}
+                    </div>
+
+                    <p style={{ fontSize: '0.78rem', color: '#5E6360', margin: 0, lineHeight: 1.45 }}>
+                      {mod.description}
+                    </p>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '14px', paddingTop: '10px', borderTop: '1px solid rgba(30, 68, 59, 0.08)', fontSize: '0.72rem', color: '#8A918D' }}>
+                    <span>Route: {mod.href}</span>
+                    <span style={{ fontWeight: 700, color: isPlugged ? '#24754E' : '#8A918D' }}>
+                      {isPlugged ? '● Visible in Top Nav' : '○ Hidden from Top Nav'}
                     </span>
                   </div>
+                </div>
+              );
+            })}
+          </div>
 
+          <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '20px', borderTop: '1px solid rgba(30, 68, 59, 0.1)' }}>
+            <button
+              type="button"
+              onClick={() => setActiveStep(3)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '11px 22px',
+                borderRadius: '999px',
+                background: 'rgba(30, 68, 59, 0.07)',
+                color: '#1E443B',
+                fontSize: '0.84rem',
+                fontWeight: 800,
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              <ArrowLeft size={16} />
+              <span>Back</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleNextFromStep4}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '13px 30px',
+                borderRadius: '999px',
+                background: 'linear-gradient(135deg, #26554A 0%, #173830 100%)',
+                color: '#FFFFFF',
+                fontSize: '0.9rem',
+                fontWeight: 800,
+                border: 'none',
+                cursor: 'pointer',
+                boxShadow: '0 8px 24px -6px rgba(30, 68, 59, 0.38)',
+              }}
+            >
+              <span>Continue to Create Account</span>
+              <ArrowRight size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ================= STEP 5: CREATE USER ID & PASSWORD (LAST STAGE) ================= */}
+      {activeStep === 5 && (
+        <form onSubmit={handleFinalSubmit}>
+          <div
+            style={{
+              position: 'relative',
+              zIndex: 1,
+              backgroundColor: '#FFFFFF',
+              borderRadius: '26px',
+              border: '1px solid rgba(30, 68, 59, 0.12)',
+              padding: '36px 40px',
+              boxShadow: '0 20px 50px -20px rgba(30, 68, 59, 0.09), 0 1px 0 rgba(255, 255, 255, 0.9) inset',
+            }}
+          >
+            <div style={{ marginBottom: '26px' }}>
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '4px 12px',
+                  borderRadius: '999px',
+                  backgroundColor: 'rgba(35, 78, 67, 0.1)',
+                  color: '#1E443B',
+                  fontSize: '0.72rem',
+                  fontWeight: 800,
+                  marginBottom: '6px',
+                  letterSpacing: '0.04em',
+                }}
+              >
+                <Shield size={13} />
+                <span>FINAL STAGE</span>
+              </div>
+              <h2 style={{ fontSize: '1.35rem', fontWeight: 900, color: '#17191A', margin: 0, letterSpacing: '-0.02em' }}>
+                Step 5: Create Administrator Account Credentials
+              </h2>
+              <p style={{ fontSize: '0.84rem', color: '#5E6360', marginTop: '4px' }}>
+                Set up your primary administrative User ID and password. Once created, you will be automatically routed to the sign-in screen to access your customized dealership dashboard.
+              </p>
+            </div>
+
+            <div
+              style={{
+                backgroundColor: '#FAFBF9',
+                borderRadius: '20px',
+                border: '1px solid rgba(30, 68, 59, 0.12)',
+                padding: '28px',
+                marginBottom: '26px',
+              }}
+            >
+              {/* Administrator Name */}
+              <div style={{ marginBottom: '18px' }}>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 800, color: '#17191A', marginBottom: '8px' }}>
+                  Administrator Full Name
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <User
+                    size={16}
+                    style={{
+                      position: 'absolute',
+                      left: '14px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      color: '#8A918D',
+                    }}
+                  />
                   <input
-                    type="range"
-                    min="0.04"
-                    max="0.22"
-                    step="0.01"
-                    value={formData.watermarkOpacity || 0.08}
-                    onChange={(e) => setFormData({ ...formData, watermarkOpacity: parseFloat(e.target.value) })}
-                    disabled={!formData.watermarkEnabled}
-                    style={{ width: '100%', accentColor: '#1E443B' }}
+                    type="text"
+                    className="form-input"
+                    style={{
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      paddingLeft: '40px',
+                      background: '#FFFFFF',
+                      border: '1.5px solid rgba(30, 68, 59, 0.14)',
+                      borderRadius: '14px',
+                      paddingTop: '12px',
+                      paddingBottom: '12px',
+                      fontSize: '0.9rem',
+                      fontWeight: 600,
+                    }}
+                    value={credentials.fullName}
+                    onChange={(e) => setCredentials({ ...credentials, fullName: e.target.value })}
+                    placeholder={formData.authorizedSignatoryName || 'Dealership Administrator'}
                   />
                 </div>
               </div>
 
-              {/* Live Invoice Watermark Visualizer Preview */}
-              <div
-                style={{
-                  position: 'relative',
-                  backgroundColor: '#FFFFFF',
-                  borderRadius: '12px',
-                  border: '1.5px solid #CBD5E1',
-                  height: '240px',
-                  overflow: 'hidden',
-                  padding: '14px',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.04)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'space-between',
-                }}
-              >
-                {/* Watermark Layer */}
-                {formData.watermarkEnabled && (
-                  <div
+              {/* User ID */}
+              <div style={{ marginBottom: '18px' }}>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 800, color: '#17191A', marginBottom: '8px' }}>
+                  Create Administrator User ID / Username <span style={{ color: '#DC2626' }}>*</span>
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <User
+                    size={16}
                     style={{
                       position: 'absolute',
+                      left: '14px',
                       top: '50%',
-                      left: '50%',
-                      transform: 'translate(-50%, -50%) rotate(-30deg)',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      pointerEvents: 'none',
-                      userSelect: 'none',
-                      zIndex: 0,
-                      opacity: formData.watermarkOpacity || 0.08,
+                      transform: 'translateY(-50%)',
+                      color: '#8A918D',
                     }}
-                  >
-                    {formData.logoUrl ? (
-                      <img
-                        src={formData.logoUrl}
-                        alt="Watermark Preview"
-                        style={{ maxWidth: '140px', maxHeight: '140px', objectFit: 'contain', filter: 'grayscale(100%)' }}
-                      />
-                    ) : (
-                      <span style={{ fontSize: '1.8rem', fontWeight: 900, color: '#1E443B', letterSpacing: '0.1em' }}>
-                        {formData.tradeName || 'DEALERSHIP'}
-                      </span>
-                    )}
-                    <span style={{ fontSize: '0.55rem', fontWeight: 800, letterSpacing: '0.2em', color: '#1E443B', marginTop: '2px' }}>
-                      ★ TAX INVOICE ★
-                    </span>
+                  />
+                  <input
+                    type="text"
+                    className="form-input"
+                    style={{
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      paddingLeft: '40px',
+                      background: '#FFFFFF',
+                      border: errors.userId ? '1.5px solid #DC2626' : '1.5px solid rgba(30, 68, 59, 0.14)',
+                      borderRadius: '14px',
+                      paddingTop: '12px',
+                      paddingBottom: '12px',
+                      fontSize: '0.9rem',
+                      fontWeight: 700,
+                      color: '#1E443B',
+                    }}
+                    value={credentials.userId}
+                    onChange={(e) => {
+                      setCredentials({ ...credentials, userId: e.target.value });
+                      clearError('userId');
+                    }}
+                    placeholder="e.g. admin or vikram.singh"
+                  />
+                </div>
+                {errors.userId ? (
+                  <div style={{ color: '#DC2626', fontSize: '0.74rem', fontWeight: 600, marginTop: '5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <AlertCircle size={12} /> {errors.userId}
                   </div>
+                ) : (
+                  <span style={{ fontSize: '0.72rem', color: '#5E6360', marginTop: '5px', display: 'block' }}>
+                    You will sign in with this User ID on the login screen.
+                  </span>
                 )}
-
-                {/* Dummy Invoice Mock Content to show realism */}
-                <div style={{ position: 'relative', zIndex: 1, borderBottom: '1px solid #E2E8F0', paddingBottom: '6px' }}>
-                  <div style={{ fontSize: '0.74rem', fontWeight: 800, color: '#1E443B' }}>
-                    {formData.tradeName || 'YOUR DEALERSHIP'}
-                  </div>
-                  <div style={{ fontSize: '0.6rem', color: '#64748B' }}>
-                    {formData.address || 'Showroom Address'}, {formData.city || 'City'}
-                  </div>
-                </div>
-
-                <div style={{ position: 'relative', zIndex: 1, padding: '10px 0', fontSize: '0.64rem', color: '#334155' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
-                    <span>Vehicle: 2024 Premium Luxury Sedan</span>
-                    <strong>₹24,50,000</strong>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
-                    <span>GST (18% & 28%)</span>
-                    <strong>₹4,41,000</strong>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dashed #CBD5E1', paddingTop: '3px' }}>
-                    <strong>Total Amount:</strong>
-                    <strong style={{ color: '#16A34A' }}>₹28,91,000</strong>
-                  </div>
-                </div>
-
-                <div style={{ position: 'relative', zIndex: 1, textAlign: 'right', fontSize: '0.58rem', color: '#64748B' }}>
-                  [Live Watermark Preview]
-                </div>
-              </div>
-            </div>
-
-            {/* Authorized Invoice Signatory & Signature */}
-            <div
-              style={{
-                padding: '20px',
-                backgroundColor: '#F8FAFC',
-                borderRadius: '16px',
-                border: '1px solid #E2E8F0',
-                marginBottom: '24px',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
-                <div>
-                  <h3 style={{ fontSize: '0.96rem', fontWeight: 800, color: '#0F172A', margin: 0 }}>
-                    Authorized Digital Signature for Invoices
-                  </h3>
-                  <p style={{ fontSize: '0.74rem', color: '#64748B', margin: '2px 0 0' }}>
-                    Draw with your mouse/touch pad or upload a transparent signature image for automatic invoice stamping.
-                  </p>
-                </div>
-
-                <div style={{ display: 'flex', gap: '6px' }}>
-                  <button
-                    type="button"
-                    onClick={() => setSignatureMode('draw')}
-                    style={{
-                      padding: '5px 12px',
-                      borderRadius: '8px',
-                      border: '1px solid',
-                      borderColor: signatureMode === 'draw' ? '#1E443B' : '#CBD5E1',
-                      backgroundColor: signatureMode === 'draw' ? '#1E443B' : '#FFFFFF',
-                      color: signatureMode === 'draw' ? '#FFFFFF' : '#475569',
-                      fontSize: '0.76rem',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    Draw Signature Pad
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setSignatureMode('upload')}
-                    style={{
-                      padding: '5px 12px',
-                      borderRadius: '8px',
-                      border: '1px solid',
-                      borderColor: signatureMode === 'upload' ? '#1E443B' : '#CBD5E1',
-                      backgroundColor: signatureMode === 'upload' ? '#1E443B' : '#FFFFFF',
-                      color: signatureMode === 'upload' ? '#FFFFFF' : '#475569',
-                      fontSize: '0.76rem',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    Upload Signature Image
-                  </button>
-                </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '20px' }}>
-                {/* Signatory Names */}
+              {/* Password & Confirm Password */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '18px' }}>
                 <div>
-                  <div style={{ marginBottom: '14px' }}>
-                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#0F172A', marginBottom: '4px' }}>
-                      Authorized Signatory Full Name <span style={{ color: '#DC2626' }}>*</span>
-                    </label>
-                    <input
-                      type="text"
-                      className="form-input"
-                      value={formData.authorizedSignatoryName}
-                      onChange={(e) => setFormData({ ...formData, authorizedSignatoryName: e.target.value })}
-                      placeholder="e.g. Vikramaditya Singhania"
-                      required
-                    />
-                  </div>
-
-                  <div style={{ marginBottom: '14px' }}>
-                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#0F172A', marginBottom: '4px' }}>
-                      Signatory Designation / Role <span style={{ color: '#DC2626' }}>*</span>
-                    </label>
-                    <input
-                      type="text"
-                      className="form-input"
-                      value={formData.authorizedSignatoryDesignation}
-                      onChange={(e) => setFormData({ ...formData, authorizedSignatoryDesignation: e.target.value })}
-                      placeholder="e.g. Managing Director & Principal Dealer"
-                      required
-                    />
-                  </div>
-                </div>
-
-                {/* Signature Pad or Upload Box */}
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#0F172A', marginBottom: '4px' }}>
-                    {signatureMode === 'draw' ? 'Signature Canvas (Sign inside box)' : 'Upload Transparent Signature PNG'}
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 800, color: '#17191A', marginBottom: '8px' }}>
+                    Create Password <span style={{ color: '#DC2626' }}>*</span>
                   </label>
-
-                  {signatureMode === 'draw' ? (
-                    <div>
-                      <div
-                        style={{
-                          border: '1.5px dashed #0F172A',
-                          borderRadius: '12px',
-                          backgroundColor: '#FFFFFF',
-                          overflow: 'hidden',
-                          touchAction: 'none',
-                          cursor: 'crosshair',
-                        }}
-                      >
-                        <canvas
-                          ref={canvasRef}
-                          width={380}
-                          height={120}
-                          onMouseDown={startDrawing}
-                          onMouseMove={draw}
-                          onMouseUp={stopDrawing}
-                          onMouseLeave={stopDrawing}
-                          onTouchStart={startDrawing}
-                          onTouchMove={draw}
-                          onTouchEnd={stopDrawing}
-                          style={{ width: '100%', height: '120px', display: 'block' }}
-                        />
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px' }}>
-                        <span style={{ fontSize: '0.72rem', color: '#64748B' }}>
-                          Hold & drag mouse or finger to sign
-                        </span>
-                        <button
-                          type="button"
-                          onClick={clearSignature}
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            background: 'transparent',
-                            border: 'none',
-                            color: '#DC2626',
-                            fontSize: '0.74rem',
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                          }}
-                        >
-                          <Eraser size={13} />
-                          <span>Clear Pad</span>
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div>
-                      <label
-                        style={{
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '6px',
-                          padding: '24px 16px',
-                          borderRadius: '12px',
-                          border: '1.5px dashed #CBD5E1',
-                          backgroundColor: '#FFFFFF',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        <PenTool size={22} style={{ color: '#1E443B' }} />
-                        <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#0F172A' }}>Click to Upload Signature File</span>
-                        <span style={{ fontSize: '0.7rem', color: '#64748B' }}>PNG or JPG with transparent backdrop</span>
-                        <input type="file" accept="image/*" onChange={handleSignatureUpload} style={{ display: 'none' }} />
-                      </label>
+                  <div style={{ position: 'relative' }}>
+                    <Lock
+                      size={16}
+                      style={{
+                        position: 'absolute',
+                        left: '14px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        color: '#8A918D',
+                      }}
+                    />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      className="form-input"
+                      style={{
+                        width: '100%',
+                        boxSizing: 'border-box',
+                        paddingLeft: '40px',
+                        paddingRight: '40px',
+                        background: '#FFFFFF',
+                        border: errors.password ? '1.5px solid #DC2626' : '1.5px solid rgba(30, 68, 59, 0.14)',
+                        borderRadius: '14px',
+                        paddingTop: '12px',
+                        paddingBottom: '12px',
+                        fontSize: '0.9rem',
+                        fontWeight: 600,
+                      }}
+                      value={credentials.password}
+                      onChange={(e) => {
+                        setCredentials({ ...credentials, password: e.target.value });
+                        clearError('password');
+                      }}
+                      placeholder="Minimum 6 characters"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      style={{
+                        position: 'absolute',
+                        right: '12px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'transparent',
+                        border: 'none',
+                        color: '#8A918D',
+                        cursor: 'pointer',
+                        padding: 0,
+                      }}
+                    >
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                  {errors.password && (
+                    <div style={{ color: '#DC2626', fontSize: '0.74rem', fontWeight: 600, marginTop: '5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <AlertCircle size={12} /> {errors.password}
                     </div>
                   )}
+                </div>
 
-                  {/* Preview Stamp */}
-                  {formData.signatureUrl && (
-                    <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 10px', background: '#FFFFFF', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
-                      <img src={formData.signatureUrl} alt="Signature Preview" style={{ height: '32px', objectFit: 'contain' }} />
-                      <span style={{ fontSize: '0.72rem', color: '#16A34A', fontWeight: 700 }}>✓ Signature Captured & Ready</span>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 800, color: '#17191A', marginBottom: '8px' }}>
+                    Confirm Password <span style={{ color: '#DC2626' }}>*</span>
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <Lock
+                      size={16}
+                      style={{
+                        position: 'absolute',
+                        left: '14px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        color: '#8A918D',
+                      }}
+                    />
+                    <input
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      className="form-input"
+                      style={{
+                        width: '100%',
+                        boxSizing: 'border-box',
+                        paddingLeft: '40px',
+                        paddingRight: '40px',
+                        background: '#FFFFFF',
+                        border: errors.confirmPassword ? '1.5px solid #DC2626' : '1.5px solid rgba(30, 68, 59, 0.14)',
+                        borderRadius: '14px',
+                        paddingTop: '12px',
+                        paddingBottom: '12px',
+                        fontSize: '0.9rem',
+                        fontWeight: 600,
+                      }}
+                      value={credentials.confirmPassword}
+                      onChange={(e) => {
+                        setCredentials({ ...credentials, confirmPassword: e.target.value });
+                        clearError('confirmPassword');
+                      }}
+                      placeholder="Re-enter password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      style={{
+                        position: 'absolute',
+                        right: '12px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'transparent',
+                        border: 'none',
+                        color: '#8A918D',
+                        cursor: 'pointer',
+                        padding: 0,
+                      }}
+                    >
+                      {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                  {errors.confirmPassword ? (
+                    <div style={{ color: '#DC2626', fontSize: '0.74rem', fontWeight: 600, marginTop: '5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <AlertCircle size={12} /> {errors.confirmPassword}
                     </div>
-                  )}
+                  ) : credentials.password && credentials.confirmPassword && credentials.password === credentials.confirmPassword ? (
+                    <div style={{ color: '#24754E', fontSize: '0.74rem', fontWeight: 700, marginTop: '5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <Check size={12} strokeWidth={3} /> Passwords match
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '16px', borderTop: '1px solid #E2E8F0' }}>
-              <button
-                type="button"
-                onClick={() => setActiveStep(2)}
-                className="btn btn-secondary"
-                style={{ padding: '10px 20px', display: 'flex', alignItems: 'center', gap: '8px' }}
-              >
-                <ArrowLeft size={16} />
-                <span>Back</span>
-              </button>
-
+            {/* Submission Footer */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '20px', borderTop: '1px solid rgba(30, 68, 59, 0.1)', flexWrap: 'wrap', gap: '14px' }}>
               <button
                 type="button"
                 onClick={() => setActiveStep(4)}
-                className="btn btn-primary"
-                style={{ padding: '10px 24px', display: 'flex', alignItems: 'center', gap: '8px' }}
-              >
-                <span>Continue to Plugin Access Control</span>
-                <ArrowRight size={16} />
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* ================= STEP 4: PLUGIN IN / PLUGIN OUT (ACCESS CONTROL) ================= */}
-        {activeStep === 4 && (
-          <div
-            style={{
-              backgroundColor: '#FFFFFF',
-              borderRadius: '20px',
-              border: '1.5px solid #E2E8F0',
-              padding: '28px',
-              boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '14px', marginBottom: '22px' }}>
-              <div>
-                <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0F172A', margin: 0 }}>
-                  Step 4: Module Plugins & Feature Access Control
-                </h2>
-                <p style={{ fontSize: '0.82rem', color: '#64748B', marginTop: '4px' }}>
-                  Plugin In (Activate) or Plugin Out (Deactivate) specific dealership departments. Active modules immediately show up in your navigation dock.
-                </p>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <button
-                  type="button"
-                  onClick={() => handlePluginAll(true)}
-                  style={{
-                    padding: '6px 12px',
-                    borderRadius: '8px',
-                    border: '1px solid #CBD5E1',
-                    background: '#FFFFFF',
-                    fontSize: '0.76rem',
-                    fontWeight: 700,
-                    color: '#1E443B',
-                    cursor: 'pointer',
-                  }}
-                >
-                  Plugin In All ({modulesList.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handlePluginAll(false)}
-                  style={{
-                    padding: '6px 12px',
-                    borderRadius: '8px',
-                    border: '1px solid #CBD5E1',
-                    background: '#FFFFFF',
-                    fontSize: '0.76rem',
-                    fontWeight: 700,
-                    color: '#64748B',
-                    cursor: 'pointer',
-                  }}
-                >
-                  Plugin Out All
-                </button>
-              </div>
-            </div>
-
-            {/* Plugin Status Summary Ribbon */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '12px 18px',
-                backgroundColor: 'rgba(30,68,59,0.06)',
-                borderRadius: '12px',
-                marginBottom: '20px',
-                border: '1px solid rgba(30,68,59,0.12)',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.84rem', fontWeight: 700, color: '#1E443B' }}>
-                <Layers size={18} />
-                <span>Active Plugins: <strong>{activePluginsCount}</strong> of {modulesList.length} Connected</span>
-              </div>
-              <span style={{ fontSize: '0.74rem', color: '#64748B' }}>
-                Access control changes apply in real-time without reloading
-              </span>
-            </div>
-
-            {/* Modules Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '14px', marginBottom: '28px' }}>
-              {modulesList.map((mod) => {
-                const isPlugged = mod.isPluggedIn;
-
-                return (
-                  <div
-                    key={mod.id}
-                    onClick={() => handleToggleModule(mod.id)}
-                    style={{
-                      padding: '16px',
-                      borderRadius: '14px',
-                      border: '1.5px solid',
-                      borderColor: isPlugged ? '#1E443B' : '#E2E8F0',
-                      backgroundColor: isPlugged ? '#FAFCFA' : '#FFFFFF',
-                      boxShadow: isPlugged ? '0 2px 10px rgba(30,68,59,0.06)' : 'none',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      justifyContent: 'space-between',
-                      opacity: isPlugged ? 1 : 0.75,
-                    }}
-                  >
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span
-                            style={{
-                              fontSize: '0.68rem',
-                              fontWeight: 800,
-                              textTransform: 'uppercase',
-                              padding: '2px 8px',
-                              borderRadius: '6px',
-                              backgroundColor: isPlugged ? '#E6F4EF' : '#F1F5F9',
-                              color: isPlugged ? '#1E443B' : '#64748B',
-                            }}
-                          >
-                            {mod.category}
-                          </span>
-                        </div>
-
-                        {/* Interactive Plugin In/Out Toggle Switch */}
-                        <div
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '5px',
-                            padding: '3px 10px',
-                            borderRadius: '999px',
-                            backgroundColor: isPlugged ? '#1E443B' : '#F1F5F9',
-                            color: isPlugged ? '#FFFFFF' : '#64748B',
-                            fontSize: '0.72rem',
-                            fontWeight: 800,
-                            letterSpacing: '0.02em',
-                          }}
-                        >
-                          {isPlugged ? (
-                            <>
-                              <Check size={12} />
-                              <span>PLUGGED IN</span>
-                            </>
-                          ) : (
-                            <>
-                              <X size={12} />
-                              <span>PLUGGED OUT</span>
-                            </>
-                          )}
-                        </div>
-                      </div>
-
-                      <div style={{ fontSize: '0.94rem', fontWeight: 800, color: isPlugged ? '#0F172A' : '#64748B', marginBottom: '4px' }}>
-                        {mod.label}
-                      </div>
-
-                      <p style={{ fontSize: '0.76rem', color: '#64748B', margin: 0, lineHeight: 1.45 }}>
-                        {mod.description}
-                      </p>
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '12px', paddingTop: '10px', borderTop: '1px solid #F1F5F9', fontSize: '0.72rem', color: '#94A3B8' }}>
-                      <span>Route: {mod.href}</span>
-                      <span style={{ fontWeight: 600, color: isPlugged ? '#16A34A' : '#94A3B8' }}>
-                        {isPlugged ? '● Visible in Top Nav' : '○ Hidden from Top Nav'}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Submission / Switch Confirmation Footer */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '20px', borderTop: '1px solid #E2E8F0', flexWrap: 'wrap', gap: '14px' }}>
-              <button
-                type="button"
-                onClick={() => setActiveStep(3)}
-                className="btn btn-secondary"
-                style={{ padding: '10px 20px', display: 'flex', alignItems: 'center', gap: '8px' }}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '11px 22px',
+                  borderRadius: '999px',
+                  background: 'rgba(30, 68, 59, 0.07)',
+                  color: '#1E443B',
+                  fontSize: '0.84rem',
+                  fontWeight: 800,
+                  border: 'none',
+                  cursor: 'pointer',
+                }}
               >
                 <ArrowLeft size={16} />
-                <span>Back to Branding</span>
+                <span>Back</span>
               </button>
 
               <button
                 type="submit"
-                className="btn btn-primary"
                 style={{
-                  padding: '12px 32px',
-                  fontSize: '0.92rem',
+                  padding: '14px 36px',
+                  fontSize: '0.94rem',
                   fontWeight: 800,
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '10px',
-                  backgroundColor: '#1E443B',
-                  boxShadow: '0 4px 15px rgba(30,68,59,0.3)',
+                  borderRadius: '999px',
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #26554A 0%, #173830 100%)',
+                  color: '#FFFFFF',
+                  boxShadow: '0 8px 24px -6px rgba(30, 68, 59, 0.42)',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
                 }}
               >
                 <Sparkles size={18} />
-                <span>Save & Switch to "{formData.tradeName || formData.legalName || 'New Company'}"</span>
+                <span>Complete Onboarding & Create Account</span>
               </button>
             </div>
           </div>
-        )}
-      </form>
+        </form>
+      )}
 
-      {/* Celebration & Automatic Switch Modal */}
+      {/* Celebration & Redirection to Login Modal */}
       {isSuccessModalOpen && (
         <div
           style={{
             position: 'fixed',
             inset: 0,
-            backgroundColor: 'rgba(15, 23, 42, 0.65)',
-            backdropFilter: 'blur(5px)',
+            backgroundColor: 'rgba(23, 56, 48, 0.65)',
+            backdropFilter: 'blur(8px)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -1381,28 +2457,30 @@ export default function OnboardingPage() {
           <div
             style={{
               backgroundColor: '#FFFFFF',
-              borderRadius: '24px',
-              maxWidth: '560px',
+              borderRadius: '28px',
+              maxWidth: '520px',
               width: '100%',
-              padding: '36px',
+              padding: '40px',
               textAlign: 'center',
-              boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
+              boxShadow: '0 30px 60px -15px rgba(23, 56, 48, 0.35)',
               position: 'relative',
               animation: 'fadeInUp 0.3s ease',
+              border: '1px solid rgba(255, 255, 255, 0.9)',
             }}
           >
             <div
               style={{
-                width: '64px',
-                height: '64px',
+                width: '68px',
+                height: '68px',
                 borderRadius: '50%',
-                backgroundColor: '#E6F4EF',
-                color: '#1E443B',
+                background: 'linear-gradient(135deg, #26554A 0%, #173830 100%)',
+                color: '#FFFFFF',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                margin: '0 auto 18px',
-                fontSize: '2rem',
+                margin: '0 auto 20px',
+                fontSize: '1.8rem',
+                boxShadow: '0 8px 24px -4px rgba(30, 68, 59, 0.35)',
               }}
             >
               ✓
@@ -1413,80 +2491,84 @@ export default function OnboardingPage() {
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '6px',
-                padding: '4px 12px',
+                padding: '4px 14px',
                 borderRadius: '999px',
-                background: '#F1F5F9',
+                background: 'rgba(35, 78, 67, 0.1)',
                 color: '#1E443B',
-                fontSize: '0.75rem',
+                fontSize: '0.76rem',
                 fontWeight: 800,
                 marginBottom: '10px',
+                letterSpacing: '0.04em',
               }}
             >
-              🎉 ONBOARDING COMPLETED
+              🎉 DEALERSHIP WORKSPACE INITIALIZED
             </div>
 
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 900, color: '#0F172A', marginBottom: '8px' }}>
-              Switched to {formData.tradeName || formData.legalName}!
+            <h2 style={{ fontSize: '1.55rem', fontWeight: 900, color: '#17191A', marginBottom: '8px', letterSpacing: '-0.02em' }}>
+              Welcome, {formData.tradeName || formData.legalName}!
             </h2>
 
-            <p style={{ fontSize: '0.86rem', color: '#64748B', lineHeight: 1.5, marginBottom: '22px' }}>
-              Your dealership company details, logo watermark, invoice signature, and <strong>{activePluginsCount} active plugins</strong> have been configured and saved. The entire CRM system and invoices now reflect your brand identity.
+            <p style={{ fontSize: '0.86rem', color: '#5E6360', lineHeight: 1.55, marginBottom: '24px' }}>
+              Your brand logo, statutory GSTIN details, digital signature, and administrator User ID (<strong>{credentials.userId}</strong>) have been configured. Sign in to access your customized dashboard.
             </p>
 
             <div
               style={{
-                backgroundColor: '#F8FAFC',
-                borderRadius: '14px',
-                padding: '14px',
-                border: '1px solid #E2E8F0',
-                marginBottom: '24px',
+                backgroundColor: '#FAFBF9',
+                borderRadius: '16px',
+                padding: '16px 20px',
+                border: '1px solid rgba(30, 68, 59, 0.12)',
+                marginBottom: '26px',
                 textAlign: 'left',
-                fontSize: '0.78rem',
+                fontSize: '0.8rem',
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                <span style={{ color: '#64748B' }}>Brand Display Name:</span>
-                <strong style={{ color: '#0F172A' }}>{formData.tradeName || formData.legalName}</strong>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <span style={{ color: '#5E6360' }}>Dealership Brand:</span>
+                <strong style={{ color: '#17191A' }}>{formData.tradeName || formData.legalName}</strong>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                <span style={{ color: '#64748B' }}>GSTIN & Location:</span>
-                <strong style={{ color: '#0F172A' }}>{formData.gstin} • {formData.city}</strong>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <span style={{ color: '#5E6360' }}>Brand Logo:</span>
+                <strong style={{ color: formData.logoUrl ? '#24754E' : '#5E6360' }}>
+                  {formData.logoUrl ? '✓ Active on Dashboard' : 'Initial Badge'}
+                </strong>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                <span style={{ color: '#64748B' }}>Invoice Watermark:</span>
-                <strong style={{ color: '#16A34A' }}>{formData.watermarkEnabled ? 'Active (Diagonal Logo)' : 'Disabled'}</strong>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <span style={{ color: '#5E6360' }}>Invoice Signature:</span>
+                <strong style={{ color: '#24754E' }}>✓ Attached ({formData.authorizedSignatoryName})</strong>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: '#64748B' }}>Invoice Signatory:</span>
-                <strong style={{ color: '#0F172A' }}>{formData.authorizedSignatoryName}</strong>
+                <span style={{ color: '#5E6360' }}>Administrator User ID:</span>
+                <strong style={{ color: '#1E443B' }}>{credentials.userId}</strong>
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsSuccessModalOpen(false);
-                  router.push('/');
-                }}
-                className="btn btn-primary"
-                style={{ padding: '10px 24px', fontWeight: 800 }}
-              >
-                Go to Dashboard Overview
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setIsSuccessModalOpen(false);
-                  router.push('/finance');
-                }}
-                className="btn btn-secondary"
-                style={{ padding: '10px 20px', fontWeight: 700 }}
-              >
-                Preview Invoices & Watermark
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setIsSuccessModalOpen(false);
+                router.push('/login?created=true');
+              }}
+              style={{
+                width: '100%',
+                padding: '13px 24px',
+                fontWeight: 800,
+                fontSize: '0.94rem',
+                background: 'linear-gradient(135deg, #26554A 0%, #173830 100%)',
+                color: '#FFFFFF',
+                border: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                borderRadius: '999px',
+                boxShadow: '0 8px 24px -6px rgba(30, 68, 59, 0.38)',
+                cursor: 'pointer',
+              }}
+            >
+              <span>Sign In to Workspace with New Credentials</span>
+              <ArrowRight size={16} />
+            </button>
           </div>
         </div>
       )}
