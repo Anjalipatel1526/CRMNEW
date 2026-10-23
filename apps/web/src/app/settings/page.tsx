@@ -45,6 +45,8 @@ import {
   Sparkles,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  User,
   Eye,
   EyeOff,
   KeyRound,
@@ -86,6 +88,14 @@ export default function SettingsPage() {
   const [selectedEmployeeForLeave, setSelectedEmployeeForLeave] = useState<Employee | null>(null);
   const [selectedEmployeeForAccess, setSelectedEmployeeForAccess] = useState<Employee | null>(null);
   const [selectedEmployeeForCreds, setSelectedEmployeeForCreds] = useState<Employee | null>(null);
+  const [expandedCardIds, setExpandedCardIds] = useState<Record<string, boolean>>({});
+
+  const toggleEmployeeCard = (id: string) => {
+    setExpandedCardIds((prev) => ({
+      ...prev,
+      [id]: !prev[id],
+    }));
+  };
 
   // Test Drives State
   const [testDrives, setTestDrives] = useState<TestDrive[]>([]);
@@ -936,25 +946,25 @@ export default function SettingsPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {filteredEmployees.map((emp) => {
               const isPasswordVisible = revealedPasswords[emp.id];
+              const isExpanded = !!expandedCardIds[emp.id];
 
               return (
                 <div
                   key={emp.id}
                   style={{
                     backgroundColor: '#FFFFFF',
-                    border: '1.5px solid #E2E8F0',
+                    border: isExpanded ? '1.5px solid #1E443B' : '1.5px solid #E2E8F0',
                     borderRadius: '16px',
                     padding: '16px 20px',
-                    boxShadow: '0 2px 10px rgba(0,0,0,0.02)',
+                    boxShadow: isExpanded ? '0 4px 20px rgba(30, 68, 59, 0.08)' : '0 2px 10px rgba(0,0,0,0.02)',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '14px',
                     transition: 'all 0.2s ease',
                   }}
                 >
+                  {/* Clean, uncluttered row */}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
-                    {/* Left: Avatar, Name & ID */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
                       <div
                         style={{
                           width: '46px',
@@ -974,10 +984,27 @@ export default function SettingsPage() {
                       </div>
 
                       <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0F172A' }}>
-                            {emp.fullName}
-                          </span>
+                        {/* Clickable Employee Name */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          <button
+                            type="button"
+                            className="emp-name-btn"
+                            onClick={() => toggleEmployeeCard(emp.id)}
+                            title="Click to view employee card and full credentials"
+                          >
+                            <span className="emp-name-title" style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0F172A' }}>
+                              {emp.fullName}
+                            </span>
+                            <ChevronDown
+                              size={16}
+                              style={{
+                                color: isExpanded ? '#1E443B' : '#64748B',
+                                transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                                transition: 'transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                              }}
+                            />
+                          </button>
+
                           <span
                             style={{
                               fontFamily: 'monospace',
@@ -1000,61 +1027,6 @@ export default function SettingsPage() {
                           {emp.designation} • {emp.branch}
                         </div>
                       </div>
-                    </div>
-
-                    {/* Middle: Credentials Box (Employee ID & Password) */}
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        backgroundColor: '#F8FAFC',
-                        border: '1px solid #E2E8F0',
-                        borderRadius: '10px',
-                        padding: '6px 12px',
-                      }}
-                    >
-                      <KeyRound size={15} style={{ color: '#D97706' }} />
-                      <div style={{ fontSize: '0.78rem' }}>
-                        <span style={{ color: '#64748B' }}>Password: </span>
-                        <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#0F172A' }}>
-                          {isPasswordVisible ? emp.password : '••••••••••••'}
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setRevealedPasswords((prev) => ({ ...prev, [emp.id]: !prev[emp.id] }))
-                        }
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          color: '#64748B',
-                          cursor: 'pointer',
-                          padding: '2px',
-                          display: 'flex',
-                          alignItems: 'center',
-                        }}
-                        title={isPasswordVisible ? 'Hide password' : 'Show password'}
-                      >
-                        {isPasswordVisible ? <EyeOff size={14} /> : <Eye size={14} />}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleCopy(`${emp.employeeCode} / ${emp.password}`, emp.id)}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          color: '#2563EB',
-                          cursor: 'pointer',
-                          padding: '2px',
-                          display: 'flex',
-                          alignItems: 'center',
-                        }}
-                        title="Copy Login Credentials"
-                      >
-                        {copiedId === emp.id ? <Check size={14} style={{ color: '#10B981' }} /> : <Copy size={14} />}
-                      </button>
                     </div>
 
                     {/* Right Action Buttons */}
@@ -1103,64 +1075,173 @@ export default function SettingsPage() {
 
                       <button
                         type="button"
-                        onClick={() => setSelectedEmployeeForCreds(emp)}
+                        onClick={() => toggleEmployeeCard(emp.id)}
                         style={{
                           display: 'inline-flex',
                           alignItems: 'center',
-                          gap: '6px',
-                          padding: '6px 10px',
+                          gap: '5px',
+                          padding: '6px 12px',
                           borderRadius: '8px',
-                          border: '1px solid #CBD5E1',
-                          backgroundColor: '#FFFFFF',
-                          color: '#475569',
+                          border: isExpanded ? '1px solid #1E443B' : '1px solid #E2E8F0',
+                          backgroundColor: isExpanded ? '#1E443B' : '#F8FAFC',
+                          color: isExpanded ? '#FFFFFF' : '#475569',
                           fontSize: '0.78rem',
-                          fontWeight: 600,
+                          fontWeight: 700,
                           cursor: 'pointer',
+                          transition: 'all 0.15s ease',
                         }}
-                        title="Manage Password"
                       >
-                        <Lock size={13} />
+                        <span>{isExpanded ? 'Hide Card' : 'View Card'}</span>
+                        <ChevronDown
+                          size={14}
+                          style={{
+                            transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                            transition: 'transform 0.2s ease',
+                          }}
+                        />
                       </button>
                     </div>
                   </div>
 
-                  {/* Bottom Row: Contact Info, Leave Balance Chips, and Active Access Badges */}
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      flexWrap: 'wrap',
-                      gap: '12px',
-                      paddingTop: '10px',
-                      borderTop: '1px solid #F1F5F9',
-                      fontSize: '0.78rem',
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', color: '#64748B' }}>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <Phone size={13} /> {emp.phone}
-                      </span>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <Mail size={13} /> {emp.email}
-                      </span>
-                      <span>Joined: {emp.joiningDate}</span>
-                    </div>
+                  {/* EXPANDED CARD VIEW: Reveals all details (Credentials, Contact & Salary, Leave Balances) */}
+                  {isExpanded && (
+                    <div className="employee-expanded-card">
+                      {/* Subcard 1: CRM Login Credentials (Password & ID) */}
+                      <div className="emp-subcard">
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                          <span style={{ fontSize: '0.74rem', fontWeight: 800, color: '#D97706', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            <KeyRound size={13} /> CRM Login Credentials
+                          </span>
+                          <span style={{ fontSize: '0.7rem', color: '#16A34A', background: '#F0FDF4', padding: '2px 8px', borderRadius: '6px', fontWeight: 700 }}>
+                            Active Portal Access
+                          </span>
+                        </div>
 
-                    {/* Leave Balance Counters */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ color: '#64748B', fontWeight: 600 }}>Leave Balance:</span>
-                      <span style={{ background: '#F1F5F9', padding: '2px 8px', borderRadius: '6px', fontWeight: 700, color: '#334155' }}>
-                        Casual: {emp.leaveBalance.casual.total - emp.leaveBalance.casual.used} left
-                      </span>
-                      <span style={{ background: '#F1F5F9', padding: '2px 8px', borderRadius: '6px', fontWeight: 700, color: '#334155' }}>
-                        Sick: {emp.leaveBalance.sick.total - emp.leaveBalance.sick.used} left
-                      </span>
-                      <span style={{ background: '#F1F5F9', padding: '2px 8px', borderRadius: '6px', fontWeight: 700, color: '#334155' }}>
-                        Paid: {emp.leaveBalance.paid.total - emp.leaveBalance.paid.used} left
-                      </span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.8rem', padding: '6px 10px', backgroundColor: '#F8FAFC', borderRadius: '8px', border: '1px solid #F1F5F9' }}>
+                            <span style={{ color: '#64748B' }}>Employee ID:</span>
+                            <span style={{ fontFamily: 'monospace', fontWeight: 800, color: '#2563EB' }}>{emp.employeeCode}</span>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.8rem', padding: '6px 10px', backgroundColor: '#F8FAFC', borderRadius: '8px', border: '1px solid #F1F5F9' }}>
+                            <span style={{ color: '#64748B' }}>Password:</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ fontFamily: 'monospace', fontWeight: 800, color: '#0F172A', letterSpacing: isPasswordVisible ? '0' : '0.15em' }}>
+                                {isPasswordVisible ? emp.password : '••••••••••••'}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setRevealedPasswords((prev) => ({ ...prev, [emp.id]: !prev[emp.id] }))
+                                }
+                                style={{ background: 'none', border: 'none', color: '#64748B', cursor: 'pointer', padding: '2px' }}
+                                title={isPasswordVisible ? 'Hide password' : 'Show password'}
+                              >
+                                {isPasswordVisible ? <EyeOff size={14} /> : <Eye size={14} />}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleCopy(`${emp.employeeCode} / ${emp.password}`, emp.id)}
+                                style={{ background: 'none', border: 'none', color: '#2563EB', cursor: 'pointer', padding: '2px' }}
+                                title="Copy Login Credentials"
+                              >
+                                {copiedId === emp.id ? <Check size={14} style={{ color: '#10B981' }} /> : <Copy size={14} />}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Subcard 2: Contact Info & Salary */}
+                      <div className="emp-subcard">
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                          <span style={{ fontSize: '0.74rem', fontWeight: 800, color: '#2563EB', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            <User size={13} /> Contact & Salary
+                          </span>
+                          <span style={{ fontSize: '0.7rem', color: '#64748B', background: '#F1F5F9', padding: '2px 8px', borderRadius: '6px', fontWeight: 600 }}>
+                            {emp.branch}
+                          </span>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.8rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #F1F5F9' }}>
+                            <span style={{ color: '#64748B', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                              <Phone size={13} /> Phone:
+                            </span>
+                            <a href={`tel:${emp.phone}`} style={{ fontWeight: 700, color: '#0F172A', textDecoration: 'none' }}>
+                              {emp.phone}
+                            </a>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #F1F5F9' }}>
+                            <span style={{ color: '#64748B', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                              <Mail size={13} /> Email:
+                            </span>
+                            <a href={`mailto:${emp.email}`} style={{ fontWeight: 700, color: '#0F172A', textDecoration: 'none' }}>
+                              {emp.email}
+                            </a>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0' }}>
+                            <span style={{ color: '#64748B' }}>Base Salary:</span>
+                            <span style={{ fontWeight: 800, color: '#16A34A', fontSize: '0.88rem' }}>
+                              {emp.salary}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Subcard 3: Leave Record Balances */}
+                      <div className="emp-subcard">
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                          <span style={{ fontSize: '0.74rem', fontWeight: 800, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            <Calendar size={13} /> Leave Balances
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedEmployeeForLeave(emp)}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: '#2563EB',
+                              fontSize: '0.72rem',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              padding: 0,
+                            }}
+                          >
+                            Leave Logs ({emp.leaveHistory.length}) →
+                          </button>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', textAlign: 'center' }}>
+                          <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '8px 4px' }}>
+                            <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>Casual</div>
+                            <div style={{ fontSize: '1.15rem', fontWeight: 900, color: '#0F172A', marginTop: '2px' }}>
+                              {emp.leaveBalance.casual.total - emp.leaveBalance.casual.used}
+                            </div>
+                            <div style={{ fontSize: '0.65rem', color: '#94A3B8' }}>of {emp.leaveBalance.casual.total} left</div>
+                          </div>
+
+                          <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '8px 4px' }}>
+                            <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>Sick</div>
+                            <div style={{ fontSize: '1.15rem', fontWeight: 900, color: '#0F172A', marginTop: '2px' }}>
+                              {emp.leaveBalance.sick.total - emp.leaveBalance.sick.used}
+                            </div>
+                            <div style={{ fontSize: '0.65rem', color: '#94A3B8' }}>of {emp.leaveBalance.sick.total} left</div>
+                          </div>
+
+                          <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '8px 4px' }}>
+                            <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>Paid</div>
+                            <div style={{ fontSize: '1.15rem', fontWeight: 900, color: '#0F172A', marginTop: '2px' }}>
+                              {emp.leaveBalance.paid.total - emp.leaveBalance.paid.used}
+                            </div>
+                            <div style={{ fontSize: '0.65rem', color: '#94A3B8' }}>of {emp.leaveBalance.paid.total} left</div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               );
             })}
