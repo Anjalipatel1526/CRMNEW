@@ -156,6 +156,16 @@ export default function EmployeesPage() {
     showToast(`Updated permissions for ${selectedForAccess.fullName}.`);
   };
 
+  const handleToggleCardAccess = (key: keyof EmployeeAccessControl) => {
+    if (!selectedProfileCardEmp) return;
+    const current = { ...selectedProfileCardEmp.accessControl };
+    current[key] = !current[key];
+    updateEmployeeAccessControl(selectedProfileCardEmp.id, current);
+    const updated = getEmployees().find((e) => e.id === selectedProfileCardEmp.id);
+    setSelectedProfileCardEmp(updated || null);
+    showToast(`Updated permissions for ${selectedProfileCardEmp.fullName}.`);
+  };
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
     return employees.filter((e) => {
@@ -283,18 +293,22 @@ export default function EmployeesPage() {
               key={emp.id}
               style={{
                 backgroundColor: '#FFFFFF',
-                border: isExpanded ? '1.5px solid #1E443B' : '1.5px solid #E2E8F0',
+                border: '1.5px solid #E2E8F0',
                 borderRadius: '16px',
                 padding: '16px 20px',
-                boxShadow: isExpanded ? '0 4px 20px rgba(30, 68, 59, 0.08)' : '0 2px 10px rgba(0,0,0,0.02)',
+                boxShadow: '0 2px 10px rgba(0,0,0,0.02)',
                 display: 'flex',
                 flexDirection: 'column',
                 transition: 'all 0.2s ease',
               }}
             >
-              {/* Main Row: Clean and Uncluttered */}
+              {/* Main Row: Clean, Uncluttered, Clickable to open Card in middle of page */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                <div
+                  onClick={() => setSelectedProfileCardEmp(emp)}
+                  style={{ display: 'flex', alignItems: 'center', gap: '14px', cursor: 'pointer' }}
+                  title="Click to view full employee card in middle of page"
+                >
                   <div
                     style={{
                       width: '46px',
@@ -316,24 +330,17 @@ export default function EmployeesPage() {
                   <div>
                     {/* Clickable Employee Name */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                      <button
-                        type="button"
-                        className="emp-name-btn"
-                        onClick={() => toggleEmployeeCard(emp.id)}
-                        title="Click to view employee card and full credentials"
+                      <span
+                        className="emp-name-title"
+                        style={{
+                          fontSize: '1.05rem',
+                          fontWeight: 800,
+                          color: '#0F172A',
+                          cursor: 'pointer',
+                        }}
                       >
-                        <span className="emp-name-title" style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0F172A' }}>
-                          {emp.fullName}
-                        </span>
-                        <ChevronDown
-                          size={16}
-                          style={{
-                            color: isExpanded ? '#1E443B' : '#64748B',
-                            transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
-                            transition: 'transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-                          }}
-                        />
-                      </button>
+                        {emp.fullName}
+                      </span>
 
                       <span
                         style={{
@@ -358,7 +365,7 @@ export default function EmployeesPage() {
                   </div>
                 </div>
 
-                {/* Right: Action Buttons and View Card Toggle */}
+                {/* Right: Action Buttons (NO View Card button) */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <button
                     type="button"
@@ -400,174 +407,8 @@ export default function EmployeesPage() {
                     <Shield size={13} />
                     <span>Access Control</span>
                   </button>
-
-                  <button
-                    type="button"
-                    onClick={() => toggleEmployeeCard(emp.id)}
-                    style={{
-                      padding: '6px 12px',
-                      borderRadius: '8px',
-                      border: isExpanded ? '1px solid #1E443B' : '1px solid #E2E8F0',
-                      background: isExpanded ? '#1E443B' : '#F8FAFC',
-                      color: isExpanded ? '#FFFFFF' : '#475569',
-                      fontSize: '0.78rem',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '5px',
-                      transition: 'all 0.15s ease',
-                    }}
-                  >
-                    <span>{isExpanded ? 'Hide Card' : 'View Card'}</span>
-                    <ChevronDown
-                      size={14}
-                      style={{
-                        transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
-                        transition: 'transform 0.2s ease',
-                      }}
-                    />
-                  </button>
                 </div>
               </div>
-
-              {/* EXPANDED CARD VIEW: Reveals all details (Credentials, Contact & Salary, Leave Balances) */}
-              {isExpanded && (
-                <div className="employee-expanded-card">
-                  {/* Subcard 1: CRM Login Credentials (Password & ID) */}
-                  <div className="emp-subcard">
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-                      <span style={{ fontSize: '0.74rem', fontWeight: 800, color: '#D97706', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                        <KeyRound size={13} /> CRM Login Credentials
-                      </span>
-                      <span style={{ fontSize: '0.7rem', color: '#16A34A', background: '#F0FDF4', padding: '2px 8px', borderRadius: '6px', fontWeight: 700 }}>
-                        Active Portal Access
-                      </span>
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.8rem', padding: '6px 10px', backgroundColor: '#F8FAFC', borderRadius: '8px', border: '1px solid #F1F5F9' }}>
-                        <span style={{ color: '#64748B' }}>Employee ID:</span>
-                        <span style={{ fontFamily: 'monospace', fontWeight: 800, color: '#2563EB' }}>{emp.employeeCode}</span>
-                      </div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.8rem', padding: '6px 10px', backgroundColor: '#F8FAFC', borderRadius: '8px', border: '1px solid #F1F5F9' }}>
-                        <span style={{ color: '#64748B' }}>Password:</span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontFamily: 'monospace', fontWeight: 800, color: '#0F172A', letterSpacing: isPassVisible ? '0' : '0.15em' }}>
-                            {isPassVisible ? emp.password : '••••••••••••'}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => setRevealedPasswords((prev) => ({ ...prev, [emp.id]: !prev[emp.id] }))}
-                            style={{ background: 'none', border: 'none', color: '#64748B', cursor: 'pointer', padding: '2px' }}
-                            title={isPassVisible ? 'Hide password' : 'Show password'}
-                          >
-                            {isPassVisible ? <EyeOff size={14} /> : <Eye size={14} />}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleCopy(`${emp.employeeCode} / ${emp.password}`, emp.id)}
-                            style={{ background: 'none', border: 'none', color: '#2563EB', cursor: 'pointer', padding: '2px' }}
-                            title="Copy Login Credentials"
-                          >
-                            {copiedId === emp.id ? <Check size={14} style={{ color: '#10B981' }} /> : <Copy size={14} />}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Subcard 2: Contact Info & Salary */}
-                  <div className="emp-subcard">
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-                      <span style={{ fontSize: '0.74rem', fontWeight: 800, color: '#2563EB', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                        <User size={13} /> Contact & Salary
-                      </span>
-                      <span style={{ fontSize: '0.7rem', color: '#64748B', background: '#F1F5F9', padding: '2px 8px', borderRadius: '6px', fontWeight: 600 }}>
-                        {emp.branch}
-                      </span>
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.8rem' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #F1F5F9' }}>
-                        <span style={{ color: '#64748B', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                          <Phone size={13} /> Phone:
-                        </span>
-                        <a href={`tel:${emp.phone}`} style={{ fontWeight: 700, color: '#0F172A', textDecoration: 'none' }}>
-                          {emp.phone}
-                        </a>
-                      </div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #F1F5F9' }}>
-                        <span style={{ color: '#64748B', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                          <Mail size={13} /> Email:
-                        </span>
-                        <a href={`mailto:${emp.email}`} style={{ fontWeight: 700, color: '#0F172A', textDecoration: 'none' }}>
-                          {emp.email}
-                        </a>
-                      </div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0' }}>
-                        <span style={{ color: '#64748B' }}>Base Salary:</span>
-                        <span style={{ fontWeight: 800, color: '#16A34A', fontSize: '0.88rem' }}>
-                          {emp.salary}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Subcard 3: Leave Record Balances */}
-                  <div className="emp-subcard">
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-                      <span style={{ fontSize: '0.74rem', fontWeight: 800, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                        <Calendar size={13} /> Leave Balances
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedForLeave(emp)}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          color: '#2563EB',
-                          fontSize: '0.72rem',
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                          padding: 0,
-                        }}
-                      >
-                        Leave Logs ({emp.leaveHistory.length}) →
-                      </button>
-                    </div>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', textAlign: 'center' }}>
-                      <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '8px 4px' }}>
-                        <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>Casual</div>
-                        <div style={{ fontSize: '1.15rem', fontWeight: 900, color: '#0F172A', marginTop: '2px' }}>
-                          {emp.leaveBalance.casual.total - emp.leaveBalance.casual.used}
-                        </div>
-                        <div style={{ fontSize: '0.65rem', color: '#94A3B8' }}>of {emp.leaveBalance.casual.total} left</div>
-                      </div>
-
-                      <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '8px 4px' }}>
-                        <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>Sick</div>
-                        <div style={{ fontSize: '1.15rem', fontWeight: 900, color: '#0F172A', marginTop: '2px' }}>
-                          {emp.leaveBalance.sick.total - emp.leaveBalance.sick.used}
-                        </div>
-                        <div style={{ fontSize: '0.65rem', color: '#94A3B8' }}>of {emp.leaveBalance.sick.total} left</div>
-                      </div>
-
-                      <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '8px 4px' }}>
-                        <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>Paid</div>
-                        <div style={{ fontSize: '1.15rem', fontWeight: 900, color: '#0F172A', marginTop: '2px' }}>
-                          {emp.leaveBalance.paid.total - emp.leaveBalance.paid.used}
-                        </div>
-                        <div style={{ fontSize: '0.65rem', color: '#94A3B8' }}>of {emp.leaveBalance.paid.total} left</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
           );
         })}
@@ -818,6 +659,347 @@ export default function EmployeesPage() {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* ========================================================
+          CENTERED EMPLOYEE PROFILE CARD MODAL
+          (Appears in the middle of the screen when employee is clicked)
+          ======================================================== */}
+      {selectedProfileCardEmp && (
+        <Modal
+          isOpen={!!selectedProfileCardEmp}
+          onClose={() => setSelectedProfileCardEmp(null)}
+          maxWidth="840px"
+          headerContent={
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+              <div
+                style={{
+                  width: '46px',
+                  height: '46px',
+                  borderRadius: '12px',
+                  backgroundColor: '#1E443B',
+                  color: '#FFFFFF',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '1.05rem',
+                  fontWeight: 800,
+                  flexShrink: 0,
+                }}
+              >
+                {selectedProfileCardEmp.fullName.split(' ').map((n) => n[0]).join('').slice(0, 2)}
+              </div>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0F172A', margin: 0 }}>
+                    {selectedProfileCardEmp.fullName}
+                  </h3>
+                  <span
+                    style={{
+                      fontFamily: 'monospace',
+                      fontWeight: 700,
+                      fontSize: '0.74rem',
+                      color: '#2563EB',
+                      background: '#EFF6FF',
+                      padding: '2px 8px',
+                      borderRadius: '6px',
+                      border: '1px solid #DBEAFE',
+                    }}
+                  >
+                    {selectedProfileCardEmp.employeeCode}
+                  </span>
+                  <span className="badge badge-green">{selectedProfileCardEmp.department}</span>
+                </div>
+                <div style={{ fontSize: '0.82rem', color: '#64748B', marginTop: '3px' }}>
+                  {selectedProfileCardEmp.designation} • {selectedProfileCardEmp.branch}
+                </div>
+              </div>
+            </div>
+          }
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {/* 4 Clean Subcards in 2-Column Responsive Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '14px' }}>
+              
+              {/* Subcard 1: CRM Login Credentials (Employee ID & Password) */}
+              <div
+                style={{
+                  backgroundColor: '#FFFBEB',
+                  border: '1.5px solid #FDE68A',
+                  borderRadius: '14px',
+                  padding: '16px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: '0.76rem', fontWeight: 800, color: '#B45309', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <KeyRound size={14} /> Dealership CRM Credentials
+                  </span>
+                  <span style={{ fontSize: '0.7rem', color: '#16A34A', background: '#F0FDF4', border: '1px solid #BBF7D0', padding: '2px 8px', borderRadius: '6px', fontWeight: 700 }}>
+                    Active Portal Access
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.82rem', padding: '8px 12px', backgroundColor: '#FFFFFF', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                    <span style={{ color: '#64748B', fontWeight: 600 }}>Employee CRM ID:</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontFamily: 'monospace', fontWeight: 800, color: '#2563EB', fontSize: '0.9rem' }}>
+                        {selectedProfileCardEmp.employeeCode}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleCopy(selectedProfileCardEmp.employeeCode, `id-${selectedProfileCardEmp.id}`)}
+                        style={{ background: 'none', border: 'none', color: '#2563EB', cursor: 'pointer', padding: '2px' }}
+                        title="Copy Employee ID"
+                      >
+                        {copiedId === `id-${selectedProfileCardEmp.id}` ? <Check size={14} style={{ color: '#10B981' }} /> : <Copy size={14} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.82rem', padding: '8px 12px', backgroundColor: '#FFFFFF', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                    <span style={{ color: '#64748B', fontWeight: 600 }}>CRM Password:</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontFamily: 'monospace', fontWeight: 800, color: '#0F172A', fontSize: '0.88rem', letterSpacing: revealedPasswords[selectedProfileCardEmp.id] ? '0' : '0.15em' }}>
+                        {revealedPasswords[selectedProfileCardEmp.id] ? selectedProfileCardEmp.password : '••••••••••••'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setRevealedPasswords((prev) => ({
+                            ...prev,
+                            [selectedProfileCardEmp.id]: !prev[selectedProfileCardEmp.id],
+                          }))
+                        }
+                        style={{ background: 'none', border: 'none', color: '#64748B', cursor: 'pointer', padding: '2px' }}
+                        title={revealedPasswords[selectedProfileCardEmp.id] ? 'Hide password' : 'Show password'}
+                      >
+                        {revealedPasswords[selectedProfileCardEmp.id] ? <EyeOff size={15} /> : <Eye size={15} />}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleCopy(selectedProfileCardEmp.password, `pwd-${selectedProfileCardEmp.id}`)}
+                        style={{ background: 'none', border: 'none', color: '#2563EB', cursor: 'pointer', padding: '2px' }}
+                        title="Copy Password"
+                      >
+                        {copiedId === `pwd-${selectedProfileCardEmp.id}` ? <Check size={14} style={{ color: '#10B981' }} /> : <Copy size={14} />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Subcard 2: Contact Info & Salary */}
+              <div
+                style={{
+                  backgroundColor: '#FFFFFF',
+                  border: '1.5px solid #E2E8F0',
+                  borderRadius: '14px',
+                  padding: '16px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: '0.76rem', fontWeight: 800, color: '#2563EB', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <User size={14} /> Contact & Compensation
+                  </span>
+                  <span style={{ fontSize: '0.7rem', color: '#64748B', background: '#F1F5F9', padding: '2px 8px', borderRadius: '6px', fontWeight: 600 }}>
+                    {selectedProfileCardEmp.branch}
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.82rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #F1F5F9' }}>
+                    <span style={{ color: '#64748B', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Phone size={14} /> Phone:
+                    </span>
+                    <a href={`tel:${selectedProfileCardEmp.phone}`} style={{ fontWeight: 700, color: '#0F172A', textDecoration: 'none' }}>
+                      {selectedProfileCardEmp.phone}
+                    </a>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #F1F5F9' }}>
+                    <span style={{ color: '#64748B', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Mail size={14} /> Corporate Email:
+                    </span>
+                    <a href={`mailto:${selectedProfileCardEmp.email}`} style={{ fontWeight: 700, color: '#0F172A', textDecoration: 'none' }}>
+                      {selectedProfileCardEmp.email}
+                    </a>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0' }}>
+                    <span style={{ color: '#64748B' }}>Base Monthly CTC:</span>
+                    <span style={{ fontWeight: 800, color: '#16A34A', fontSize: '0.92rem' }}>
+                      {selectedProfileCardEmp.salary}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Subcard 3: Leave Record Balances */}
+              <div
+                style={{
+                  backgroundColor: '#FFFFFF',
+                  border: '1.5px solid #E2E8F0',
+                  borderRadius: '14px',
+                  padding: '16px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: '0.76rem', fontWeight: 800, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Calendar size={14} /> Leave Record Balances
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedForLeave(selectedProfileCardEmp)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#2563EB',
+                      fontSize: '0.74rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      padding: 0,
+                    }}
+                  >
+                    View Leave Logs ({selectedProfileCardEmp.leaveHistory.length}) →
+                  </button>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', textAlign: 'center' }}>
+                  <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '10px', padding: '10px 4px' }}>
+                    <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>Casual</div>
+                    <div style={{ fontSize: '1.3rem', fontWeight: 900, color: '#0F172A', marginTop: '2px' }}>
+                      {selectedProfileCardEmp.leaveBalance.casual.total - selectedProfileCardEmp.leaveBalance.casual.used}
+                    </div>
+                    <div style={{ fontSize: '0.68rem', color: '#94A3B8' }}>of {selectedProfileCardEmp.leaveBalance.casual.total} left</div>
+                  </div>
+
+                  <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '10px', padding: '10px 4px' }}>
+                    <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>Sick</div>
+                    <div style={{ fontSize: '1.3rem', fontWeight: 900, color: '#0F172A', marginTop: '2px' }}>
+                      {selectedProfileCardEmp.leaveBalance.sick.total - selectedProfileCardEmp.leaveBalance.sick.used}
+                    </div>
+                    <div style={{ fontSize: '0.68rem', color: '#94A3B8' }}>of {selectedProfileCardEmp.leaveBalance.sick.total} left</div>
+                  </div>
+
+                  <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '10px', padding: '10px 4px' }}>
+                    <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>Paid</div>
+                    <div style={{ fontSize: '1.3rem', fontWeight: 900, color: '#0F172A', marginTop: '2px' }}>
+                      {selectedProfileCardEmp.leaveBalance.paid.total - selectedProfileCardEmp.leaveBalance.paid.used}
+                    </div>
+                    <div style={{ fontSize: '0.68rem', color: '#94A3B8' }}>of {selectedProfileCardEmp.leaveBalance.paid.total} left</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Subcard 4: Authorized CRM Sections */}
+              <div
+                style={{
+                  backgroundColor: '#FFFFFF',
+                  border: '1.5px solid #E2E8F0',
+                  borderRadius: '14px',
+                  padding: '16px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: '0.76rem', fontWeight: 800, color: '#1E443B', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Shield size={14} /> CRM Section Access Control
+                  </span>
+                  <span style={{ fontSize: '0.7rem', color: '#64748B' }}>
+                    Click badge to toggle
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                  {[
+                    { key: 'pipeline' as const, label: 'Pipeline' },
+                    { key: 'customers' as const, label: 'Customers' },
+                    { key: 'inventory' as const, label: 'Inventory' },
+                    { key: 'procurement' as const, label: 'Procurement' },
+                    { key: 'deals' as const, label: 'Deals' },
+                    { key: 'finance' as const, label: 'Finance' },
+                    { key: 'testDrives' as const, label: 'Test Drives' },
+                    { key: 'documents' as const, label: 'Documents' },
+                    { key: 'reports' as const, label: 'Reports' },
+                    { key: 'settings' as const, label: 'Settings' },
+                  ].map((s) => {
+                    const hasAccess = selectedProfileCardEmp.accessControl[s.key];
+                    return (
+                      <button
+                        key={s.key}
+                        type="button"
+                        onClick={() => handleToggleCardAccess(s.key)}
+                        title={`Click to ${hasAccess ? 'revoke' : 'grant'} ${s.label} access`}
+                        style={{
+                          fontSize: '0.74rem',
+                          fontWeight: 700,
+                          padding: '4px 10px',
+                          borderRadius: '8px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                          backgroundColor: hasAccess ? '#ECFDF5' : '#F8FAFC',
+                          color: hasAccess ? '#065F46' : '#94A3B8',
+                          border: hasAccess ? '1.5px solid #A7F3D0' : '1.5px solid #E2E8F0',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        <span style={{ fontSize: '0.78rem' }}>{hasAccess ? '✓' : '✕'}</span>
+                        <span>{s.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+            </div>
+
+            {/* Quick Actions Footer Bar inside the Card */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                paddingTop: '12px',
+                borderTop: '1px solid #E2E8F0',
+                marginTop: '4px',
+              }}
+            >
+              <div style={{ fontSize: '0.78rem', color: '#64748B' }}>
+                All privileges and credentials safely encrypted for Apex Motors.
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedProfileCardEmp(null)}
+                style={{
+                  padding: '7px 16px',
+                  borderRadius: '8px',
+                  border: '1px solid #CBD5E1',
+                  background: '#FFFFFF',
+                  color: '#334155',
+                  fontSize: '0.82rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                Close Card
+              </button>
             </div>
           </div>
         </Modal>
