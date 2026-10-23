@@ -38,6 +38,7 @@ export interface Employee {
   salary: string;
   status: 'active' | 'on_leave' | 'inactive';
   password: string; // Dealership CRM access password
+  avatar?: string; // Optional image URL or base64 data URL
   leaveBalance: {
     casual: { total: number; used: number };
     sick: { total: number; used: number };
@@ -338,6 +339,7 @@ export function addEmployee(employeeData: Partial<Employee>): Employee {
     salary: employeeData.salary || '₹60,000 / mo',
     status: employeeData.status || 'active',
     password: employeeData.password || `Apex@${Math.floor(1000 + Math.random() * 9000)}!Secure`,
+    avatar: employeeData.avatar || '',
     leaveBalance: {
       casual: { total: 12, used: 0 },
       sick: { total: 7, used: 0 },
