@@ -19,7 +19,10 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@crm/shared-types": ["../../packages/shared-types/src/index.ts"],
+      "@crm/business-rules": ["../../packages/business-rules/src/index.ts"],
+      "@crm/validators": ["../../packages/validators/src/index.ts"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
