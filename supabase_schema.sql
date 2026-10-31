@@ -883,26 +883,78 @@ ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE invoices ENABLE ROW LEVEL SECURITY;
 ALTER TABLE job_cards ENABLE ROW LEVEL SECURITY;
 ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE test_drives ENABLE ROW LEVEL SECURITY;
+ALTER TABLE appointments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_credentials ENABLE ROW LEVEL SECURITY;
+ALTER TABLE activities ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vehicle_catalog ENABLE ROW LEVEL SECURITY;
 
 -- Allow full access for anon & authenticated roles during setup/demo
+DROP POLICY IF EXISTS "Public Read Access" ON company_profiles;
 CREATE POLICY "Public Read Access" ON company_profiles FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Public Insert/Update Access" ON company_profiles;
 CREATE POLICY "Public Insert/Update Access" ON company_profiles FOR ALL USING (true);
 
+DROP POLICY IF EXISTS "Dealership Modules Public" ON dealership_modules;
 CREATE POLICY "Dealership Modules Public" ON dealership_modules FOR ALL USING (true);
+
+DROP POLICY IF EXISTS "Tenants Access Policy" ON tenants;
 CREATE POLICY "Tenants Access Policy" ON tenants FOR ALL USING (true);
+
+DROP POLICY IF EXISTS "Branches Access Policy" ON branches;
 CREATE POLICY "Branches Access Policy" ON branches FOR ALL USING (true);
+
+DROP POLICY IF EXISTS "App Users Access Policy" ON app_users;
 CREATE POLICY "App Users Access Policy" ON app_users FOR ALL USING (true);
+
+DROP POLICY IF EXISTS "Customers Access Policy" ON customers;
 CREATE POLICY "Customers Access Policy" ON customers FOR ALL USING (true);
+
+DROP POLICY IF EXISTS "Leads Access Policy" ON leads;
 CREATE POLICY "Leads Access Policy" ON leads FOR ALL USING (true);
+
+DROP POLICY IF EXISTS "Vehicles Access Policy" ON vehicles;
 CREATE POLICY "Vehicles Access Policy" ON vehicles FOR ALL USING (true);
+
+DROP POLICY IF EXISTS "Deals Access Policy" ON deals;
 CREATE POLICY "Deals Access Policy" ON deals FOR ALL USING (true);
+
+DROP POLICY IF EXISTS "Quotations Access Policy" ON quotations;
 CREATE POLICY "Quotations Access Policy" ON quotations FOR ALL USING (true);
+
+DROP POLICY IF EXISTS "Bookings Access Policy" ON bookings;
 CREATE POLICY "Bookings Access Policy" ON bookings FOR ALL USING (true);
+
+DROP POLICY IF EXISTS "Payments Access Policy" ON payments;
 CREATE POLICY "Payments Access Policy" ON payments FOR ALL USING (true);
+
+DROP POLICY IF EXISTS "Invoices Access Policy" ON invoices;
 CREATE POLICY "Invoices Access Policy" ON invoices FOR ALL USING (true);
+
+DROP POLICY IF EXISTS "Job Cards Access Policy" ON job_cards;
 CREATE POLICY "Job Cards Access Policy" ON job_cards FOR ALL USING (true);
+
+DROP POLICY IF EXISTS "Documents Access Policy" ON documents;
 CREATE POLICY "Documents Access Policy" ON documents FOR ALL USING (true);
+
+DROP POLICY IF EXISTS "Employees Access Policy" ON employees;
 CREATE POLICY "Employees Access Policy" ON employees FOR ALL USING (true);
+
+DROP POLICY IF EXISTS "Test Drives Access Policy" ON test_drives;
+CREATE POLICY "Test Drives Access Policy" ON test_drives FOR ALL USING (true);
+
+DROP POLICY IF EXISTS "Appointments Access Policy" ON appointments;
+CREATE POLICY "Appointments Access Policy" ON appointments FOR ALL USING (true);
+
+DROP POLICY IF EXISTS "User Credentials Access Policy" ON user_credentials;
+CREATE POLICY "User Credentials Access Policy" ON user_credentials FOR ALL USING (true);
+
+DROP POLICY IF EXISTS "Activities Access Policy" ON activities;
+CREATE POLICY "Activities Access Policy" ON activities FOR ALL USING (true);
+
+DROP POLICY IF EXISTS "Vehicle Catalog Access Policy" ON vehicle_catalog;
+CREATE POLICY "Vehicle Catalog Access Policy" ON vehicle_catalog FOR ALL USING (true);
 
 -- ============================================================================
 -- 11. SUPABASE STORAGE BUCKETS CONFIGURATION
@@ -918,8 +970,13 @@ VALUES
 ON CONFLICT (id) DO NOTHING;
 
 -- Public read access for storage objects
+DROP POLICY IF EXISTS "Public Storage Read" ON storage.objects;
 CREATE POLICY "Public Storage Read" ON storage.objects FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Public Storage Upload" ON storage.objects;
 CREATE POLICY "Public Storage Upload" ON storage.objects FOR INSERT WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Public Storage Update" ON storage.objects;
 CREATE POLICY "Public Storage Update" ON storage.objects FOR UPDATE USING (true);
 
 -- ============================================================================

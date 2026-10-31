@@ -1,5 +1,7 @@
 'use client';
 
+import { supabase, isSupabaseConfigured } from './supabase';
+
 export interface CompanyProfile {
   id: string;
   legalName: string;
@@ -98,6 +100,23 @@ export function saveUserCredentials(creds: { userId: string; password?: string; 
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(CREDS_KEY, JSON.stringify({ ...creds, createdAt: new Date().toISOString() }));
+    
+    // Sync to Supabase user_credentials table if configured
+    if (isSupabaseConfigured() && creds.email) {
+      supabase
+        .from('user_credentials')
+        .upsert({
+          tenant_id: 't-apex-001',
+          user_id: creds.userId || creds.email,
+          password_hash: creds.password,
+          full_name: creds.fullName || creds.email,
+          email: creds.email,
+        }, { onConflict: 'user_id' })
+        .then(({ error }) => {
+          if (error) console.warn('[CompanyStore] Supabase credentials sync info:', error.message);
+          else console.log('[CompanyStore] Synced user credentials to Supabase backend');
+        });
+    }
   } catch (err) {
     console.error('Failed to save user credentials:', err);
   }
@@ -131,6 +150,67 @@ export function getCompanyProfile(): CompanyProfile {
   }
 }
 
+export async function fetchCompanyProfile(): Promise<CompanyProfile> {
+  if (typeof window === 'undefined') return DEFAULT_COMPANY_PROFILE;
+
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase
+        .from('company_profiles')
+        .select('*')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) {
+        console.warn('[CompanyStore] Supabase fetch error:', error.message);
+      } else if (data) {
+        const mapped: CompanyProfile = {
+          id: data.id || 'company-default-01',
+          legalName: data.legal_name || '',
+          tradeName: data.trade_name || '',
+          tagline: data.tagline || '',
+          dealershipType: (data.dealership_type as any) || 'authorized_franchise',
+          email: data.email || '',
+          phone: data.phone || '',
+          supportPhone: data.support_phone || '',
+          website: data.website || '',
+          address: data.address || '',
+          city: data.city || '',
+          state: data.state || '',
+          pincode: data.pincode || '',
+          country: data.country || 'India',
+          gstin: data.gstin || '',
+          pan: data.pan || '',
+          cin: data.cin || '',
+          currency: data.currency || 'INR (₹)',
+          bankName: data.bank_name || '',
+          accountNumber: data.account_number || '',
+          ifscCode: data.ifsc_code || '',
+          branchName: data.branch_name || '',
+          upiId: data.upi_id || '',
+          logoUrl: data.logo_url || '',
+          watermarkEnabled: data.watermark_enabled ?? true,
+          watermarkOpacity: Number(data.watermark_opacity) || 0.08,
+          authorizedSignatoryName: data.authorized_signatory_name || '',
+          authorizedSignatoryDesignation: data.authorized_signatory_designation || '',
+          signatureUrl: data.signature_url || '',
+          isOnboarded: data.is_onboarded ?? true,
+          updatedAt: data.updated_at || new Date().toISOString(),
+        };
+
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(mapped));
+        window.dispatchEvent(new CustomEvent('crm-company-profile-changed', { detail: mapped }));
+        return mapped;
+      }
+    } catch (err) {
+      console.error('[CompanyStore] Failed to load company profile from Supabase:', err);
+    }
+  }
+
+  return getCompanyProfile();
+}
+
 export function saveCompanyProfile(profile: Partial<CompanyProfile>): CompanyProfile {
   if (typeof window === 'undefined') return { ...DEFAULT_COMPANY_PROFILE, ...profile };
   try {
@@ -143,6 +223,56 @@ export function saveCompanyProfile(profile: Partial<CompanyProfile>): CompanyPro
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
     window.dispatchEvent(new CustomEvent('crm-company-profile-changed', { detail: updated }));
+
+    // Persist to Supabase company_profiles table
+    if (isSupabaseConfigured()) {
+      const payload = {
+        id: updated.id || 'company-default-01',
+        tenant_id: 't-apex-001',
+        legal_name: updated.legalName || '',
+        trade_name: updated.tradeName || '',
+        tagline: updated.tagline || '',
+        dealership_type: updated.dealershipType || 'authorized_franchise',
+        email: updated.email || '',
+        phone: updated.phone || '',
+        support_phone: updated.supportPhone || '',
+        website: updated.website || '',
+        address: updated.address || '',
+        city: updated.city || '',
+        state: updated.state || '',
+        pincode: updated.pincode || '',
+        country: updated.country || 'India',
+        gstin: updated.gstin || '',
+        pan: updated.pan || '',
+        cin: updated.cin || '',
+        currency: updated.currency || 'INR (₹)',
+        bank_name: updated.bankName || '',
+        account_number: updated.accountNumber || '',
+        ifsc_code: updated.ifscCode || '',
+        branch_name: updated.branchName || '',
+        upi_id: updated.upiId || '',
+        logo_url: updated.logoUrl || '',
+        watermark_enabled: updated.watermarkEnabled ?? true,
+        watermark_opacity: updated.watermarkOpacity || 0.08,
+        authorized_signatory_name: updated.authorizedSignatoryName || '',
+        authorized_signatory_designation: updated.authorizedSignatoryDesignation || '',
+        signature_url: updated.signatureUrl || '',
+        is_onboarded: updated.isOnboarded ?? true,
+        updated_at: new Date().toISOString(),
+      };
+
+      supabase
+        .from('company_profiles')
+        .upsert(payload, { onConflict: 'id' })
+        .then(({ data, error }) => {
+          if (error) {
+            console.error('[CompanyStore] Supabase saveCompanyProfile error:', error.message);
+          } else {
+            console.log('[CompanyStore] Successfully synced company profile to Supabase backend table.');
+          }
+        });
+    }
+
     return updated;
   } catch (err) {
     console.error('Failed to save company profile to storage:', err);
@@ -156,6 +286,13 @@ export function resetCompanyProfile(): CompanyProfile {
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(CREDS_KEY);
     window.dispatchEvent(new CustomEvent('crm-company-profile-changed', { detail: DEFAULT_COMPANY_PROFILE }));
+    
+    if (isSupabaseConfigured()) {
+      supabase.from('company_profiles').delete().eq('id', 'company-default-01').then(() => {
+        console.log('[CompanyStore] Reset company profile in Supabase');
+      });
+    }
+
     return DEFAULT_COMPANY_PROFILE;
   } catch (err) {
     console.error('Failed to reset company profile:', err);

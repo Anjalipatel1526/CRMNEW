@@ -1,6 +1,10 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import { query, queryOne, execute } from './database/db';
+import { supabase } from './supabase';
 import { PricingEngine, validateLeadTransition, validateVehicleTransition } from '@crm/business-rules';
 
 const app = express();
@@ -22,6 +26,7 @@ app.get('/health', (req: Request, res: Response) => {
     timestamp: new Date().toISOString(),
     service: 'Car Dealership Enterprise API',
     version: '1.0.0',
+    supabaseConnected: Boolean(supabase),
   });
 });
 
@@ -31,6 +36,29 @@ app.get('/health', (req: Request, res: Response) => {
 app.post('/api/v1/auth/login', async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
+    
+    if (supabase) {
+      const { data: users } = await supabase
+        .from('app_users')
+        .select('*')
+        .eq('email', email)
+        .limit(1);
+
+      if (users && users[0]) {
+        const u = users[0];
+        return res.json({
+          token: `mock_jwt_${u.id}_${Date.now()}`,
+          user: {
+            id: u.id,
+            email: u.email,
+            name: u.full_name,
+            role: 'tenant_admin',
+            branchId: 'b-dt-001',
+          },
+        });
+      }
+    }
+
     const user = await queryOne(
       'SELECT id, email, full_name, role, branch_id FROM app_users WHERE email = $1',
       [email]
@@ -40,7 +68,6 @@ app.post('/api/v1/auth/login', async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Invalid email or credentials' });
     }
 
-    // In production, compare with bcrypt. For demo persona instant switch, return user and mock token
     res.json({
       token: `mock_jwt_${user.id}_${Date.now()}`,
       user: {
@@ -58,6 +85,10 @@ app.post('/api/v1/auth/login', async (req: Request, res: Response) => {
 
 app.get('/api/v1/branches', async (req: Request, res: Response) => {
   try {
+    if (supabase) {
+      const { data, error } = await supabase.from('branches').select('*').order('name', { ascending: true });
+      if (!error && data) return res.json(data);
+    }
     const branches = await query('SELECT * FROM branches ORDER BY name ASC');
     res.json(branches);
   } catch (error: any) {
@@ -70,6 +101,14 @@ app.get('/api/v1/branches', async (req: Request, res: Response) => {
 // ==========================================
 app.get('/api/v1/customers', async (req: Request, res: Response) => {
   try {
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('customers')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (!error && data) return res.json(data);
+    }
+
     const customers = await query(
       `SELECT c.*, 
         (SELECT COUNT(*) FROM leads WHERE customer_id = c.id) as total_leads,
@@ -85,7 +124,32 @@ app.get('/api/v1/customers', async (req: Request, res: Response) => {
 
 app.post('/api/v1/customers', async (req: Request, res: Response) => {
   try {
-    const { tenantId, branchId, firstName, lastName, email, phone, customerType, pan, aadhar } = req.body;
+    const { tenantId, branchId, firstName, lastName, email, phone, customerType, pan, aadhar, address } = req.body;
+
+    if (supabase) {
+      const id = 'cust-' + Date.now();
+      const { data, error } = await supabase
+        .from('customers')
+        .insert({
+          id,
+          tenant_id: tenantId || 't-apex-001',
+          branch_id: branchId || 'b-dt-001',
+          first_name: firstName || '',
+          last_name: lastName || '',
+          email: email || null,
+          phone: phone || '',
+          type: customerType || 'individual',
+          pan_number: pan || null,
+          aadhaar_number: aadhar || null,
+          address: address || {},
+        })
+        .select();
+
+      if (!error && data && data[0]) {
+        return res.status(201).json(data[0]);
+      }
+    }
+
     const result = await query(
       `INSERT INTO customers (
         tenant_id, branch_id, first_name, last_name, email, phone, customer_type, pan, aadhar, kyc_status
@@ -104,6 +168,14 @@ app.post('/api/v1/customers', async (req: Request, res: Response) => {
 // ==========================================
 app.get('/api/v1/leads', async (req: Request, res: Response) => {
   try {
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('leads')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (!error && data) return res.json(data);
+    }
+
     const leads = await query(
       `SELECT l.*, 
         c.first_name || ' ' || c.last_name as customer_name,
@@ -127,6 +199,32 @@ app.post('/api/v1/leads', async (req: Request, res: Response) => {
       customerId, branchId, assignedToId, source, preferredMake, preferredModel,
       preferredFuelType, budgetMin, budgetMax, score, notes
     } = req.body;
+
+    if (supabase) {
+      const id = 'lead-' + Date.now();
+      const { data, error } = await supabase
+        .from('leads')
+        .insert({
+          id,
+          tenant_id: 't-apex-001',
+          branch_id: branchId || 'b-dt-001',
+          customer_id: customerId || 'cust-101',
+          source: source || 'Walk-in Showroom',
+          preferred_make: preferredMake,
+          preferred_model: preferredModel,
+          preferred_fuel_type: preferredFuelType || 'Petrol',
+          budget_min: Number(budgetMin) || 0,
+          budget_max: Number(budgetMax) || 0,
+          score: Number(score) || 75,
+          status: 'new',
+          notes: notes || '',
+        })
+        .select();
+
+      if (!error && data && data[0]) {
+        return res.status(201).json(data[0]);
+      }
+    }
 
     const result = await query(
       `INSERT INTO leads (
@@ -163,12 +261,20 @@ app.patch('/api/v1/leads/:id/stage', async (req: Request, res: Response) => {
     const { id } = req.params;
     const { status } = req.body;
 
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('leads')
+        .update({ status, updated_at: new Date().toISOString() })
+        .eq('id', id)
+        .select();
+      if (!error && data && data[0]) return res.json(data[0]);
+    }
+
     const currentLead = await queryOne('SELECT status FROM leads WHERE id = $1', [id]);
     if (!currentLead) {
       return res.status(404).json({ error: 'Lead not found' });
     }
 
-    // Validate state transition rule
     const isValidTransition = validateLeadTransition(currentLead.status, status);
     if (!isValidTransition) {
       return res.status(400).json({ error: `Invalid transition from ${currentLead.status} to ${status}` });
@@ -189,6 +295,14 @@ app.patch('/api/v1/leads/:id/stage', async (req: Request, res: Response) => {
 // ==========================================
 app.get('/api/v1/vehicles', async (req: Request, res: Response) => {
   try {
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('vehicles')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (!error && data) return res.json(data);
+    }
+
     const vehicles = await query(
       `SELECT v.*, 
         b.name as branch_name,
@@ -204,26 +318,197 @@ app.get('/api/v1/vehicles', async (req: Request, res: Response) => {
   }
 });
 
-app.get('/api/v1/vehicles/:id', async (req: Request, res: Response) => {
+app.post('/api/v1/vehicles', async (req: Request, res: Response) => {
   try {
-    const vehicle = await queryOne(
-      `SELECT v.*, b.name as branch_name, c.make, c.model, c.variant, c.fuel_type, c.transmission
-       FROM vehicles v
-       JOIN branches b ON v.branch_id = b.id
-       JOIN vehicle_catalog c ON v.catalog_id = c.id
-       WHERE v.id = $1`,
-      [req.params.id]
-    );
-    if (!vehicle) return res.status(404).json({ error: 'Vehicle not found' });
-    res.json(vehicle);
+    if (supabase) {
+      const id = req.body.id || 'veh-' + Date.now();
+      const { data, error } = await supabase
+        .from('vehicles')
+        .insert({
+          id,
+          tenant_id: req.body.tenantId || 't-apex-001',
+          branch_id: req.body.branchId || 'b-dt-001',
+          stock_number: req.body.stockNumber || 'STK-' + Date.now(),
+          vin: req.body.vin || 'VIN-' + Date.now(),
+          registration_number: req.body.registrationNumber || 'MH01XX0000',
+          make: req.body.make,
+          model: req.body.model,
+          variant: req.body.variant || 'Base',
+          year: Number(req.body.year) || 2024,
+          color: req.body.color || 'White',
+          mileage_km: Number(req.body.mileageKm) || 0,
+          fuel_type: req.body.fuelType || 'Petrol',
+          transmission: req.body.transmission || 'Automatic',
+          ownership_mode: req.body.ownershipMode || 'owned',
+          acquisition_cost: Number(req.body.acquisitionCost) || 0,
+          total_cost: Number(req.body.totalCost || req.body.acquisitionCost) || 0,
+          asking_price: Number(req.body.askingPrice) || 1000000,
+          minimum_price: Number(req.body.minimumPrice) || 950000,
+          status: req.body.status || 'available',
+        })
+        .select();
+
+      if (!error && data && data[0]) {
+        return res.status(201).json(data[0]);
+      }
+    }
+    res.status(201).json(req.body);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
 });
 
 // ==========================================
-// 5. Quotations & Pricing Engine
+// 5. Employees
 // ==========================================
+app.get('/api/v1/employees', async (req: Request, res: Response) => {
+  try {
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('employees')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (!error && data) return res.json(data);
+    }
+    res.json([]);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/v1/employees', async (req: Request, res: Response) => {
+  try {
+    if (supabase) {
+      const id = req.body.id || 'emp-' + Date.now();
+      const { data, error } = await supabase
+        .from('employees')
+        .insert({
+          id,
+          tenant_id: 't-apex-001',
+          branch_id: req.body.branchId || 'b-dt-001',
+          full_name: req.body.fullName || req.body.full_name,
+          email: req.body.email,
+          phone: req.body.phone,
+          role: req.body.designation || req.body.role || 'Sales Executive',
+          department: req.body.department || 'Sales',
+          is_active: req.body.status !== 'inactive',
+          joined_at: req.body.joiningDate || req.body.joined_at || new Date().toISOString().split('T')[0],
+        })
+        .select();
+
+      if (!error && data && data[0]) return res.status(201).json(data[0]);
+    }
+    res.status(201).json(req.body);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==========================================
+// 6. Company Profile
+// ==========================================
+app.get('/api/v1/company-profile', async (req: Request, res: Response) => {
+  try {
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('company_profiles')
+        .select('*')
+        .limit(1)
+        .maybeSingle();
+      if (!error && data) return res.json(data);
+    }
+    res.json({});
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/v1/company-profile', async (req: Request, res: Response) => {
+  try {
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('company_profiles')
+        .upsert({
+          id: req.body.id || 'company-default-01',
+          tenant_id: 't-apex-001',
+          ...req.body,
+          updated_at: new Date().toISOString(),
+        })
+        .select();
+      if (!error && data && data[0]) return res.json(data[0]);
+    }
+    res.json(req.body);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==========================================
+// 7. Deals & Quotations
+// ==========================================
+app.get('/api/v1/deals', async (req: Request, res: Response) => {
+  try {
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('deals')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (!error && data) return res.json(data);
+    }
+
+    const deals = await query(
+      `SELECT d.*, 
+        c.first_name || ' ' || c.last_name as customer_name,
+        v.vin, v.year || ' ' || cat.make || ' ' || cat.model as vehicle_name
+       FROM deals d
+       JOIN customers c ON d.customer_id = c.id
+       JOIN vehicles v ON d.vehicle_id = v.id
+       JOIN vehicle_catalog cat ON v.catalog_id = cat.id
+       ORDER BY d.created_at DESC`
+    );
+    res.json(deals);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/v1/deals', async (req: Request, res: Response) => {
+  try {
+    if (supabase) {
+      const id = req.body.id || 'deal-' + Date.now();
+      const { data, error } = await supabase
+        .from('deals')
+        .insert({
+          id,
+          tenant_id: 't-apex-001',
+          branch_id: req.body.branchId || 'b-dt-001',
+          customer_id: req.body.customerId,
+          vehicle_id: req.body.vehicleId,
+          deal_number: req.body.dealNumber || 'DEAL-' + Date.now(),
+          stage: req.body.stage || 'initiated',
+          vehicle_price: Number(req.body.vehiclePrice) || 0,
+          accessories_total: Number(req.body.accessoriesTotal) || 0,
+          discount_total: Number(req.body.discountTotal) || 0,
+          tax_total: Number(req.body.taxTotal) || 0,
+          fees_total: Number(req.body.feesTotal) || 0,
+          trade_in_credit: Number(req.body.tradeInCredit) || 0,
+          grand_total: Number(req.body.grandTotal) || 0,
+          amount_paid: Number(req.body.amountPaid) || 0,
+          balance_due: Number(req.body.balanceDue) || 0,
+          currency: 'INR',
+          finance_type: req.body.financeType || 'cash',
+        })
+        .select();
+
+      if (!error && data && data[0]) return res.status(201).json(data[0]);
+    }
+    res.status(201).json(req.body);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Quotations pricing calculator
 app.post('/api/v1/quotations/calculate', (req: Request, res: Response) => {
   try {
     const { items, discountRole } = req.body;
@@ -243,60 +528,8 @@ app.post('/api/v1/quotations/calculate', (req: Request, res: Response) => {
   }
 });
 
-app.get('/api/v1/quotations', async (req: Request, res: Response) => {
-  try {
-    const quotations = await query(
-      `SELECT q.*, 
-        c.first_name || ' ' || c.last_name as customer_name,
-        u.full_name as created_by_name
-       FROM quotations q
-       LEFT JOIN customers c ON q.customer_id = c.id
-       LEFT JOIN app_users u ON q.created_by_id = u.id
-       ORDER BY q.created_at DESC`
-    );
-    res.json(quotations);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
 // ==========================================
-// 6. Deals & Delivery Gates
-// ==========================================
-app.get('/api/v1/deals', async (req: Request, res: Response) => {
-  try {
-    const deals = await query(
-      `SELECT d.*, 
-        c.first_name || ' ' || c.last_name as customer_name,
-        v.vin, v.year || ' ' || cat.make || ' ' || cat.model as vehicle_name
-       FROM deals d
-       JOIN customers c ON d.customer_id = c.id
-       JOIN vehicles v ON d.vehicle_id = v.id
-       JOIN vehicle_catalog cat ON v.catalog_id = cat.id
-       ORDER BY d.created_at DESC`
-    );
-    res.json(deals);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.patch('/api/v1/deals/:id/stage', async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const { stage } = req.body;
-    const updated = await query(
-      'UPDATE deals SET stage = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
-      [stage, id]
-    );
-    res.json(updated[0]);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// ==========================================
-// 7. Finance & Invoices
+// 8. Finance & Invoices
 // ==========================================
 app.get('/api/v1/finance/payments', async (req: Request, res: Response) => {
   try {
@@ -327,7 +560,7 @@ app.get('/api/v1/finance/invoices', async (req: Request, res: Response) => {
 });
 
 // ==========================================
-// 8. Service & Workshop
+// 9. Service & Workshop
 // ==========================================
 app.get('/api/v1/service/job-cards', async (req: Request, res: Response) => {
   try {

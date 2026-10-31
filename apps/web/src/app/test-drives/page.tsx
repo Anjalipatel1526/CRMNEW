@@ -5,6 +5,7 @@ import { WordFadeIn } from '@/components/ui/WordFadeIn';
 import { Modal } from '@/components/ui/Modal';
 import {
   getTestDrives,
+  fetchTestDrives,
   addTestDrive,
   updateTestDrive,
   deleteTestDrive,
@@ -56,6 +57,9 @@ export default function TestDrivesPage() {
 
   useEffect(() => {
     setTestDrives(getTestDrives());
+    fetchTestDrives().then((data) => {
+      if (Array.isArray(data)) setTestDrives([...data]);
+    });
     const handleChanged = () => setTestDrives(getTestDrives());
     window.addEventListener('crm-testdrives-changed', handleChanged);
     return () => window.removeEventListener('crm-testdrives-changed', handleChanged);

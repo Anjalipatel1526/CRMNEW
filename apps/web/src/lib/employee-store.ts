@@ -48,6 +48,8 @@ export interface Employee {
   accessControl: EmployeeAccessControl;
 }
 
+import { supabase, isSupabaseConfigured } from './supabase';
+
 const STORAGE_KEY = 'crm_employees_v2';
 
 export const INITIAL_EMPLOYEES: Employee[] = [];
@@ -71,6 +73,77 @@ export function getEmployees(): Employee[] {
     console.error('Failed to read employees from storage:', err);
     return [];
   }
+}
+
+export async function fetchEmployees(): Promise<Employee[]> {
+  if (typeof window === 'undefined') return INITIAL_EMPLOYEES;
+
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase
+        .from('employees')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.warn('[EmployeeStore] Supabase fetch error:', error.message);
+      } else if (data && Array.isArray(data)) {
+        const localList = getEmployees();
+        const localMap = new Map<string, Employee>();
+        localList.forEach((e) => localMap.set(e.id, e));
+
+        const remoteList: Employee[] = data.map((row: any) => {
+          const existing = localMap.get(row.id);
+          return {
+            id: row.id,
+            employeeCode: existing?.employeeCode || `APEX-EMP-${row.id.slice(-3).toUpperCase()}`,
+            fullName: row.full_name || 'Staff Member',
+            email: row.email || '',
+            phone: row.phone || '+91 98000 00000',
+            designation: row.role || 'Sales Executive',
+            department: (row.department as any) || 'Sales',
+            branch: existing?.branch || 'Apex Downtown Flagship',
+            joiningDate: row.joined_at || new Date().toISOString().split('T')[0],
+            salary: existing?.salary || '₹60,000 / mo',
+            status: row.is_active ? 'active' : 'inactive',
+            password: existing?.password || `Apex@${Math.floor(1000 + Math.random() * 9000)}!Secure`,
+            avatarUrl: existing?.avatarUrl || '',
+            leaveBalance: existing?.leaveBalance || {
+              casual: { total: 12, used: 0 },
+              sick: { total: 7, used: 0 },
+              paid: { total: 18, used: 0 },
+            },
+            leaveHistory: existing?.leaveHistory || [],
+            accessControl: existing?.accessControl || {
+              pipeline: true,
+              customers: true,
+              inventory: true,
+              procurement: false,
+              deals: true,
+              finance: false,
+              testDrives: true,
+              documents: false,
+              reports: false,
+              settings: false,
+            },
+          };
+        });
+
+        // Add any locally-created items not yet in remote
+        const remoteIds = new Set(remoteList.map((e) => e.id));
+        const unsyncedLocal = localList.filter((e) => !remoteIds.has(e.id));
+        const merged = [...unsyncedLocal, ...remoteList];
+
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+        window.dispatchEvent(new Event('crm-employees-changed'));
+        return merged;
+      }
+    } catch (err) {
+      console.error('[EmployeeStore] Failed to fetch employees from Supabase:', err);
+    }
+  }
+
+  return getEmployees();
 }
 
 export function saveEmployees(employees: Employee[]): void {
@@ -124,6 +197,32 @@ export function addEmployee(employeeData: Partial<Employee>): Employee {
 
   const updated = [newEmp, ...current];
   saveEmployees(updated);
+
+  // Sync to Supabase employees table
+  if (isSupabaseConfigured()) {
+    supabase
+      .from('employees')
+      .insert({
+        id: newEmp.id,
+        tenant_id: 't-apex-001',
+        branch_id: 'b-dt-001',
+        full_name: newEmp.fullName,
+        email: newEmp.email,
+        phone: newEmp.phone,
+        role: newEmp.designation,
+        department: newEmp.department,
+        is_active: newEmp.status === 'active',
+        joined_at: newEmp.joiningDate,
+      })
+      .then(({ data, error }) => {
+        if (error) {
+          console.error('[EmployeeStore] Supabase addEmployee error:', error.message);
+        } else {
+          console.log('[EmployeeStore] Successfully saved employee to Supabase backend table:', newEmp.fullName);
+        }
+      });
+  }
+
   return newEmp;
 }
 
@@ -135,6 +234,30 @@ export function updateEmployee(id: string, updates: Partial<Employee>): Employee
   const updatedEmp = { ...current[idx], ...updates };
   current[idx] = updatedEmp;
   saveEmployees(current);
+
+  // Sync update to Supabase
+  if (isSupabaseConfigured()) {
+    const payload: Record<string, any> = {};
+    if (updates.fullName !== undefined) payload.full_name = updates.fullName;
+    if (updates.email !== undefined) payload.email = updates.email;
+    if (updates.phone !== undefined) payload.phone = updates.phone;
+    if (updates.designation !== undefined) payload.role = updates.designation;
+    if (updates.department !== undefined) payload.department = updates.department;
+    if (updates.status !== undefined) payload.is_active = updates.status === 'active';
+    if (updates.joiningDate !== undefined) payload.joined_at = updates.joiningDate;
+
+    if (Object.keys(payload).length > 0) {
+      supabase
+        .from('employees')
+        .update(payload)
+        .eq('id', id)
+        .then(({ error }) => {
+          if (error) console.error('[EmployeeStore] Supabase updateEmployee error:', error.message);
+          else console.log('[EmployeeStore] Successfully updated employee in Supabase backend');
+        });
+    }
+  }
+
   return updatedEmp;
 }
 
@@ -183,5 +306,17 @@ export function deleteEmployee(id: string): Employee[] {
   const current = getEmployees();
   const updated = current.filter((e) => e.id !== id);
   saveEmployees(updated);
+
+  if (isSupabaseConfigured()) {
+    supabase
+      .from('employees')
+      .delete()
+      .eq('id', id)
+      .then(({ error }) => {
+        if (error) console.error('[EmployeeStore] Supabase deleteEmployee error:', error.message);
+        else console.log('[EmployeeStore] Deleted employee from Supabase:', id);
+      });
+  }
+
   return updated;
 }

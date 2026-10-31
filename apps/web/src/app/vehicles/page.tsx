@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { api } from '@/lib/api-client';
 import { Vehicle, VehicleStatus } from '@crm/shared-types';
 import { Modal } from '@/components/ui/Modal';
@@ -41,6 +41,18 @@ export default function VehiclesPage() {
   // Search and Filter states
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<string>('all');
+
+  useEffect(() => {
+    api.fetchVehicles().then((data) => {
+      if (Array.isArray(data)) setVehicles([...data]);
+    });
+
+    const handleDataChanged = () => {
+      setVehicles([...api.getVehicles()]);
+    };
+    window.addEventListener('crm-data-changed', handleDataChanged);
+    return () => window.removeEventListener('crm-data-changed', handleDataChanged);
+  }, []);
 
   const CAR_PHOTO_PRESETS = [
     { label: '+ Front Angle', url: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=600&q=80' },

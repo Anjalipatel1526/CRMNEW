@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { api } from '@/lib/api-client';
 import { Deal, DealStage } from '@crm/shared-types';
 import { StatusBadge } from '@/components/ui/StatusBadge';
@@ -28,6 +28,18 @@ export default function DealsPage() {
   const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<string>('all');
+
+  useEffect(() => {
+    api.fetchDeals().then((data) => {
+      if (Array.isArray(data)) setDeals([...data]);
+    });
+
+    const handleDataChanged = () => {
+      setDeals([...api.getDeals()]);
+    };
+    window.addEventListener('crm-data-changed', handleDataChanged);
+    return () => window.removeEventListener('crm-data-changed', handleDataChanged);
+  }, []);
 
   const totalValue = deals.reduce((sum, d) => sum + d.grandTotal, 0);
   const totalPaid = deals.reduce((sum, d) => sum + d.amountPaid, 0);

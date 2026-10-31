@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { api } from '@/lib/api-client';
 import { Customer } from '@crm/shared-types';
 import { Modal } from '@/components/ui/Modal';
@@ -99,10 +99,31 @@ type FilterCategory = 'all' | 'individual' | 'business' | 'kyc_verified' | 'kyc_
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>(api.getCustomers());
-  const [leads] = useState(api.getLeads());
-  const [deals] = useState(api.getDeals());
+  const [leads, setLeads] = useState(api.getLeads());
+  const [deals, setDeals] = useState(api.getDeals());
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+
+  useEffect(() => {
+    // Fetch directly from Supabase backend on mount
+    api.fetchCustomers().then((data) => {
+      if (Array.isArray(data)) setCustomers([...data]);
+    });
+    api.fetchLeads().then((data) => {
+      if (Array.isArray(data)) setLeads([...data]);
+    });
+    api.fetchDeals().then((data) => {
+      if (Array.isArray(data)) setDeals([...data]);
+    });
+
+    const handleDataChanged = () => {
+      setCustomers([...api.getCustomers()]);
+      setLeads([...api.getLeads()]);
+      setDeals([...api.getDeals()]);
+    };
+    window.addEventListener('crm-data-changed', handleDataChanged);
+    return () => window.removeEventListener('crm-data-changed', handleDataChanged);
+  }, []);
 
   // Search and filter states
   const [searchQuery, setSearchQuery] = useState('');

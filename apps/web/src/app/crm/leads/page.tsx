@@ -326,7 +326,7 @@ const STAGE_QUESTION_MAP: Partial<Record<LeadStatus, StageQuestionConfig>> = {
 export default function LeadsPage() {
   const [mounted, setMounted] = useState(false);
   const [leads, setLeads] = useState<Lead[]>(api.getLeads());
-  const [customers] = useState<Customer[]>(api.getCustomers());
+  const [customers, setCustomers] = useState<Customer[]>(api.getCustomers());
   const [branches] = useState(api.getBranches());
   const [isNewLeadModalOpen, setIsNewLeadModalOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
@@ -338,6 +338,19 @@ export default function LeadsPage() {
 
   React.useEffect(() => {
     setMounted(true);
+    api.fetchLeads().then((data) => {
+      if (Array.isArray(data)) setLeads([...data]);
+    });
+    api.fetchCustomers().then((data) => {
+      if (Array.isArray(data)) setCustomers([...data]);
+    });
+
+    const handleDataChanged = () => {
+      setLeads([...api.getLeads()]);
+      setCustomers([...api.getCustomers()]);
+    };
+    window.addEventListener('crm-data-changed', handleDataChanged);
+    return () => window.removeEventListener('crm-data-changed', handleDataChanged);
   }, []);
 
   const emptyLeadForm = {

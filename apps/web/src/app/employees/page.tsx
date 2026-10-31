@@ -5,6 +5,7 @@ import { WordFadeIn } from '@/components/ui/WordFadeIn';
 import { Modal } from '@/components/ui/Modal';
 import {
   getEmployees,
+  fetchEmployees,
   addEmployee,
   updateEmployee,
   updateEmployeePassword,
@@ -141,6 +142,9 @@ export default function EmployeesPage() {
 
   useEffect(() => {
     setEmployees(getEmployees());
+    fetchEmployees().then((data) => {
+      if (Array.isArray(data)) setEmployees([...data]);
+    });
     const handleChanged = () => setEmployees(getEmployees());
     window.addEventListener('crm-employees-changed', handleChanged);
     return () => window.removeEventListener('crm-employees-changed', handleChanged);

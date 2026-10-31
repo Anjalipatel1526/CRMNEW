@@ -16,6 +16,7 @@ import {
 } from '@/lib/modules-registry';
 import {
   getEmployees,
+  fetchEmployees,
   addEmployee,
   updateEmployee,
   updateEmployeePassword,
@@ -27,6 +28,7 @@ import {
 } from '@/lib/employee-store';
 import {
   getTestDrives,
+  fetchTestDrives,
   addTestDrive,
   updateTestDrive,
   deleteTestDrive,
@@ -230,6 +232,13 @@ export default function SettingsPage() {
     setModules(getModules());
     setEmployees(getEmployees());
     setTestDrives(getTestDrives());
+
+    fetchEmployees().then((data) => {
+      if (Array.isArray(data)) setEmployees([...data]);
+    });
+    fetchTestDrives().then((data) => {
+      if (Array.isArray(data)) setTestDrives([...data]);
+    });
 
     const handleModulesChanged = () => setModules(getModules());
     const handleEmployeesChanged = () => setEmployees(getEmployees());
