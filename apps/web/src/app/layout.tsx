@@ -33,12 +33,13 @@ export default function RootLayout({
                 --float: #FAFBF9;
                 --text: #17191A;
                 --muted: #5E6360;
-                --line: rgba(30, 68, 59, 0.08);
-                --pearl-green: #234E43;
-                --dock: #1E443B;
-                --dock-gradient: linear-gradient(180deg, #26554A 0%, #173830 100%);
-                --pill: #1E443B;
+                --line: rgba(98, 83, 248, 0.10);
+                --pearl-green: #6253F8;
+                --dock: #18153B;
+                --dock-gradient: linear-gradient(135deg, #7957F6 0%, #6253F8 50%, #4054F5 100%);
+                --pill: #6253F8;
                 --on-pill: #FFFFFF;
+                --primary-gradient: linear-gradient(135deg, #7957F6 0%, #6253F8 50%, #4054F5 100%);
                 --tomato: #C8431F;
                 --butter: #F2C94C;
                 --r-card: 26px;

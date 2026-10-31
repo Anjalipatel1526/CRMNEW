@@ -12,9 +12,9 @@ export default function WelcomeLandingPage() {
         width: '100%',
         backgroundColor: '#FFFFFF',
         backgroundImage: `
-          radial-gradient(circle at 50% 12%, rgba(30, 68, 59, 0.06) 0%, rgba(255, 255, 255, 0) 60%),
+          radial-gradient(circle at 50% 12%, rgba(98, 83, 248, 0.06) 0%, rgba(255, 255, 255, 0) 60%),
           radial-gradient(circle at 15% 85%, rgba(16, 185, 129, 0.03) 0%, transparent 45%),
-          radial-gradient(circle at 85% 85%, rgba(30, 68, 59, 0.03) 0%, transparent 45%),
+          radial-gradient(circle at 85% 85%, rgba(98, 83, 248, 0.03) 0%, transparent 45%),
           linear-gradient(180deg, #FFFFFF 0%, #FAFCFB 100%)
         `,
         display: 'flex',
@@ -64,7 +64,7 @@ export default function WelcomeLandingPage() {
               width: 'auto',
               objectFit: 'contain',
               display: 'block',
-              filter: 'drop-shadow(0 4px 12px rgba(30, 68, 59, 0.08))',
+              filter: 'drop-shadow(0 4px 12px rgba(98, 83, 248, 0.08))',
             }}
           />
         </div>
@@ -83,7 +83,7 @@ export default function WelcomeLandingPage() {
           Welcome <br />
           <span
             style={{
-              background: 'linear-gradient(135deg, #1E443B 0%, #059669 45%, #10B981 100%)',
+              background: 'linear-gradient(135deg, #7957F6 0%, #6253F8 50%, #4054F5 100%)',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
               display: 'inline-block',
@@ -126,12 +126,12 @@ export default function WelcomeLandingPage() {
             gap: 7px;
             padding: 8px 16px;
             border-radius: 999px;
-            background-color: #F8FAF9;
-            border: 1.2px solid rgba(30, 68, 59, 0.12);
+            background-color: #FAF8FF;
+            border: 1.2px solid rgba(98, 83, 248, 0.16);
             font-size: 0.82rem;
             font-weight: 600;
-            color: #1E443B;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+            color: #6253F8;
+            box-shadow: 0 2px 6px rgba(98, 83, 248, 0.04);
             white-space: nowrap;
           }
           @media (max-width: 640px) {
@@ -163,22 +163,22 @@ export default function WelcomeLandingPage() {
 
         <div className="landing-pills-container">
           <div className="landing-pill-item">
-            <Building2 size={15} style={{ color: '#1E443B', flexShrink: 0 }} />
+            <Building2 size={15} style={{ color: '#6253F8', flexShrink: 0 }} />
             <span>Dealership & Franchise Setup</span>
           </div>
 
           <div className="landing-pill-item">
-            <Zap size={15} style={{ color: '#D97706', flexShrink: 0 }} />
+            <Zap size={15} style={{ color: '#F59E0B', flexShrink: 0 }} />
             <span>Quick 5-Minute Onboarding</span>
           </div>
 
           <div className="landing-pill-item">
-            <Car size={15} style={{ color: '#059669', flexShrink: 0 }} />
+            <Car size={15} style={{ color: '#6253F8', flexShrink: 0 }} />
             <span>Live Stockyard & Inventory</span>
           </div>
 
           <div className="landing-pill-item">
-            <ShieldCheck size={15} style={{ color: '#059669', flexShrink: 0 }} />
+            <ShieldCheck size={15} style={{ color: '#6253F8', flexShrink: 0 }} />
             <span>GST & Compliance Verified</span>
           </div>
         </div>
@@ -203,24 +203,24 @@ export default function WelcomeLandingPage() {
               gap: '8px',
               padding: '16px 36px',
               borderRadius: '999px',
-              background: 'linear-gradient(135deg, #1E443B 0%, #295F53 100%)',
+              background: 'linear-gradient(135deg, #7957F6 0%, #6253F8 50%, #4054F5 100%)',
               color: '#FFFFFF',
               fontSize: '1.02rem',
               fontWeight: 800,
               textDecoration: 'none',
               letterSpacing: '-0.01em',
-              boxShadow: '0 12px 28px -6px rgba(30, 68, 59, 0.42)',
+              boxShadow: '0 12px 28px -6px rgba(98, 83, 248, 0.42)',
               transition: 'all 0.22s cubic-bezier(0.16, 1, 0.3, 1)',
               border: 'none',
               cursor: 'pointer',
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.transform = 'translateY(-2px) scale(1.02)';
-              e.currentTarget.style.boxShadow = '0 16px 32px -6px rgba(30, 68, 59, 0.52)';
+              e.currentTarget.style.boxShadow = '0 16px 32px -6px rgba(98, 83, 248, 0.52)';
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.transform = 'translateY(0) scale(1)';
-              e.currentTarget.style.boxShadow = '0 12px 28px -6px rgba(30, 68, 59, 0.42)';
+              e.currentTarget.style.boxShadow = '0 12px 28px -6px rgba(98, 83, 248, 0.42)';
             }}
           >
             <span>Begin Onboarding</span>
@@ -258,7 +258,7 @@ export default function WelcomeLandingPage() {
               transition: 'color 0.15s ease',
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.color = '#1E443B';
+              e.currentTarget.style.color = '#6253F8';
               e.currentTarget.style.textDecoration = 'underline';
             }}
             onMouseLeave={(e) => {
@@ -266,7 +266,7 @@ export default function WelcomeLandingPage() {
               e.currentTarget.style.textDecoration = 'none';
             }}
           >
-            Already registered? <span style={{ color: '#1E443B', fontWeight: 700 }}>Sign in to your workspace →</span>
+            Already registered? <span style={{ color: '#6253F8', fontWeight: 700 }}>Sign in to your workspace →</span>
           </Link>
         </div>
       </div>

@@ -400,7 +400,7 @@ export function InvoiceDocumentGenerator({
                   fontSize: '0.72rem',
                   fontWeight: 800,
                   letterSpacing: '0.06em',
-                  color: '#1E443B',
+                  color: '#6253F8',
                   background: '#E6F4EF',
                   padding: '4px 10px',
                   borderRadius: '6px',
@@ -480,7 +480,7 @@ export function InvoiceDocumentGenerator({
                   alignItems: 'center',
                   gap: '6px',
                   padding: '7px 14px',
-                  backgroundColor: showPreview ? '#1E443B' : '#F1F5F9',
+                  backgroundColor: showPreview ? '#6253F8' : '#F1F5F9',
                   color: showPreview ? '#FFFFFF' : '#1E293B',
                   borderRadius: '999px',
                   fontSize: '0.78rem',
@@ -1063,7 +1063,7 @@ export function InvoiceDocumentGenerator({
               className="unique-lead-submit-btn"
               onClick={() => setShowPreview(true)}
               style={{
-                backgroundColor: '#1E443B',
+                backgroundColor: '#6253F8',
                 color: '#FFFFFF',
                 borderRadius: '10px',
                 padding: '9px 18px',
@@ -1212,7 +1212,7 @@ export function InvoiceDocumentGenerator({
                       fontWeight: 900,
                       letterSpacing: '0.15em',
                       textTransform: 'uppercase',
-                      color: '#1E443B',
+                      color: '#6253F8',
                       textAlign: 'center',
                       fontFamily: 'serif',
                     }}
@@ -1226,7 +1226,7 @@ export function InvoiceDocumentGenerator({
                     fontWeight: 800,
                     letterSpacing: '0.35em',
                     textTransform: 'uppercase',
-                    color: '#1E443B',
+                    color: '#6253F8',
                     marginTop: '8px',
                   }}
                 >
@@ -1243,7 +1243,7 @@ export function InvoiceDocumentGenerator({
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'flex-start',
-                  borderBottom: '2px solid #1E443B',
+                  borderBottom: '2px solid #6253F8',
                   paddingBottom: '16px',
                   marginBottom: '20px',
                 }}
@@ -1269,7 +1269,7 @@ export function InvoiceDocumentGenerator({
                           width: '36px',
                           height: '36px',
                           borderRadius: '8px',
-                          backgroundColor: '#1E443B',
+                          backgroundColor: '#6253F8',
                           color: '#FFFFFF',
                           display: 'flex',
                           alignItems: 'center',
@@ -1282,7 +1282,7 @@ export function InvoiceDocumentGenerator({
                       </div>
                     )}
                     <div>
-                      <span style={{ fontSize: '1.4rem', fontWeight: 900, letterSpacing: '-0.02em', color: '#1E443B' }}>
+                      <span style={{ fontSize: '1.4rem', fontWeight: 900, letterSpacing: '-0.02em', color: '#6253F8' }}>
                         {company.tradeName || company.legalName || 'APEX MOTORS'}
                       </span>
                       {company.tagline && (
@@ -1303,7 +1303,7 @@ export function InvoiceDocumentGenerator({
                     style={{
                       display: 'inline-block',
                       backgroundColor: '#E6F4EF',
-                      color: '#1E443B',
+                      color: '#6253F8',
                       fontSize: '0.78rem',
                       fontWeight: 800,
                       letterSpacing: '0.08em',
@@ -1375,7 +1375,7 @@ export function InvoiceDocumentGenerator({
               <div style={{ marginBottom: '20px' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
                   <thead>
-                    <tr style={{ backgroundColor: '#1E443B', color: '#FFFFFF' }}>
+                    <tr style={{ backgroundColor: '#6253F8', color: '#FFFFFF' }}>
                       <th style={{ padding: '8px 10px', textAlign: 'left', borderRadius: '6px 0 0 6px' }}>#</th>
                       <th style={{ padding: '8px 10px', textAlign: 'left' }}>Particulars / Description</th>
                       <th style={{ padding: '8px 10px', textAlign: 'center' }}>Qty</th>
@@ -1534,7 +1534,7 @@ export function InvoiceDocumentGenerator({
                   <div style={{ fontSize: '0.76rem', fontWeight: 800, color: '#0F172A' }}>
                     For {company.legalName || company.tradeName || 'APEX MOTORS PVT LTD'}
                   </div>
-                  <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#1E443B' }}>
+                  <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#6253F8' }}>
                     {company.authorizedSignatoryName || 'Authorized Signatory'}
                   </div>
                   <div style={{ fontSize: '0.66rem', color: '#64748B' }}>

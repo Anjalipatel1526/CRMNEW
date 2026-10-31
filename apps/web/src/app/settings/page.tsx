@@ -570,7 +570,7 @@ export default function SettingsPage() {
               padding: '6px 12px',
               borderRadius: '999px',
               background: '#E6F4EF',
-              color: '#1E443B',
+              color: '#6253F8',
               fontSize: '0.78rem',
               fontWeight: 800,
             }}
@@ -604,7 +604,7 @@ export default function SettingsPage() {
           flexWrap: 'wrap',
           gap: '16px',
           padding: '16px 20px',
-          background: 'linear-gradient(90deg, #1E443B 0%, #26554A 100%)',
+          background: 'linear-gradient(135deg, #7957F6 0%, #6253F8 50%, #4054F5 100%)',
           borderRadius: '16px',
           color: '#FFFFFF',
           marginBottom: '20px',
@@ -643,7 +643,7 @@ export default function SettingsPage() {
             gap: '8px',
             padding: '9px 18px',
             backgroundColor: '#FFFFFF',
-            color: '#1E443B',
+            color: '#6253F8',
             borderRadius: '10px',
             fontWeight: 800,
             fontSize: '0.82rem',
@@ -846,8 +846,8 @@ export default function SettingsPage() {
                       padding: '5px 12px',
                       borderRadius: '8px',
                       border: '1px solid',
-                      borderColor: pluginCategoryFilter === cat ? '#1E443B' : '#E2E8F0',
-                      backgroundColor: pluginCategoryFilter === cat ? '#1E443B' : '#FFFFFF',
+                      borderColor: pluginCategoryFilter === cat ? '#6253F8' : '#E2E8F0',
+                      backgroundColor: pluginCategoryFilter === cat ? '#6253F8' : '#FFFFFF',
                       color: pluginCategoryFilter === cat ? '#FFFFFF' : '#475569',
                       fontSize: '0.76rem',
                       fontWeight: 700,
@@ -905,7 +905,7 @@ export default function SettingsPage() {
                           height: '40px',
                           borderRadius: '10px',
                           backgroundColor: mod.isPluggedIn ? '#E6F4EF' : '#F1F5F9',
-                          color: mod.isPluggedIn ? '#1E443B' : '#64748B',
+                          color: mod.isPluggedIn ? '#6253F8' : '#64748B',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
@@ -1061,8 +1061,8 @@ export default function SettingsPage() {
                       padding: '5px 12px',
                       borderRadius: '8px',
                       border: '1px solid',
-                      borderColor: employeeDeptFilter === dept ? '#1E443B' : '#E2E8F0',
-                      backgroundColor: employeeDeptFilter === dept ? '#1E443B' : '#FFFFFF',
+                      borderColor: employeeDeptFilter === dept ? '#6253F8' : '#E2E8F0',
+                      backgroundColor: employeeDeptFilter === dept ? '#6253F8' : '#FFFFFF',
                       color: employeeDeptFilter === dept ? '#FFFFFF' : '#475569',
                       fontSize: '0.76rem',
                       fontWeight: 700,
@@ -1096,10 +1096,10 @@ export default function SettingsPage() {
                   key={emp.id}
                   style={{
                     backgroundColor: '#FFFFFF',
-                    border: isExpanded ? '1.5px solid #1E443B' : '1.5px solid #E2E8F0',
+                    border: isExpanded ? '1.5px solid #6253F8' : '1.5px solid #E2E8F0',
                     borderRadius: '16px',
                     padding: '16px 20px',
-                    boxShadow: isExpanded ? '0 4px 20px rgba(30, 68, 59, 0.08)' : '0 2px 10px rgba(0,0,0,0.02)',
+                    boxShadow: isExpanded ? '0 4px 20px rgba(98, 83, 248, 0.08)' : '0 2px 10px rgba(0,0,0,0.02)',
                     display: 'flex',
                     flexDirection: 'column',
                     transition: 'all 0.2s ease',
@@ -1117,7 +1117,7 @@ export default function SettingsPage() {
                           width: '46px',
                           height: '46px',
                           borderRadius: '12px',
-                          backgroundColor: '#1E443B',
+                          backgroundColor: '#6253F8',
                           color: '#FFFFFF',
                           display: 'flex',
                           alignItems: 'center',
@@ -1210,9 +1210,9 @@ export default function SettingsPage() {
                           gap: '6px',
                           padding: '6px 12px',
                           borderRadius: '8px',
-                          border: '1px solid #1E443B',
+                          border: '1px solid #6253F8',
                           backgroundColor: '#E6F4EF',
-                          color: '#1E443B',
+                          color: '#6253F8',
                           fontSize: '0.78rem',
                           fontWeight: 700,
                           cursor: 'pointer',
@@ -1272,8 +1272,8 @@ export default function SettingsPage() {
                       padding: '5px 12px',
                       borderRadius: '8px',
                       border: '1px solid',
-                      borderColor: testDriveStatusFilter === st ? '#1E443B' : '#E2E8F0',
-                      backgroundColor: testDriveStatusFilter === st ? '#1E443B' : '#FFFFFF',
+                      borderColor: testDriveStatusFilter === st ? '#6253F8' : '#E2E8F0',
+                      backgroundColor: testDriveStatusFilter === st ? '#6253F8' : '#FFFFFF',
                       color: testDriveStatusFilter === st ? '#FFFFFF' : '#475569',
                       fontSize: '0.76rem',
                       fontWeight: 700,
@@ -1600,7 +1600,7 @@ export default function SettingsPage() {
               <span className="badge badge-green">Enterprise Active</span>
             </div>
             <div className="card-body">
-              <div style={{ fontSize: '1.4rem', fontWeight: 900, color: '#1E443B', marginBottom: '0.4rem' }}>
+              <div style={{ fontSize: '1.4rem', fontWeight: 900, color: '#6253F8', marginBottom: '0.4rem' }}>
                 Professional Dealership Enterprise Plan
               </div>
               <p style={{ fontSize: '0.8125rem', color: '#64748B', marginBottom: '1.25rem' }}>

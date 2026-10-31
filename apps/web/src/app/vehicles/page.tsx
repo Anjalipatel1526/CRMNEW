@@ -31,7 +31,8 @@ import {
 import { WordFadeIn } from '@/components/ui/WordFadeIn';
 
 export default function VehiclesPage() {
-  const [vehicles, setVehicles] = useState<Vehicle[]>(api.getVehicles());
+  const [isMounted, setIsMounted] = useState(false);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
   const [editingVehicleId, setEditingVehicleId] = useState<string | null>(null);
@@ -43,6 +44,9 @@ export default function VehiclesPage() {
   const [activeFilter, setActiveFilter] = useState<string>('all');
 
   useEffect(() => {
+    setIsMounted(true);
+    setVehicles([...api.getVehicles()]);
+
     api.fetchVehicles().then((data) => {
       if (Array.isArray(data)) setVehicles([...data]);
     });
@@ -303,7 +307,7 @@ export default function VehiclesPage() {
       </div>
 
       {/* Metric Cards */}
-      <div className="grid-4" style={{ marginBottom: '20px' }}>
+      <div className="grid-4" style={{ marginBottom: '20px' }} suppressHydrationWarning>
         <StatCard
           title="Total Stock Value"
           value={`₹${(totalValue / 10000000).toFixed(2)} Cr`}
@@ -357,22 +361,18 @@ export default function VehiclesPage() {
               <X size={15} />
             </button>
           )}
-          <div className="search-kbd-badge">
-            <span>⌘</span>
-            <span>K</span>
-          </div>
         </div>
 
         {/* Filter Pills */}
         <div className="search-controls-row">
-          <div className="search-filter-pills">
+          <div className="search-filter-pills" suppressHydrationWarning>
             <button
               type="button"
               onClick={() => setActiveFilter('all')}
               className={`search-filter-pill ${activeFilter === 'all' ? 'is-active' : ''}`}
             >
               <span>All Stock</span>
-              <span className="pill-count">{counts.all}</span>
+              <span className="pill-count" suppressHydrationWarning>{counts.all}</span>
             </button>
             <button
               type="button"
@@ -380,7 +380,7 @@ export default function VehiclesPage() {
               className={`search-filter-pill ${activeFilter === 'available' ? 'is-active' : ''}`}
             >
               <span>Available</span>
-              <span className="pill-count">{counts.available}</span>
+              <span className="pill-count" suppressHydrationWarning>{counts.available}</span>
             </button>
             <button
               type="button"
@@ -388,7 +388,7 @@ export default function VehiclesPage() {
               className={`search-filter-pill ${activeFilter === 'reserved' ? 'is-active' : ''}`}
             >
               <span>Reserved</span>
-              <span className="pill-count">{counts.reserved}</span>
+              <span className="pill-count" suppressHydrationWarning>{counts.reserved}</span>
             </button>
             <button
               type="button"
@@ -396,7 +396,7 @@ export default function VehiclesPage() {
               className={`search-filter-pill ${activeFilter === 'sold' ? 'is-active' : ''}`}
             >
               <span>Sold</span>
-              <span className="pill-count">{counts.sold}</span>
+              <span className="pill-count" suppressHydrationWarning>{counts.sold}</span>
             </button>
             {counts.in_transit > 0 && (
               <button
@@ -405,19 +405,50 @@ export default function VehiclesPage() {
                 className={`search-filter-pill ${activeFilter === 'in_transit' ? 'is-active' : ''}`}
               >
                 <span>In Transit</span>
-                <span className="pill-count">{counts.in_transit}</span>
+                <span className="pill-count" suppressHydrationWarning>{counts.in_transit}</span>
               </button>
             )}
           </div>
 
-          <div className="search-results-counter">
+          <div className="search-results-counter" suppressHydrationWarning>
             Showing <strong>{filteredVehicles.length}</strong> of {vehicles.length} Vehicles
           </div>
         </div>
       </div>
 
       {/* Table-Wise Row Cards List */}
-      {filteredVehicles.length > 0 ? (
+      {!isMounted ? (
+        <div
+          style={{
+            padding: '4rem 1rem',
+            textAlign: 'center',
+            backgroundColor: '#FFFFFF',
+            borderRadius: '16px',
+            border: '1px solid rgba(0, 0, 0, 0.06)',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.04)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '12px',
+          }}
+          suppressHydrationWarning
+        >
+          <div
+            style={{
+              width: '32px',
+              height: '32px',
+              border: '3px solid #EDE9FE',
+              borderTop: '3px solid #6253F8',
+              borderRadius: '50%',
+              animation: 'spin 0.8s linear infinite',
+            }}
+          />
+          <span style={{ fontSize: '0.88rem', color: '#64748B', fontWeight: 500 }}>
+            Loading dealership stock & inventory...
+          </span>
+        </div>
+      ) : filteredVehicles.length > 0 ? (
         <div>
           <div
             className="app-table-header"
@@ -603,7 +634,7 @@ export default function VehiclesPage() {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: '#1E443B',
+                  color: '#6253F8',
                   fontSize: '1.5rem',
                 }}
               >
@@ -617,13 +648,20 @@ export default function VehiclesPage() {
               </p>
               <button
                 type="button"
-                className="btn btn-primary"
+                className="btn btn-primary btn-md"
                 onClick={() => {
                   setEditingVehicleId(null);
                   setFormData(emptyFormData);
                   setIsAddModalOpen(true);
                 }}
-                style={{ marginTop: '6px' }}
+                style={{
+                  marginTop: '8px',
+                  borderRadius: '999px',
+                  padding: '11px 26px',
+                  fontSize: '0.9rem',
+                  fontWeight: 700,
+                  boxShadow: '0 6px 18px rgba(98, 83, 248, 0.35)',
+                }}
               >
                 <Plus size={16} /> Add First Vehicle
               </button>

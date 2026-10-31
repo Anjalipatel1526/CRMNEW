@@ -171,10 +171,6 @@ export default function FinancePage() {
               <X size={15} />
             </button>
           )}
-          <div className="search-kbd-badge">
-            <span>⌘</span>
-            <span>K</span>
-          </div>
         </div>
 
         {/* Tab Pills */}
@@ -500,7 +496,7 @@ export default function FinancePage() {
                   fontSize: '0.72rem',
                   fontWeight: 800,
                   letterSpacing: '0.06em',
-                  color: '#1E443B',
+                  color: '#6253F8',
                   background: '#E6F4EF',
                   padding: '4px 10px',
                   borderRadius: '6px',
@@ -644,7 +640,7 @@ export default function FinancePage() {
                   transform: 'translate(-50%, -50%) rotate(-32deg)',
                   fontSize: '4.2rem',
                   fontWeight: 900,
-                  color: 'rgba(30, 68, 59, 0.06)',
+                  color: 'rgba(98, 83, 248, 0.06)',
                   letterSpacing: '0.25em',
                   textTransform: 'uppercase',
                   pointerEvents: 'none',
@@ -658,14 +654,14 @@ export default function FinancePage() {
               </div>
 
               <div style={{ position: 'relative', zIndex: 1 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #1E443B', paddingBottom: '12px', marginBottom: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #6253F8', paddingBottom: '12px', marginBottom: '16px' }}>
                   <div>
-                    <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 900, color: '#1E443B' }}>APEX MOTORS</h3>
+                    <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 900, color: '#6253F8' }}>APEX MOTORS</h3>
                     <div style={{ fontSize: '0.74rem', color: '#64748B' }}>Plot 42, Western Express Highway, Mumbai, MH 400069</div>
                     <div style={{ fontSize: '0.72rem', color: '#64748B' }}>GSTIN: 27AABCA1234F1ZP</div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#1E443B' }}>TAX INVOICE</div>
+                    <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#6253F8' }}>TAX INVOICE</div>
                     <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0F172A' }}>{selectedInvoice.invoiceNumber}</div>
                     <div style={{ fontSize: '0.74rem', color: '#64748B' }}>Due: {selectedInvoice.dueDate}</div>
                   </div>
@@ -690,7 +686,7 @@ export default function FinancePage() {
 
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', marginBottom: '16px' }}>
                   <thead>
-                    <tr style={{ backgroundColor: '#1E443B', color: '#FFFFFF' }}>
+                    <tr style={{ backgroundColor: '#6253F8', color: '#FFFFFF' }}>
                       <th style={{ padding: '8px', textAlign: 'left' }}>Item & Particulars</th>
                       <th style={{ padding: '8px', textAlign: 'center' }}>Qty</th>
                       <th style={{ padding: '8px', textAlign: 'right' }}>Total</th>
@@ -768,7 +764,7 @@ export default function FinancePage() {
                   transform: 'translate(-50%, -50%) rotate(-30deg)',
                   fontSize: '3.6rem',
                   fontWeight: 900,
-                  color: 'rgba(30, 68, 59, 0.06)',
+                  color: 'rgba(98, 83, 248, 0.06)',
                   letterSpacing: '0.25em',
                   textTransform: 'uppercase',
                   pointerEvents: 'none',

@@ -135,10 +135,6 @@ export default function DealsPage() {
               <X size={15} />
             </button>
           )}
-          <div className="search-kbd-badge">
-            <span>⌘</span>
-            <span>K</span>
-          </div>
         </div>
 
         {/* Filter Pills */}
@@ -332,7 +328,7 @@ export default function DealsPage() {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: '#1E443B',
+                  color: '#6253F8',
                   fontSize: '1.5rem',
                 }}
               >

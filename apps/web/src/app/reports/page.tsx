@@ -132,10 +132,6 @@ export default function ReportsPage() {
               <X size={15} />
             </button>
           )}
-          <div className="search-kbd-badge">
-            <span>⌘</span>
-            <span>K</span>
-          </div>
         </div>
 
         {/* Filter Pills */}

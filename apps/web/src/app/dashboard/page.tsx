@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { api } from '@/lib/api-client';
 import { Modal } from '@/components/ui/Modal';
 import { StatCard } from '@/components/ui/StatCard';
+import { CalendarPicker } from '@/components/ui/CalendarPicker';
 import {
   Trophy,
   BarChart3,
@@ -229,111 +230,21 @@ export default function DashboardPage() {
         <div className="card">
           <div className="card-header" style={{ flexWrap: 'wrap', gap: '10px' }}>
             <h2 className="card-title">Revenue</h2>
-            <div className="card-tools" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-              {/* Year Select */}
-              <select
-                value={selectedYear}
-                onChange={(e) => {
-                  const yr = e.target.value;
-                  setSelectedYear(yr);
-                  if (selectedDate) {
-                    const parts = selectedDate.split('-');
-                    if (parts.length === 3) {
-                      setSelectedDate(`${yr}-${parts[1]}-${parts[2]}`);
-                    }
-                  }
+            <div className="card-tools" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {/* Custom Modern Calendar Picker (Replaces marked Year and Month dropdowns & native date picker) */}
+              <CalendarPicker
+                selectedDate={selectedDate}
+                selectedMonth={selectedMonth}
+                selectedYear={selectedYear}
+                onSelectDate={(dateStr, yearStr, monthStr) => {
+                  setSelectedDate(dateStr);
+                  setSelectedYear(yearStr);
+                  setSelectedMonth(monthStr);
                 }}
-                style={{
-                  padding: '4px 9px',
-                  borderRadius: '999px',
-                  border: '1px solid var(--line)',
-                  background: 'var(--float)',
-                  fontSize: '0.78rem',
-                  fontWeight: 600,
-                  color: 'var(--text)',
-                  cursor: 'pointer',
-                  outline: 'none',
+                onSelectAllMonths={(yearStr) => {
+                  setSelectedMonth('all');
+                  if (yearStr) setSelectedYear(yearStr);
                 }}
-                title="Select Year"
-              >
-                <option value="2026">2026</option>
-                <option value="2025">2025</option>
-                <option value="2024">2024</option>
-              </select>
-
-              {/* Month Select */}
-              <select
-                value={selectedMonth}
-                onChange={(e) => {
-                  const m = e.target.value;
-                  setSelectedMonth(m);
-                  if (m !== 'all') {
-                    const MONTH_MAP = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                    const mIdx = MONTH_MAP.indexOf(m);
-                    if (mIdx !== -1) {
-                      const mm = String(mIdx + 1).padStart(2, '0');
-                      setSelectedDate(`${selectedYear}-${mm}-15`);
-                    }
-                  }
-                }}
-                style={{
-                  padding: '4px 9px',
-                  borderRadius: '999px',
-                  border: '1px solid var(--line)',
-                  background: 'var(--float)',
-                  fontSize: '0.78rem',
-                  fontWeight: 600,
-                  color: 'var(--text)',
-                  cursor: 'pointer',
-                  outline: 'none',
-                }}
-                title="Select Month"
-              >
-                <option value="all">All Months</option>
-                <option value="Oct">October</option>
-                <option value="Sep">September</option>
-                <option value="Aug">August</option>
-                <option value="Jul">July</option>
-                <option value="Jun">June</option>
-                <option value="May">May</option>
-                <option value="Apr">April</option>
-                <option value="Mar">March</option>
-                <option value="Feb">February</option>
-                <option value="Jan">January</option>
-                <option value="Dec">December</option>
-                <option value="Nov">November</option>
-              </select>
-
-              {/* Date Input */}
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setSelectedDate(val);
-                  if (val) {
-                    const [y, m] = val.split('-');
-                    if (y) setSelectedYear(y);
-                    const mIdx = parseInt(m, 10) - 1;
-                    const MONTH_MAP = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                    if (mIdx >= 0 && mIdx < 12) {
-                      setSelectedMonth(MONTH_MAP[mIdx]);
-                    }
-                  }
-                }}
-                style={{
-                  padding: '3px 8px',
-                  borderRadius: '999px',
-                  border: '1px solid var(--line)',
-                  background: 'var(--float)',
-                  fontSize: '0.76rem',
-                  fontWeight: 600,
-                  color: 'var(--text)',
-                  cursor: 'pointer',
-                  outline: 'none',
-                  fontFamily: 'inherit',
-                }}
-                title="Select Date"
               />
 
               <Link href="/finance" className="tool-round-btn" title="Open Finance">
@@ -358,7 +269,7 @@ export default function DashboardPage() {
             {/* Chart Legend */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '18px', marginTop: '6px' }}>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', fontWeight: 600, color: 'var(--muted)' }}>
-                <span style={{ width: '10px', height: '10px', borderRadius: '3px', background: 'linear-gradient(180deg, #26554A 0%, #1E443B 100%)' }} />
+                <span style={{ width: '10px', height: '10px', borderRadius: '3px', background: 'linear-gradient(180deg, #7957F6 0%, #4054F5 100%)' }} />
                 Target met (₹156.7K+)
               </span>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', fontWeight: 600, color: 'var(--muted)' }}>
@@ -522,8 +433,8 @@ export default function DashboardPage() {
               HOT_DEALS.map((deal) => {
                 const strokeDash = `${deal.prob}, 100`;
                 const strokeColor =
-                  deal.prob >= 95 ? '#1E443B' :
-                  deal.prob >= 90 ? '#26554A' :
+                  deal.prob >= 95 ? '#6253F8' :
+                  deal.prob >= 90 ? '#7957F6' :
                   deal.prob >= 85 ? '#0F766E' : '#C8431F';
 
                 return (
@@ -562,7 +473,7 @@ export default function DashboardPage() {
                           <path
                             d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                             fill="none"
-                            stroke="rgba(30, 68, 59, 0.12)"
+                            stroke="rgba(98, 83, 248, 0.12)"
                             strokeWidth="3.2"
                           />
                           <path

@@ -157,10 +157,6 @@ export default function ProcurementPage() {
               <X size={15} />
             </button>
           )}
-          <div className="search-kbd-badge">
-            <span>⌘</span>
-            <span>K</span>
-          </div>
         </div>
 
         {/* Filter / Section Pills */}

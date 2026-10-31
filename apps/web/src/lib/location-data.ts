@@ -464,19 +464,36 @@ export function lookupPincode(pincode: string): { city: string; state: string } 
   return null;
 }
 
+export interface PincodeDetailsResult {
+  city: string;
+  state: string;
+  district?: string;
+  locality?: string;
+  localities: string[];
+}
+
+// In-memory cache for fast repeated pincode queries
+const pincodeMemoryCache = new Map<string, PincodeDetailsResult>();
+
 /**
- * Asynchronous online lookup with fallback
+ * Asynchronous online lookup with postal API & fallback
+ * Fetches district (city), state, and all post office localities from api.postalpincode.in
  */
-export async function fetchPincodeDetails(pincode: string): Promise<{ city: string; state: string } | null> {
+export async function fetchPincodeDetails(pincode: string): Promise<PincodeDetailsResult | null> {
   const clean = pincode.replace(/\D/g, '');
   if (clean.length !== 6) return null;
 
-  // Try direct cache first
+  // 1. Check in-memory cache first
+  if (pincodeMemoryCache.has(clean)) {
+    return pincodeMemoryCache.get(clean)!;
+  }
+
+  // 2. Direct offline fallback
   const local = lookupPincode(clean);
 
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 1800);
+    const timeout = setTimeout(() => controller.abort(), 6000);
 
     const res = await fetch(`https://api.postalpincode.in/pincode/${clean}`, {
       signal: controller.signal,
@@ -485,20 +502,56 @@ export async function fetchPincodeDetails(pincode: string): Promise<{ city: stri
 
     if (res.ok) {
       const data = await res.json();
-      if (Array.isArray(data) && data[0]?.Status === 'Success' && data[0]?.PostOffice?.length > 0) {
-        const po = data[0].PostOffice[0];
-        const city = po.District || po.Division || local?.city || '';
+      if (
+        Array.isArray(data) &&
+        data[0]?.Status === 'Success' &&
+        Array.isArray(data[0]?.PostOffice) &&
+        data[0].PostOffice.length > 0
+      ) {
+        const postOffices = data[0].PostOffice;
+        // Collect all distinct post office / area names
+        const localities: string[] = Array.from(
+          new Set(
+            postOffices
+              .map((po: any) => (po?.Name ? String(po.Name).trim() : ''))
+              .filter((name: string) => Boolean(name))
+          )
+        );
+
+        const po = postOffices[0];
+        const district = po.District || po.Division || '';
+        const city = local?.city || district || '';
         const state = po.State || local?.state || '';
-        if (state) {
-          return { city, state };
-        }
+        const locality = localities[0] || '';
+
+        const result: PincodeDetailsResult = {
+          city,
+          state,
+          district,
+          locality,
+          localities,
+        };
+
+        pincodeMemoryCache.set(clean, result);
+        return result;
       }
     }
   } catch (err) {
-    // network or abort, ignore and use local
+    // network or abort, ignore and use local fallback
   }
 
-  return local;
+  if (local) {
+    const fallbackResult: PincodeDetailsResult = {
+      city: local.city,
+      state: local.state,
+      district: local.city,
+      locality: '',
+      localities: [],
+    };
+    return fallbackResult;
+  }
+
+  return null;
 }
 
 /**

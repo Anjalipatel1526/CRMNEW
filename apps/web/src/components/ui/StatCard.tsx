@@ -75,12 +75,13 @@ export function StatCard({
   return (
     <div
       className={`stat-card ${className}`.trim()}
+      suppressHydrationWarning
       style={{
         borderLeft: `4px solid ${scheme.accent}`,
         ...style,
       }}
     >
-      <div className="stat-card-header">
+      <div className="stat-card-header" suppressHydrationWarning>
         <span className="stat-card-title">{title}</span>
         {icon && (
           <div
@@ -95,9 +96,9 @@ export function StatCard({
           </div>
         )}
       </div>
-      <div className="stat-card-body">
-        <div className="stat-card-value">{value}</div>
-        {sub && <div className="stat-card-sub">{sub}</div>}
+      <div className="stat-card-body" suppressHydrationWarning>
+        <div className="stat-card-value" suppressHydrationWarning>{value}</div>
+        {sub && <div className="stat-card-sub" suppressHydrationWarning>{sub}</div>}
       </div>
     </div>
   );

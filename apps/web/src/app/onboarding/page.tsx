@@ -8,6 +8,7 @@ import {
   saveCompanyProfile,
   resetCompanyProfile,
   saveUserCredentials,
+  getUserCredentials,
   CompanyProfile,
   DEFAULT_COMPANY_PROFILE,
 } from '@/lib/company-store';
@@ -78,23 +79,55 @@ export default function OnboardingPage() {
   // Field Validation Errors
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // Postal Area / Locality state (fetched from https://api.postalpincode.in/pincode/{PINCODE})
+  const [availableLocalities, setAvailableLocalities] = useState<string[]>([]);
+  const [isFetchingLocalities, setIsFetchingLocalities] = useState(false);
+  const [customLocalityMode, setCustomLocalityMode] = useState(false);
+
   // Success Modal
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
-      if (params.get('edit') === 'true') {
-        const existing = getCompanyProfile();
-        setFormData(existing);
-      } else {
-        // Clear all mock/test data so fields start completely empty
+      if (params.get('reset') === 'true') {
         resetCompanyProfile();
         setFormData(DEFAULT_COMPANY_PROFILE);
+      } else {
+        // Keep existing filled data so form remains completely editable
+        const existing = getCompanyProfile();
+        if (existing && (existing.legalName || existing.tradeName || existing.gstin || existing.email || existing.phone || existing.isOnboarded)) {
+          setFormData(existing);
+          if (existing.pincode && existing.pincode.length === 6) {
+            fetchPincodeDetails(existing.pincode).then((res) => {
+              if (res?.localities && res.localities.length > 0) {
+                setAvailableLocalities(res.localities);
+                if (!existing.locality) {
+                  setFormData((prev) => ({ ...prev, locality: res.locality || res.localities[0] }));
+                }
+              }
+            }).catch(() => {});
+          }
+        }
+        const savedCreds = getUserCredentials();
+        if (savedCreds) {
+          setCredentials((prev) => ({
+            ...prev,
+            fullName: savedCreds.fullName || prev.fullName,
+            userId: savedCreds.userId || prev.userId,
+          }));
+        }
       }
     }
     setModulesList(getModules());
   }, []);
+
+  // Auto-save form progress so filled fields are always retained and editable
+  useEffect(() => {
+    if (formData.legalName || formData.tradeName || formData.gstin || formData.email || formData.phone) {
+      saveCompanyProfile(formData);
+    }
+  }, [formData]);
 
   // Clear specific field error
   const clearError = (field: string) => {
@@ -126,7 +159,19 @@ export default function OnboardingPage() {
     }));
     clearError('city');
     if (matchedState) clearError('state');
-    if (matchedPincode && matchedPincode.length === 6) clearError('pincode');
+    if (matchedPincode && matchedPincode.length === 6) {
+      clearError('pincode');
+      fetchPincodeDetails(matchedPincode).then((res) => {
+        if (res?.localities && res.localities.length > 0) {
+          setAvailableLocalities(res.localities);
+          setFormData((prev) => ({
+            ...prev,
+            locality: prev.locality || res.locality || res.localities[0] || '',
+          }));
+          clearError('locality');
+        }
+      }).catch(() => {});
+    }
   };
 
   // State selection handler
@@ -158,22 +203,40 @@ export default function OnboardingPage() {
         if (instant.state) clearError('state');
       }
 
-      // 2. Background async query for pin-specific post office & district
+      // 2. Background async query for pin-specific post office & area localities from https://api.postalpincode.in/pincode/{PINCODE}
+      setIsFetchingLocalities(true);
       try {
         const live = await fetchPincodeDetails(clean);
-        if (live && (live.city || live.state)) {
-          setFormData((prev) => ({
-            ...prev,
-            pincode: clean,
-            city: live.city || prev.city,
-            state: live.state || prev.state,
-          }));
+        if (live) {
+          const locs = live.localities || [];
+          setAvailableLocalities(locs);
+          setCustomLocalityMode(false);
+
+          setFormData((prev) => {
+            const chosenLocality = (prev.locality && locs.includes(prev.locality))
+              ? prev.locality
+              : (live.locality || locs[0] || prev.locality || '');
+
+            return {
+              ...prev,
+              pincode: clean,
+              city: live.city || prev.city,
+              state: live.state || prev.state,
+              locality: chosenLocality,
+            };
+          });
+
           if (live.city) clearError('city');
           if (live.state) clearError('state');
+          clearError('locality');
         }
       } catch {
         // silent
+      } finally {
+        setIsFetchingLocalities(false);
       }
+    } else {
+      setAvailableLocalities([]);
     }
   };
 
@@ -257,6 +320,14 @@ export default function OnboardingPage() {
   // Step 1 Validation
   const validateStep1 = (): boolean => {
     const newErrors: Record<string, string> = {};
+
+    // GSTIN validation (15 chars)
+    const gstinClean = formData.gstin.trim().toUpperCase();
+    if (!gstinClean) {
+      newErrors.gstin = 'GSTIN Number is mandatory';
+    } else if (gstinClean.length !== 15) {
+      newErrors.gstin = 'Incorrect GSTIN format (must be 15 alphanumeric characters)';
+    }
 
     if (!formData.legalName.trim()) {
       newErrors.legalName = 'Dealership Legal Registered Name is mandatory';
@@ -402,9 +473,10 @@ export default function OnboardingPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  // Navigation handlers with mandatory checks
+  // Navigation handlers with mandatory checks and continuous draft saving
   const handleNextFromStep1 = () => {
     if (validateStep1()) {
+      saveCompanyProfile(formData);
       setActiveStep(2);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -412,6 +484,7 @@ export default function OnboardingPage() {
 
   const handleNextFromStep2 = () => {
     if (validateStep2()) {
+      saveCompanyProfile(formData);
       setActiveStep(3);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -419,12 +492,15 @@ export default function OnboardingPage() {
 
   const handleNextFromStep3 = () => {
     if (validateStep3()) {
+      saveCompanyProfile(formData);
       setActiveStep(4);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
   const handleNextFromStep4 = () => {
+    saveModules(modulesList);
+    saveCompanyProfile(formData);
     if (!credentials.fullName && formData.authorizedSignatoryName) {
       setCredentials((prev) => ({
         ...prev,
@@ -491,7 +567,7 @@ export default function OnboardingPage() {
           transform: 'translateX(-50%)',
           width: '780px',
           height: '380px',
-          background: 'radial-gradient(ellipse at center, rgba(35, 78, 67, 0.08) 0%, rgba(35, 78, 67, 0) 70%)',
+          background: 'radial-gradient(ellipse at center, rgba(98, 83, 248, 0.08) 0%, rgba(98, 83, 248, 0) 70%)',
           pointerEvents: 'none',
           zIndex: 0,
         }}
@@ -517,7 +593,7 @@ export default function OnboardingPage() {
             style={{
               flex: 1,
               height: '5px',
-              backgroundColor: 'rgba(30, 68, 59, 0.1)',
+              backgroundColor: 'rgba(98, 83, 248, 0.1)',
               borderRadius: '999px',
               overflow: 'hidden',
             }}
@@ -526,13 +602,13 @@ export default function OnboardingPage() {
               style={{
                 width: `${(activeStep / 5) * 100}%`,
                 height: '100%',
-                background: 'linear-gradient(90deg, #2A5A4E 0%, #1E443B 100%)',
+                background: 'linear-gradient(90deg, #7957F6 0%, #4054F5 100%)',
                 borderRadius: '999px',
                 transition: 'width 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
               }}
             />
           </div>
-          <span style={{ fontSize: '0.74rem', fontWeight: 800, color: '#1E443B' }}>
+          <span style={{ fontSize: '0.74rem', fontWeight: 800, color: '#6253F8' }}>
             Step {activeStep} of 5
           </span>
         </div>
@@ -549,20 +625,19 @@ export default function OnboardingPage() {
               key={step.num}
               type="button"
               onClick={() => {
-                if (step.num < activeStep) {
-                  setActiveStep(step.num as any);
-                }
+                setActiveStep(step.num as any);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
               className={`onboarding-nav-pill ${isActive ? 'active' : ''}`}
               style={{
                 background: isActive
-                  ? 'linear-gradient(135deg, #26554A 0%, #173830 100%)'
+                  ? 'linear-gradient(135deg, #7957F6 0%, #6253F8 50%, #4054F5 100%)'
                   : isDone
-                  ? 'rgba(30, 68, 59, 0.08)'
+                  ? 'rgba(98, 83, 248, 0.08)'
                   : 'transparent',
-                color: isActive ? '#FFFFFF' : isDone ? '#1E443B' : '#5E6360',
-                boxShadow: isActive ? '0 8px 20px -4px rgba(30, 68, 59, 0.36)' : 'none',
-                cursor: step.num < activeStep ? 'pointer' : 'default',
+                color: isActive ? '#FFFFFF' : isDone ? '#6253F8' : '#5E6360',
+                boxShadow: isActive ? '0 8px 20px -4px rgba(98, 83, 248, 0.36)' : 'none',
+                cursor: 'pointer',
               }}
             >
               <div
@@ -573,8 +648,8 @@ export default function OnboardingPage() {
                   backgroundColor: isActive
                     ? 'rgba(255, 255, 255, 0.24)'
                     : isDone
-                    ? '#1E443B'
-                    : 'rgba(30, 68, 59, 0.08)',
+                    ? '#6253F8'
+                    : 'rgba(98, 83, 248, 0.08)',
                   color: isDone ? '#FFFFFF' : 'inherit',
                   display: 'flex',
                   alignItems: 'center',
@@ -659,13 +734,13 @@ export default function OnboardingPage() {
                   gap: '6px',
                   fontSize: '0.72rem',
                   fontWeight: 800,
-                  color: '#1E443B',
+                  color: '#6253F8',
                   textTransform: 'uppercase',
                   letterSpacing: '0.06em',
                   marginBottom: '4px',
                 }}
               >
-                <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#234E43' }} />
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#6253F8' }} />
                 <span>Section 01 of 05</span>
               </div>
               <h2 style={{ fontSize: '1.3rem', fontWeight: 900, color: '#17191A', margin: 0, letterSpacing: '-0.02em' }}>
@@ -683,12 +758,12 @@ export default function OnboardingPage() {
                   height: '80px',
                   borderRadius: '16px',
                   backgroundColor: '#FFFFFF',
-                  border: '1.5px dashed rgba(30, 68, 59, 0.22)',
+                  border: '1.5px dashed rgba(98, 83, 248, 0.22)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   overflow: 'hidden',
-                  boxShadow: '0 4px 14px rgba(30, 68, 59, 0.06)',
+                  boxShadow: '0 4px 14px rgba(98, 83, 248, 0.06)',
                   flexShrink: 0,
                 }}
               >
@@ -719,8 +794,8 @@ export default function OnboardingPage() {
                       fontWeight: 800,
                       padding: '2px 8px',
                       borderRadius: '999px',
-                      backgroundColor: 'rgba(30, 68, 59, 0.08)',
-                      color: '#1E443B',
+                      backgroundColor: 'rgba(98, 83, 248, 0.08)',
+                      color: '#6253F8',
                       textTransform: 'uppercase',
                     }}
                   >
@@ -744,12 +819,12 @@ export default function OnboardingPage() {
                   gap: '8px',
                   padding: '10px 18px',
                   borderRadius: '999px',
-                  background: 'linear-gradient(135deg, #26554A 0%, #173830 100%)',
+                  background: 'linear-gradient(135deg, #7957F6 0%, #6253F8 50%, #4054F5 100%)',
                   color: '#FFFFFF',
                   fontSize: '0.82rem',
                   fontWeight: 800,
                   cursor: 'pointer',
-                  boxShadow: '0 4px 14px rgba(30, 68, 59, 0.28)',
+                  boxShadow: '0 4px 14px rgba(98, 83, 248, 0.28)',
                   boxSizing: 'border-box',
                 }}
               >
@@ -783,11 +858,64 @@ export default function OnboardingPage() {
             </div>
           </div>
 
+          {/* GSTIN Registration Number Column (Placed Right After Logo) */}
+          <div style={{ marginBottom: '20px' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', fontWeight: 800, color: '#17191A', marginBottom: '8px' }}>
+              <Shield size={14} style={{ color: '#6253F8' }} />
+              <span>GSTIN Registration Number</span>
+              <span style={{ color: '#DC2626' }}>*</span>
+            </label>
+            <input
+              type="text"
+              className="form-input"
+              style={{
+                width: '100%',
+                boxSizing: 'border-box',
+                textTransform: 'uppercase',
+                fontFamily: 'monospace',
+                fontWeight: 800,
+                fontSize: '0.92rem',
+                letterSpacing: '0.04em',
+                background: '#FAFBF9',
+                border: errors.gstin ? '1.5px solid #DC2626' : '1.5px solid rgba(98, 83, 248, 0.14)',
+                borderRadius: '14px',
+                padding: '12px 16px',
+                color: '#17191A',
+              }}
+              value={formData.gstin}
+              onChange={(e) => {
+                const val = e.target.value.toUpperCase();
+                let derivedPan = formData.pan;
+                if (val.length >= 12) {
+                  const potPan = val.substring(2, 12);
+                  if (/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(potPan)) {
+                    if (!formData.pan || formData.pan.length !== 10) {
+                      derivedPan = potPan;
+                    }
+                  }
+                }
+                setFormData({ ...formData, gstin: val, pan: derivedPan });
+                clearError('gstin');
+              }}
+              placeholder="e.g. 07AAAAA0000A1Z5"
+              maxLength={15}
+            />
+            {errors.gstin ? (
+              <div style={{ color: '#DC2626', fontSize: '0.74rem', fontWeight: 600, marginTop: '5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <AlertCircle size={12} /> {errors.gstin}
+              </div>
+            ) : (
+              <span style={{ fontSize: '0.72rem', color: '#5E6360', marginTop: '5px', display: 'block' }}>
+                15-character alphanumeric Goods & Services Tax Identification Number.
+              </span>
+            )}
+          </div>
+
           {/* Legal Name & Trade Name (Responsive 2 cols -> 1 col) */}
           <div className="onboarding-grid-2">
             <div>
               <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', fontWeight: 800, color: '#17191A', marginBottom: '8px' }}>
-                <Building2 size={14} style={{ color: '#234E43' }} />
+                <Building2 size={14} style={{ color: '#6253F8' }} />
                 <span>Dealership Legal Registered Name</span>
                 <span style={{ color: '#DC2626' }}>*</span>
               </label>
@@ -798,7 +926,7 @@ export default function OnboardingPage() {
                   width: '100%',
                   boxSizing: 'border-box',
                   background: '#FAFBF9',
-                  border: errors.legalName ? '1.5px solid #DC2626' : '1.5px solid rgba(30, 68, 59, 0.12)',
+                  border: errors.legalName ? '1.5px solid #DC2626' : '1.5px solid rgba(98, 83, 248, 0.12)',
                   borderRadius: '14px',
                   padding: '12px 16px',
                   fontSize: '0.9rem',
@@ -825,7 +953,7 @@ export default function OnboardingPage() {
 
             <div>
               <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', fontWeight: 800, color: '#17191A', marginBottom: '8px' }}>
-                <Compass size={14} style={{ color: '#234E43' }} />
+                <Compass size={14} style={{ color: '#6253F8' }} />
                 <span>Trade / Display Brand Name</span>
                 <span style={{ color: '#DC2626' }}>*</span>
               </label>
@@ -836,7 +964,7 @@ export default function OnboardingPage() {
                   width: '100%',
                   boxSizing: 'border-box',
                   background: '#FAFBF9',
-                  border: errors.tradeName ? '1.5px solid #DC2626' : '1.5px solid rgba(30, 68, 59, 0.12)',
+                  border: errors.tradeName ? '1.5px solid #DC2626' : '1.5px solid rgba(98, 83, 248, 0.12)',
                   borderRadius: '14px',
                   padding: '12px 16px',
                   fontSize: '0.9rem',
@@ -866,7 +994,7 @@ export default function OnboardingPage() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '18px', marginBottom: '20px' }}>
             <div>
               <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', fontWeight: 800, color: '#17191A', marginBottom: '8px' }}>
-                <Mail size={14} style={{ color: '#234E43' }} />
+                <Mail size={14} style={{ color: '#6253F8' }} />
                 <span>Corporate Email / Gmail ID</span>
                 <span style={{ color: '#DC2626' }}>*</span>
               </label>
@@ -877,7 +1005,7 @@ export default function OnboardingPage() {
                   width: '100%',
                   boxSizing: 'border-box',
                   background: '#FAFBF9',
-                  border: errors.email ? '1.5px solid #DC2626' : '1.5px solid rgba(30, 68, 59, 0.12)',
+                  border: errors.email ? '1.5px solid #DC2626' : '1.5px solid rgba(98, 83, 248, 0.12)',
                   borderRadius: '14px',
                   padding: '12px 16px',
                   fontSize: '0.9rem',
@@ -899,7 +1027,7 @@ export default function OnboardingPage() {
 
             <div>
               <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', fontWeight: 800, color: '#17191A', marginBottom: '8px' }}>
-                <Phone size={14} style={{ color: '#234E43' }} />
+                <Phone size={14} style={{ color: '#6253F8' }} />
                 <span>Contact Phone (10 Digits)</span>
                 <span style={{ color: '#DC2626' }}>*</span>
               </label>
@@ -910,7 +1038,7 @@ export default function OnboardingPage() {
                   width: '100%',
                   boxSizing: 'border-box',
                   background: '#FAFBF9',
-                  border: errors.phone ? '1.5px solid #DC2626' : '1.5px solid rgba(30, 68, 59, 0.12)',
+                  border: errors.phone ? '1.5px solid #DC2626' : '1.5px solid rgba(98, 83, 248, 0.12)',
                   borderRadius: '14px',
                   padding: '12px 16px',
                   fontSize: '0.9rem',
@@ -932,7 +1060,7 @@ export default function OnboardingPage() {
 
             <div>
               <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', fontWeight: 800, color: '#17191A', marginBottom: '8px' }}>
-                <Globe size={14} style={{ color: '#234E43' }} />
+                <Globe size={14} style={{ color: '#6253F8' }} />
                 <span>Official Web Portal</span>
               </label>
               <input
@@ -942,7 +1070,7 @@ export default function OnboardingPage() {
                   width: '100%',
                   boxSizing: 'border-box',
                   background: '#FAFBF9',
-                  border: '1.5px solid rgba(30, 68, 59, 0.12)',
+                  border: '1.5px solid rgba(98, 83, 248, 0.12)',
                   borderRadius: '14px',
                   padding: '12px 16px',
                   fontSize: '0.9rem',
@@ -958,7 +1086,7 @@ export default function OnboardingPage() {
           {/* Physical Address */}
           <div style={{ marginBottom: '20px' }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', fontWeight: 800, color: '#17191A', marginBottom: '8px' }}>
-              <MapPin size={14} style={{ color: '#234E43' }} />
+              <MapPin size={14} style={{ color: '#6253F8' }} />
               <span>Showroom Physical Street Address</span>
               <span style={{ color: '#DC2626' }}>*</span>
             </label>
@@ -969,7 +1097,7 @@ export default function OnboardingPage() {
                 width: '100%',
                 boxSizing: 'border-box',
                 background: '#FAFBF9',
-                border: errors.address ? '1.5px solid #DC2626' : '1.5px solid rgba(30, 68, 59, 0.12)',
+                border: errors.address ? '1.5px solid #DC2626' : '1.5px solid rgba(98, 83, 248, 0.12)',
                 borderRadius: '14px',
                 padding: '12px 16px',
                 fontSize: '0.9rem',
@@ -989,8 +1117,137 @@ export default function OnboardingPage() {
             )}
           </div>
 
-          {/* Location Grid (Responsive 3 cols -> 2 cols on mobile) */}
+          {/* Location Grid (Responsive 4 cols -> 2 cols on mobile) */}
           <div className="onboarding-grid-location">
+            {/* Pincode Input with instant auto-fill */}
+            <div>
+              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 800, color: '#17191A', marginBottom: '8px' }}>
+                Pincode (6 Digits) <span style={{ color: '#DC2626' }}>*</span>
+              </label>
+              <input
+                type="text"
+                className="form-input"
+                style={{
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  background: '#FAFBF9',
+                  border: errors.pincode ? '1.5px solid #DC2626' : '1.5px solid rgba(98, 83, 248, 0.12)',
+                  borderRadius: '14px',
+                  padding: '12px 16px',
+                  fontSize: '0.9rem',
+                  fontWeight: 600,
+                }}
+                value={formData.pincode}
+                onChange={(e) => handlePincodeChange(e.target.value)}
+                placeholder="400069"
+                maxLength={6}
+              />
+              {errors.pincode && (
+                <div style={{ color: '#DC2626', fontSize: '0.74rem', fontWeight: 600, marginTop: '5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <AlertCircle size={12} /> {errors.pincode}
+                </div>
+              )}
+            </div>
+
+            {/* Area / Locality (Auto-detected from Postal API: https://api.postalpincode.in/pincode/{PINCODE}) */}
+            <div>
+              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 800, color: '#17191A', marginBottom: '8px' }}>
+                Area / Locality
+              </label>
+
+              {!customLocalityMode && availableLocalities.length > 0 ? (
+                <div style={{ position: 'relative' }}>
+                  <select
+                    className="form-select"
+                    style={{
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      background: '#FAFBF9',
+                      border: errors.locality ? '1.5px solid #DC2626' : '1.5px solid rgba(98, 83, 248, 0.12)',
+                      borderRadius: '14px',
+                      padding: '12px 16px',
+                      fontSize: '0.9rem',
+                      fontWeight: 600,
+                      color: '#17191A',
+                    }}
+                    value={formData.locality || ''}
+                    onChange={(e) => {
+                      if (e.target.value === '__custom__') {
+                        setCustomLocalityMode(true);
+                      } else {
+                        setFormData((prev) => ({ ...prev, locality: e.target.value }));
+                        clearError('locality');
+                      }
+                    }}
+                  >
+                    <option value="">-- Select Area / Locality --</option>
+                    {formData.locality && !availableLocalities.includes(formData.locality) && (
+                      <option value={formData.locality}>{formData.locality} (Selected)</option>
+                    )}
+                    {availableLocalities.map((loc) => (
+                      <option key={loc} value={loc}>
+                        {loc}
+                      </option>
+                    ))}
+                    <option value="__custom__">Other / Custom Locality...</option>
+                  </select>
+                </div>
+              ) : (
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="text"
+                    className="form-input"
+                    style={{
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      background: '#FAFBF9',
+                      border: errors.locality ? '1.5px solid #DC2626' : '1.5px solid rgba(98, 83, 248, 0.12)',
+                      borderRadius: '14px',
+                      padding: '12px 16px',
+                      paddingRight: availableLocalities.length > 0 ? '70px' : '16px',
+                      fontSize: '0.9rem',
+                      fontWeight: 600,
+                    }}
+                    value={formData.locality || ''}
+                    onChange={(e) => {
+                      setFormData((prev) => ({ ...prev, locality: e.target.value }));
+                      clearError('locality');
+                    }}
+                    placeholder={isFetchingLocalities ? 'Detecting from Postal API...' : 'e.g. Andheri East'}
+                  />
+                  {availableLocalities.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setCustomLocalityMode(false)}
+                      style={{
+                        position: 'absolute',
+                        right: '8px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'rgba(98, 83, 248, 0.12)',
+                        border: 'none',
+                        color: '#6253F8',
+                        fontSize: '0.72rem',
+                        fontWeight: 700,
+                        padding: '4px 8px',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                      }}
+                      title="Choose from detected localities list"
+                    >
+                      Options
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {errors.locality && (
+                <div style={{ color: '#DC2626', fontSize: '0.74rem', fontWeight: 600, marginTop: '5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <AlertCircle size={12} /> {errors.locality}
+                </div>
+              )}
+            </div>
+
             {/* City Dropdown */}
             <div>
               <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 800, color: '#17191A', marginBottom: '8px' }}>
@@ -1002,7 +1259,7 @@ export default function OnboardingPage() {
                   width: '100%',
                   boxSizing: 'border-box',
                   background: '#FAFBF9',
-                  border: errors.city ? '1.5px solid #DC2626' : '1.5px solid rgba(30, 68, 59, 0.12)',
+                  border: errors.city ? '1.5px solid #DC2626' : '1.5px solid rgba(98, 83, 248, 0.12)',
                   borderRadius: '14px',
                   padding: '12px 16px',
                   fontSize: '0.9rem',
@@ -1016,11 +1273,11 @@ export default function OnboardingPage() {
                 {/* Dynamic option for currently saved / custom / auto-detected city */}
                 {formData.city && !POPULAR_CITIES.some((c) => c.city.toLowerCase() === formData.city.toLowerCase()) && (
                   <option value={formData.city}>
-                    📍 {formData.city} (Selected)
+                    {formData.city} (Selected)
                   </option>
                 )}
                 {/* Top Metros */}
-                <optgroup label="⭐ Top Metros & Commercial Hubs">
+                <optgroup label="Top Metros & Commercial Hubs">
                   {POPULAR_CITIES.slice(0, 10).map((c) => (
                     <option key={`metro-${c.city}`} value={c.city}>
                       {c.city}
@@ -1059,7 +1316,7 @@ export default function OnboardingPage() {
                   width: '100%',
                   boxSizing: 'border-box',
                   background: '#FAFBF9',
-                  border: errors.state ? '1.5px solid #DC2626' : '1.5px solid rgba(30, 68, 59, 0.12)',
+                  border: errors.state ? '1.5px solid #DC2626' : '1.5px solid rgba(98, 83, 248, 0.12)',
                   borderRadius: '14px',
                   padding: '12px 16px',
                   fontSize: '0.9rem',
@@ -1082,40 +1339,10 @@ export default function OnboardingPage() {
                 </div>
               )}
             </div>
-
-            {/* Pincode Input with instant auto-fill */}
-            <div>
-              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 800, color: '#17191A', marginBottom: '8px' }}>
-                Pincode (6 Digits) <span style={{ color: '#DC2626' }}>*</span>
-              </label>
-              <input
-                type="text"
-                className="form-input"
-                style={{
-                  width: '100%',
-                  boxSizing: 'border-box',
-                  background: '#FAFBF9',
-                  border: errors.pincode ? '1.5px solid #DC2626' : '1.5px solid rgba(30, 68, 59, 0.12)',
-                  borderRadius: '14px',
-                  padding: '12px 16px',
-                  fontSize: '0.9rem',
-                  fontWeight: 600,
-                }}
-                value={formData.pincode}
-                onChange={(e) => handlePincodeChange(e.target.value)}
-                placeholder="400069"
-                maxLength={6}
-              />
-              {errors.pincode && (
-                <div style={{ color: '#DC2626', fontSize: '0.74rem', fontWeight: 600, marginTop: '5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <AlertCircle size={12} /> {errors.pincode}
-                </div>
-              )}
-            </div>
           </div>
 
           {/* Navigation Action */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '20px', borderTop: '1px solid rgba(30, 68, 59, 0.1)' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '20px', borderTop: '1px solid rgba(98, 83, 248, 0.1)' }}>
             <button
               type="button"
               onClick={handleNextFromStep1}
@@ -1125,13 +1352,13 @@ export default function OnboardingPage() {
                 gap: '10px',
                 padding: '13px 30px',
                 borderRadius: '999px',
-                background: 'linear-gradient(135deg, #26554A 0%, #173830 100%)',
+                background: 'linear-gradient(135deg, #7957F6 0%, #6253F8 50%, #4054F5 100%)',
                 color: '#FFFFFF',
                 fontSize: '0.9rem',
                 fontWeight: 800,
                 border: 'none',
                 cursor: 'pointer',
-                boxShadow: '0 8px 24px -6px rgba(30, 68, 59, 0.38)',
+                boxShadow: '0 8px 24px -6px rgba(98, 83, 248, 0.38)',
               }}
             >
               <span>Continue to Tax & Banking</span>
@@ -1152,13 +1379,13 @@ export default function OnboardingPage() {
                 gap: '6px',
                 fontSize: '0.72rem',
                 fontWeight: 800,
-                color: '#1E443B',
+                color: '#6253F8',
                 textTransform: 'uppercase',
                 letterSpacing: '0.06em',
                 marginBottom: '4px',
               }}
             >
-              <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#234E43' }} />
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#6253F8' }} />
               <span>Section 02 of 05</span>
             </div>
             <h2 style={{ fontSize: '1.3rem', fontWeight: 900, color: '#17191A', margin: 0, letterSpacing: '-0.02em' }}>
@@ -1175,12 +1402,12 @@ export default function OnboardingPage() {
               padding: '22px',
               backgroundColor: '#FAFBF9',
               borderRadius: '20px',
-              border: '1px solid rgba(30, 68, 59, 0.12)',
+              border: '1px solid rgba(98, 83, 248, 0.12)',
               marginBottom: '24px',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-              <Shield size={18} style={{ color: '#234E43' }} />
+              <Shield size={18} style={{ color: '#6253F8' }} />
               <h3 style={{ fontSize: '0.96rem', fontWeight: 800, color: '#17191A', margin: 0 }}>
                 Government Tax Identification
               </h3>
@@ -1202,7 +1429,7 @@ export default function OnboardingPage() {
                     fontWeight: 800,
                     fontSize: '0.92rem',
                     background: '#FFFFFF',
-                    border: errors.gstin ? '1.5px solid #DC2626' : '1.5px solid rgba(30, 68, 59, 0.14)',
+                    border: errors.gstin ? '1.5px solid #DC2626' : '1.5px solid rgba(98, 83, 248, 0.14)',
                     borderRadius: '14px',
                     padding: '12px 16px',
                   }}
@@ -1240,7 +1467,7 @@ export default function OnboardingPage() {
                     fontWeight: 800,
                     fontSize: '0.92rem',
                     background: '#FFFFFF',
-                    border: errors.pan ? '1.5px solid #DC2626' : '1.5px solid rgba(30, 68, 59, 0.14)',
+                    border: errors.pan ? '1.5px solid #DC2626' : '1.5px solid rgba(98, 83, 248, 0.14)',
                     borderRadius: '14px',
                     padding: '12px 16px',
                   }}
@@ -1273,7 +1500,7 @@ export default function OnboardingPage() {
                     fontFamily: 'monospace',
                     fontSize: '0.9rem',
                     background: '#FFFFFF',
-                    border: '1.5px solid rgba(30, 68, 59, 0.14)',
+                    border: '1.5px solid rgba(98, 83, 248, 0.14)',
                     borderRadius: '14px',
                     padding: '12px 16px',
                   }}
@@ -1291,12 +1518,12 @@ export default function OnboardingPage() {
               padding: '22px',
               backgroundColor: '#FAFBF9',
               borderRadius: '20px',
-              border: '1px solid rgba(30, 68, 59, 0.12)',
+              border: '1px solid rgba(98, 83, 248, 0.12)',
               marginBottom: '26px',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-              <Landmark size={18} style={{ color: '#234E43' }} />
+              <Landmark size={18} style={{ color: '#6253F8' }} />
               <h3 style={{ fontSize: '0.96rem', fontWeight: 800, color: '#17191A', margin: 0 }}>
                 Dealership Primary Bank Settlement Account
               </h3>
@@ -1314,7 +1541,7 @@ export default function OnboardingPage() {
                     width: '100%',
                     boxSizing: 'border-box',
                     background: '#FFFFFF',
-                    border: errors.bankName ? '1.5px solid #DC2626' : '1.5px solid rgba(30, 68, 59, 0.14)',
+                    border: errors.bankName ? '1.5px solid #DC2626' : '1.5px solid rgba(98, 83, 248, 0.14)',
                     borderRadius: '14px',
                     padding: '12px 16px',
                     fontSize: '0.9rem',
@@ -1347,7 +1574,7 @@ export default function OnboardingPage() {
                     fontFamily: 'monospace',
                     fontWeight: 800,
                     background: '#FFFFFF',
-                    border: errors.accountNumber ? '1.5px solid #DC2626' : '1.5px solid rgba(30, 68, 59, 0.14)',
+                    border: errors.accountNumber ? '1.5px solid #DC2626' : '1.5px solid rgba(98, 83, 248, 0.14)',
                     borderRadius: '14px',
                     padding: '12px 16px',
                     fontSize: '0.9rem',
@@ -1380,7 +1607,7 @@ export default function OnboardingPage() {
                     fontFamily: 'monospace',
                     fontWeight: 800,
                     background: '#FFFFFF',
-                    border: errors.ifscCode ? '1.5px solid #DC2626' : '1.5px solid rgba(30, 68, 59, 0.14)',
+                    border: errors.ifscCode ? '1.5px solid #DC2626' : '1.5px solid rgba(98, 83, 248, 0.14)',
                     borderRadius: '14px',
                     padding: '12px 16px',
                     fontSize: '0.9rem',
@@ -1413,7 +1640,7 @@ export default function OnboardingPage() {
                     width: '100%',
                     boxSizing: 'border-box',
                     background: '#FFFFFF',
-                    border: errors.branchName ? '1.5px solid #DC2626' : '1.5px solid rgba(30, 68, 59, 0.14)',
+                    border: errors.branchName ? '1.5px solid #DC2626' : '1.5px solid rgba(98, 83, 248, 0.14)',
                     borderRadius: '14px',
                     padding: '12px 16px',
                     fontSize: '0.9rem',
@@ -1444,7 +1671,7 @@ export default function OnboardingPage() {
                     width: '100%',
                     boxSizing: 'border-box',
                     background: '#FFFFFF',
-                    border: '1.5px solid rgba(30, 68, 59, 0.14)',
+                    border: '1.5px solid rgba(98, 83, 248, 0.14)',
                     borderRadius: '14px',
                     padding: '12px 16px',
                     fontSize: '0.9rem',
@@ -1458,7 +1685,7 @@ export default function OnboardingPage() {
             </div>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '20px', borderTop: '1px solid rgba(30, 68, 59, 0.1)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '20px', borderTop: '1px solid rgba(98, 83, 248, 0.1)' }}>
             <button
               type="button"
               onClick={() => setActiveStep(1)}
@@ -1468,8 +1695,8 @@ export default function OnboardingPage() {
                 gap: '8px',
                 padding: '11px 22px',
                 borderRadius: '999px',
-                background: 'rgba(30, 68, 59, 0.07)',
-                color: '#1E443B',
+                background: 'rgba(98, 83, 248, 0.07)',
+                color: '#6253F8',
                 fontSize: '0.84rem',
                 fontWeight: 800,
                 border: 'none',
@@ -1489,13 +1716,13 @@ export default function OnboardingPage() {
                 gap: '10px',
                 padding: '13px 30px',
                 borderRadius: '999px',
-                background: 'linear-gradient(135deg, #26554A 0%, #173830 100%)',
+                background: 'linear-gradient(135deg, #7957F6 0%, #6253F8 50%, #4054F5 100%)',
                 color: '#FFFFFF',
                 fontSize: '0.9rem',
                 fontWeight: 800,
                 border: 'none',
                 cursor: 'pointer',
-                boxShadow: '0 8px 24px -6px rgba(30, 68, 59, 0.38)',
+                boxShadow: '0 8px 24px -6px rgba(98, 83, 248, 0.38)',
               }}
             >
               <span>Continue to Invoice Signature</span>
@@ -1516,13 +1743,13 @@ export default function OnboardingPage() {
                 gap: '6px',
                 fontSize: '0.72rem',
                 fontWeight: 800,
-                color: '#1E443B',
+                color: '#6253F8',
                 textTransform: 'uppercase',
                 letterSpacing: '0.06em',
                 marginBottom: '4px',
               }}
             >
-              <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#234E43' }} />
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#6253F8' }} />
               <span>Section 03 of 05</span>
             </div>
             <h2 style={{ fontSize: '1.3rem', fontWeight: 900, color: '#17191A', margin: 0, letterSpacing: '-0.02em' }}>
@@ -1546,7 +1773,7 @@ export default function OnboardingPage() {
                   width: '100%',
                   boxSizing: 'border-box',
                   background: '#FAFBF9',
-                  border: errors.authorizedSignatoryName ? '1.5px solid #DC2626' : '1.5px solid rgba(30, 68, 59, 0.12)',
+                  border: errors.authorizedSignatoryName ? '1.5px solid #DC2626' : '1.5px solid rgba(98, 83, 248, 0.12)',
                   borderRadius: '14px',
                   padding: '12px 16px',
                   fontSize: '0.9rem',
@@ -1581,7 +1808,7 @@ export default function OnboardingPage() {
                   width: '100%',
                   boxSizing: 'border-box',
                   background: '#FAFBF9',
-                  border: errors.authorizedSignatoryDesignation ? '1.5px solid #DC2626' : '1.5px solid rgba(30, 68, 59, 0.12)',
+                  border: errors.authorizedSignatoryDesignation ? '1.5px solid #DC2626' : '1.5px solid rgba(98, 83, 248, 0.12)',
                   borderRadius: '14px',
                   padding: '12px 16px',
                   fontSize: '0.9rem',
@@ -1606,9 +1833,9 @@ export default function OnboardingPage() {
           <div
             style={{
               padding: '24px',
-              background: 'linear-gradient(135deg, rgba(35, 78, 67, 0.04) 0%, rgba(250, 251, 249, 1) 100%)',
+              background: 'linear-gradient(135deg, rgba(98, 83, 248, 0.04) 0%, rgba(250, 251, 249, 1) 100%)',
               borderRadius: '20px',
-              border: errors.signatureUrl ? '1.5px solid #DC2626' : '1.5px solid rgba(30, 68, 59, 0.14)',
+              border: errors.signatureUrl ? '1.5px solid #DC2626' : '1.5px solid rgba(98, 83, 248, 0.14)',
               marginBottom: '26px',
             }}
           >
@@ -1633,8 +1860,8 @@ export default function OnboardingPage() {
                   backgroundColor: '#FFFFFF',
                   padding: '18px 20px',
                   borderRadius: '16px',
-                  border: '1.5px solid rgba(30, 68, 59, 0.18)',
-                  boxShadow: '0 4px 16px rgba(30, 68, 59, 0.04)',
+                  border: '1.5px solid rgba(98, 83, 248, 0.18)',
+                  boxShadow: '0 4px 16px rgba(98, 83, 248, 0.04)',
                   flexWrap: 'wrap',
                   gap: '14px',
                 }}
@@ -1647,7 +1874,7 @@ export default function OnboardingPage() {
                       padding: '6px 14px',
                       backgroundColor: '#F8FAF9',
                       borderRadius: '10px',
-                      border: '1px dashed rgba(30, 68, 59, 0.2)',
+                      border: '1px dashed rgba(98, 83, 248, 0.2)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -1678,12 +1905,12 @@ export default function OnboardingPage() {
                       gap: '6px',
                       padding: '9px 16px',
                       borderRadius: '999px',
-                      background: 'linear-gradient(135deg, #26554A 0%, #173830 100%)',
+                      background: 'linear-gradient(135deg, #7957F6 0%, #6253F8 50%, #4054F5 100%)',
                       color: '#FFFFFF',
                       fontSize: '0.8rem',
                       fontWeight: 800,
                       cursor: 'pointer',
-                      boxShadow: '0 4px 12px rgba(30, 68, 59, 0.25)',
+                      boxShadow: '0 4px 12px rgba(98, 83, 248, 0.25)',
                     }}
                   >
                     <Upload size={13} />
@@ -1723,7 +1950,7 @@ export default function OnboardingPage() {
                   gap: '10px',
                   padding: '36px 20px',
                   borderRadius: '16px',
-                  border: '2px dashed rgba(30, 68, 59, 0.25)',
+                  border: '2px dashed rgba(98, 83, 248, 0.25)',
                   backgroundColor: '#FFFFFF',
                   cursor: 'pointer',
                   transition: 'all 0.2s ease',
@@ -1736,8 +1963,8 @@ export default function OnboardingPage() {
                     width: '48px',
                     height: '48px',
                     borderRadius: '50%',
-                    backgroundColor: 'rgba(35, 78, 67, 0.08)',
-                    color: '#1E443B',
+                    backgroundColor: 'rgba(98, 83, 248, 0.08)',
+                    color: '#6253F8',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -1764,7 +1991,7 @@ export default function OnboardingPage() {
             )}
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '20px', borderTop: '1px solid rgba(30, 68, 59, 0.1)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '20px', borderTop: '1px solid rgba(98, 83, 248, 0.1)' }}>
             <button
               type="button"
               onClick={() => setActiveStep(2)}
@@ -1774,8 +2001,8 @@ export default function OnboardingPage() {
                 gap: '8px',
                 padding: '11px 22px',
                 borderRadius: '999px',
-                background: 'rgba(30, 68, 59, 0.07)',
-                color: '#1E443B',
+                background: 'rgba(98, 83, 248, 0.07)',
+                color: '#6253F8',
                 fontSize: '0.84rem',
                 fontWeight: 800,
                 border: 'none',
@@ -1795,13 +2022,13 @@ export default function OnboardingPage() {
                 gap: '10px',
                 padding: '13px 30px',
                 borderRadius: '999px',
-                background: 'linear-gradient(135deg, #26554A 0%, #173830 100%)',
+                background: 'linear-gradient(135deg, #7957F6 0%, #6253F8 50%, #4054F5 100%)',
                 color: '#FFFFFF',
                 fontSize: '0.9rem',
                 fontWeight: 800,
                 border: 'none',
                 cursor: 'pointer',
-                boxShadow: '0 8px 24px -6px rgba(30, 68, 59, 0.38)',
+                boxShadow: '0 8px 24px -6px rgba(98, 83, 248, 0.38)',
               }}
             >
               <span>Continue to Plugin Access Control</span>
@@ -1823,13 +2050,13 @@ export default function OnboardingPage() {
                   gap: '6px',
                   fontSize: '0.72rem',
                   fontWeight: 800,
-                  color: '#1E443B',
+                  color: '#6253F8',
                   textTransform: 'uppercase',
                   letterSpacing: '0.06em',
                   marginBottom: '4px',
                 }}
               >
-                <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#234E43' }} />
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#6253F8' }} />
                 <span>Section 04 of 05</span>
               </div>
               <h2 style={{ fontSize: '1.3rem', fontWeight: 900, color: '#17191A', margin: 0, letterSpacing: '-0.02em' }}>
@@ -1847,11 +2074,11 @@ export default function OnboardingPage() {
                 style={{
                   padding: '7px 16px',
                   borderRadius: '999px',
-                  border: '1px solid rgba(30, 68, 59, 0.2)',
-                  background: 'rgba(30, 68, 59, 0.06)',
+                  border: '1px solid rgba(98, 83, 248, 0.2)',
+                  background: 'rgba(98, 83, 248, 0.06)',
                   fontSize: '0.78rem',
                   fontWeight: 800,
-                  color: '#1E443B',
+                  color: '#6253F8',
                   cursor: 'pointer',
                 }}
               >
@@ -1883,13 +2110,13 @@ export default function OnboardingPage() {
               alignItems: 'center',
               justifyContent: 'space-between',
               padding: '12px 18px',
-              backgroundColor: 'rgba(35, 78, 67, 0.05)',
+              backgroundColor: 'rgba(98, 83, 248, 0.05)',
               borderRadius: '16px',
               marginBottom: '22px',
-              border: '1px solid rgba(35, 78, 67, 0.12)',
+              border: '1px solid rgba(98, 83, 248, 0.12)',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.84rem', fontWeight: 800, color: '#1E443B' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.84rem', fontWeight: 800, color: '#6253F8' }}>
               <Layers size={18} />
               <span>Active Department Plugins: <strong>{activePluginsCount}</strong> of {modulesList.length} Connected</span>
             </div>
@@ -1911,8 +2138,8 @@ export default function OnboardingPage() {
                     borderRadius: '18px',
                     backgroundColor: isPlugged ? '#FFFFFF' : '#FAFBF9',
                     border: '1.5px solid',
-                    borderColor: isPlugged ? 'rgba(35, 78, 67, 0.35)' : 'rgba(30, 68, 59, 0.1)',
-                    boxShadow: isPlugged ? '0 8px 24px -8px rgba(35, 78, 67, 0.14)' : 'none',
+                    borderColor: isPlugged ? 'rgba(98, 83, 248, 0.35)' : 'rgba(98, 83, 248, 0.1)',
+                    boxShadow: isPlugged ? '0 8px 24px -8px rgba(98, 83, 248, 0.14)' : 'none',
                     display: 'flex',
                     flexDirection: 'column',
                     justifyContent: 'space-between',
@@ -1927,8 +2154,8 @@ export default function OnboardingPage() {
                           fontWeight: 800,
                           padding: '3px 10px',
                           borderRadius: '999px',
-                          backgroundColor: isPlugged ? 'rgba(35, 78, 67, 0.1)' : '#F1F5F9',
-                          color: isPlugged ? '#1E443B' : '#5E6360',
+                          backgroundColor: isPlugged ? 'rgba(98, 83, 248, 0.1)' : '#F1F5F9',
+                          color: isPlugged ? '#6253F8' : '#5E6360',
                           textTransform: 'uppercase',
                           letterSpacing: '0.04em',
                         }}
@@ -1948,14 +2175,14 @@ export default function OnboardingPage() {
                           borderRadius: '999px',
                           border: 'none',
                           background: isPlugged
-                            ? 'linear-gradient(135deg, #26554A 0%, #173830 100%)'
-                            : 'rgba(30, 68, 59, 0.1)',
+                            ? 'linear-gradient(135deg, #7957F6 0%, #6253F8 50%, #4054F5 100%)'
+                            : 'rgba(98, 83, 248, 0.1)',
                           color: isPlugged ? '#FFFFFF' : '#5E6360',
                           fontSize: '0.74rem',
                           fontWeight: 800,
                           cursor: 'pointer',
                           transition: 'all 0.2s ease',
-                          boxShadow: isPlugged ? '0 2px 8px rgba(30, 68, 59, 0.2)' : 'none',
+                          boxShadow: isPlugged ? '0 2px 8px rgba(98, 83, 248, 0.2)' : 'none',
                         }}
                       >
                         {isPlugged ? (
@@ -1978,7 +2205,7 @@ export default function OnboardingPage() {
                     </p>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '14px', paddingTop: '10px', borderTop: '1px solid rgba(30, 68, 59, 0.08)', fontSize: '0.72rem', color: '#8A918D' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '14px', paddingTop: '10px', borderTop: '1px solid rgba(98, 83, 248, 0.08)', fontSize: '0.72rem', color: '#8A918D' }}>
                     <span>Route: {mod.href}</span>
                     <span style={{ fontWeight: 700, color: isPlugged ? '#24754E' : '#8A918D' }}>
                       {isPlugged ? '● Visible in Top Nav' : '○ Hidden from Top Nav'}
@@ -1989,7 +2216,7 @@ export default function OnboardingPage() {
             })}
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '20px', borderTop: '1px solid rgba(30, 68, 59, 0.1)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '20px', borderTop: '1px solid rgba(98, 83, 248, 0.1)' }}>
             <button
               type="button"
               onClick={() => setActiveStep(3)}
@@ -1999,8 +2226,8 @@ export default function OnboardingPage() {
                 gap: '8px',
                 padding: '11px 22px',
                 borderRadius: '999px',
-                background: 'rgba(30, 68, 59, 0.07)',
-                color: '#1E443B',
+                background: 'rgba(98, 83, 248, 0.07)',
+                color: '#6253F8',
                 fontSize: '0.84rem',
                 fontWeight: 800,
                 border: 'none',
@@ -2020,13 +2247,13 @@ export default function OnboardingPage() {
                 gap: '10px',
                 padding: '13px 30px',
                 borderRadius: '999px',
-                background: 'linear-gradient(135deg, #26554A 0%, #173830 100%)',
+                background: 'linear-gradient(135deg, #7957F6 0%, #6253F8 50%, #4054F5 100%)',
                 color: '#FFFFFF',
                 fontSize: '0.9rem',
                 fontWeight: 800,
                 border: 'none',
                 cursor: 'pointer',
-                boxShadow: '0 8px 24px -6px rgba(30, 68, 59, 0.38)',
+                boxShadow: '0 8px 24px -6px rgba(98, 83, 248, 0.38)',
               }}
             >
               <span>Continue to Create Account</span>
@@ -2048,8 +2275,8 @@ export default function OnboardingPage() {
                   gap: '6px',
                   padding: '4px 12px',
                   borderRadius: '999px',
-                  backgroundColor: 'rgba(35, 78, 67, 0.1)',
-                  color: '#1E443B',
+                  backgroundColor: 'rgba(98, 83, 248, 0.1)',
+                  color: '#6253F8',
                   fontSize: '0.72rem',
                   fontWeight: 800,
                   marginBottom: '6px',
@@ -2071,7 +2298,7 @@ export default function OnboardingPage() {
               style={{
                 backgroundColor: '#FAFBF9',
                 borderRadius: '20px',
-                border: '1px solid rgba(30, 68, 59, 0.12)',
+                border: '1px solid rgba(98, 83, 248, 0.12)',
                 padding: '24px',
                 marginBottom: '26px',
               }}
@@ -2100,7 +2327,7 @@ export default function OnboardingPage() {
                       boxSizing: 'border-box',
                       paddingLeft: '40px',
                       background: '#FFFFFF',
-                      border: '1.5px solid rgba(30, 68, 59, 0.14)',
+                      border: '1.5px solid rgba(98, 83, 248, 0.14)',
                       borderRadius: '14px',
                       paddingTop: '12px',
                       paddingBottom: '12px',
@@ -2138,13 +2365,13 @@ export default function OnboardingPage() {
                       boxSizing: 'border-box',
                       paddingLeft: '40px',
                       background: '#FFFFFF',
-                      border: errors.userId ? '1.5px solid #DC2626' : '1.5px solid rgba(30, 68, 59, 0.14)',
+                      border: errors.userId ? '1.5px solid #DC2626' : '1.5px solid rgba(98, 83, 248, 0.14)',
                       borderRadius: '14px',
                       paddingTop: '12px',
                       paddingBottom: '12px',
                       fontSize: '0.9rem',
                       fontWeight: 700,
-                      color: '#1E443B',
+                      color: '#6253F8',
                     }}
                     value={credentials.userId}
                     onChange={(e) => {
@@ -2191,7 +2418,7 @@ export default function OnboardingPage() {
                         paddingLeft: '40px',
                         paddingRight: '40px',
                         background: '#FFFFFF',
-                        border: errors.password ? '1.5px solid #DC2626' : '1.5px solid rgba(30, 68, 59, 0.14)',
+                        border: errors.password ? '1.5px solid #DC2626' : '1.5px solid rgba(98, 83, 248, 0.14)',
                         borderRadius: '14px',
                         paddingTop: '12px',
                         paddingBottom: '12px',
@@ -2257,7 +2484,7 @@ export default function OnboardingPage() {
                             </div>
 
                             {/* Progress bar */}
-                            <div style={{ display: 'flex', gap: '4px', height: '4px', borderRadius: '4px', overflow: 'hidden', backgroundColor: 'rgba(30, 68, 59, 0.08)', marginBottom: '8px' }}>
+                            <div style={{ display: 'flex', gap: '4px', height: '4px', borderRadius: '4px', overflow: 'hidden', backgroundColor: 'rgba(98, 83, 248, 0.08)', marginBottom: '8px' }}>
                               <div
                                 style={{
                                   flex: 1,
@@ -2386,7 +2613,7 @@ export default function OnboardingPage() {
                         paddingLeft: '40px',
                         paddingRight: '40px',
                         background: '#FFFFFF',
-                        border: errors.confirmPassword ? '1.5px solid #DC2626' : '1.5px solid rgba(30, 68, 59, 0.14)',
+                        border: errors.confirmPassword ? '1.5px solid #DC2626' : '1.5px solid rgba(98, 83, 248, 0.14)',
                         borderRadius: '14px',
                         paddingTop: '12px',
                         paddingBottom: '12px',
@@ -2432,7 +2659,7 @@ export default function OnboardingPage() {
             </div>
 
             {/* Submission Footer */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '20px', borderTop: '1px solid rgba(30, 68, 59, 0.1)', flexWrap: 'wrap', gap: '14px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '20px', borderTop: '1px solid rgba(98, 83, 248, 0.1)', flexWrap: 'wrap', gap: '14px' }}>
               <button
                 type="button"
                 onClick={() => setActiveStep(4)}
@@ -2442,8 +2669,8 @@ export default function OnboardingPage() {
                   gap: '8px',
                   padding: '11px 22px',
                   borderRadius: '999px',
-                  background: 'rgba(30, 68, 59, 0.07)',
-                  color: '#1E443B',
+                  background: 'rgba(98, 83, 248, 0.07)',
+                  color: '#6253F8',
                   fontSize: '0.84rem',
                   fontWeight: 800,
                   border: 'none',
@@ -2464,9 +2691,9 @@ export default function OnboardingPage() {
                   alignItems: 'center',
                   borderRadius: '999px',
                   border: 'none',
-                  background: 'linear-gradient(135deg, #26554A 0%, #173830 100%)',
+                  background: 'linear-gradient(135deg, #7957F6 0%, #6253F8 50%, #4054F5 100%)',
                   color: '#FFFFFF',
-                  boxShadow: '0 8px 24px -6px rgba(30, 68, 59, 0.42)',
+                  boxShadow: '0 8px 24px -6px rgba(98, 83, 248, 0.42)',
                   cursor: 'pointer',
                   transition: 'all 0.2s ease',
                 }}
@@ -2484,7 +2711,7 @@ export default function OnboardingPage() {
           style={{
             position: 'fixed',
             inset: 0,
-            backgroundColor: 'rgba(23, 56, 48, 0.65)',
+            backgroundColor: 'rgba(24, 21, 59, 0.65)',
             backdropFilter: 'blur(8px)',
             display: 'flex',
             alignItems: 'center',
@@ -2501,7 +2728,7 @@ export default function OnboardingPage() {
               width: '100%',
               padding: '36px 30px',
               textAlign: 'center',
-              boxShadow: '0 30px 60px -15px rgba(23, 56, 48, 0.35)',
+              boxShadow: '0 30px 60px -15px rgba(24, 21, 59, 0.35)',
               position: 'relative',
               animation: 'fadeInUp 0.3s ease',
               border: '1px solid rgba(255, 255, 255, 0.9)',
@@ -2513,14 +2740,14 @@ export default function OnboardingPage() {
                 width: '64px',
                 height: '64px',
                 borderRadius: '50%',
-                background: 'linear-gradient(135deg, #26554A 0%, #173830 100%)',
+                background: 'linear-gradient(135deg, #7957F6 0%, #6253F8 50%, #4054F5 100%)',
                 color: '#FFFFFF',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 margin: '0 auto 18px',
                 fontSize: '1.8rem',
-                boxShadow: '0 8px 24px -4px rgba(30, 68, 59, 0.35)',
+                boxShadow: '0 8px 24px -4px rgba(98, 83, 248, 0.35)',
               }}
             >
               ✓
@@ -2533,8 +2760,8 @@ export default function OnboardingPage() {
                 gap: '6px',
                 padding: '4px 14px',
                 borderRadius: '999px',
-                background: 'rgba(35, 78, 67, 0.1)',
-                color: '#1E443B',
+                background: 'rgba(98, 83, 248, 0.1)',
+                color: '#6253F8',
                 fontSize: '0.76rem',
                 fontWeight: 800,
                 marginBottom: '10px',
@@ -2557,7 +2784,7 @@ export default function OnboardingPage() {
                 backgroundColor: '#FAFBF9',
                 borderRadius: '16px',
                 padding: '16px 20px',
-                border: '1px solid rgba(30, 68, 59, 0.12)',
+                border: '1px solid rgba(98, 83, 248, 0.12)',
                 marginBottom: '24px',
                 textAlign: 'left',
                 fontSize: '0.8rem',
@@ -2579,36 +2806,61 @@ export default function OnboardingPage() {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: '#5E6360' }}>Administrator User ID:</span>
-                <strong style={{ color: '#1E443B' }}>{credentials.userId}</strong>
+                <strong style={{ color: '#6253F8' }}>{credentials.userId}</strong>
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={() => {
-                setIsSuccessModalOpen(false);
-                router.push('/login?created=true');
-              }}
-              style={{
-                width: '100%',
-                padding: '13px 24px',
-                fontWeight: 800,
-                fontSize: '0.92rem',
-                background: 'linear-gradient(135deg, #26554A 0%, #173830 100%)',
-                color: '#FFFFFF',
-                border: 'none',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                borderRadius: '999px',
-                boxShadow: '0 8px 24px -6px rgba(30, 68, 59, 0.38)',
-                cursor: 'pointer',
-              }}
-            >
-              <span>Sign In to Workspace with New Credentials</span>
-              <ArrowRight size={16} />
-            </button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSuccessModalOpen(false);
+                  router.push('/login?created=true');
+                }}
+                style={{
+                  width: '100%',
+                  padding: '13px 24px',
+                  fontWeight: 800,
+                  fontSize: '0.92rem',
+                  background: 'linear-gradient(135deg, #7957F6 0%, #6253F8 50%, #4054F5 100%)',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  borderRadius: '999px',
+                  boxShadow: '0 8px 24px -6px rgba(98, 83, 248, 0.38)',
+                  cursor: 'pointer',
+                }}
+              >
+                <span>Sign In to Workspace with New Credentials</span>
+                <ArrowRight size={16} />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSuccessModalOpen(false);
+                  setActiveStep(1);
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                style={{
+                  width: '100%',
+                  padding: '11px 20px',
+                  fontWeight: 700,
+                  fontSize: '0.86rem',
+                  backgroundColor: 'transparent',
+                  color: '#6253F8',
+                  border: '1.5px solid rgba(98, 83, 248, 0.25)',
+                  borderRadius: '999px',
+                  cursor: 'pointer',
+                  transition: 'all 0.18s ease',
+                }}
+              >
+                <span>Review & Edit Form Details</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

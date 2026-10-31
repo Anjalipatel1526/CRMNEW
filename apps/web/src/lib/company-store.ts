@@ -17,6 +17,7 @@ export interface CompanyProfile {
 
   // Registered Location
   address: string;
+  locality?: string;
   city: string;
   state: string;
   pincode: string;
@@ -63,6 +64,7 @@ export const DEFAULT_COMPANY_PROFILE: CompanyProfile = {
   supportPhone: '',
   website: '',
   address: '',
+  locality: '',
   city: '',
   state: '',
   pincode: '',

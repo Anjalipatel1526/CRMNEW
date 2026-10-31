@@ -278,7 +278,7 @@ CREATE TABLE IF NOT EXISTS vehicles (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   branch_id TEXT NOT NULL REFERENCES branches(id),
-  catalog_id TEXT REFERENCES vehicle_catalog(id),
+  catalog_id TEXT REFERENCES vehicle_catalog(id) ON DELETE SET NULL,
   stock_number TEXT NOT NULL,
   vin TEXT NOT NULL,
   registration_number TEXT,

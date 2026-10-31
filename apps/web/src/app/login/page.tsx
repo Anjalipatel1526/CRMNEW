@@ -98,8 +98,8 @@ export default function LoginPage() {
         width: '100%',
         backgroundColor: '#FCFDFC',
         backgroundImage: `
-          radial-gradient(circle at 50% 20%, rgba(30, 68, 59, 0.05) 0%, transparent 60%),
-          linear-gradient(180deg, #FFFFFF 0%, #F8FAF9 100%)
+          radial-gradient(circle at 50% 20%, rgba(98, 83, 248, 0.06) 0%, transparent 60%),
+          linear-gradient(180deg, #FFFFFF 0%, #FAF8FF 100%)
         `,
         display: 'flex',
         flexDirection: 'column',
@@ -141,7 +141,7 @@ export default function LoginPage() {
             transform: 'translate(-50%, -50%)',
             width: '680px',
             height: '420px',
-            background: 'radial-gradient(ellipse at center, rgba(30, 68, 59, 0.05) 0%, rgba(16, 185, 129, 0.02) 45%, transparent 70%)',
+            background: 'radial-gradient(ellipse at center, rgba(121, 87, 246, 0.08) 0%, rgba(64, 84, 245, 0.03) 45%, transparent 70%)',
           }}
         />
       </div>
@@ -192,7 +192,7 @@ export default function LoginPage() {
               style={{
                 fontSize: '0.66rem',
                 fontWeight: 700,
-                color: '#059669',
+                color: '#6253F8',
                 letterSpacing: '0.12em',
                 textTransform: 'uppercase',
                 marginTop: '1px',
@@ -210,7 +210,7 @@ export default function LoginPage() {
             backgroundColor: '#FFFFFF',
             borderRadius: '22px',
             padding: '2.5rem',
-            boxShadow: '0 24px 50px -15px rgba(30, 68, 59, 0.09), 0 0 0 1px rgba(30, 68, 59, 0.08)',
+            boxShadow: '0 24px 50px -15px rgba(98, 83, 248, 0.12), 0 0 0 1px rgba(98, 83, 248, 0.08)',
             border: '1px solid rgba(226, 232, 240, 0.8)',
             boxSizing: 'border-box',
           }}
@@ -223,19 +223,19 @@ export default function LoginPage() {
                 alignItems: 'flex-start',
                 gap: '10px',
                 padding: '12px 14px',
-                backgroundColor: '#E6F4EF',
-                border: '1px solid #A7F3D0',
+                backgroundColor: '#F5F3FF',
+                border: '1px solid #DDD6FE',
                 borderRadius: '12px',
                 marginBottom: '1.5rem',
-                color: '#1E443B',
+                color: '#6253F8',
                 fontSize: '0.82rem',
                 lineHeight: 1.45,
               }}
             >
-              <CheckCircle2 size={18} style={{ flexShrink: 0, marginTop: '2px', color: '#16A34A' }} />
+              <CheckCircle2 size={18} style={{ flexShrink: 0, marginTop: '2px', color: '#6253F8' }} />
               <div>
                 <strong>Onboarding Completed!</strong>
-                <div style={{ fontSize: '0.76rem', color: '#1E443B', marginTop: '2px' }}>
+                <div style={{ fontSize: '0.76rem', color: '#6253F8', marginTop: '2px' }}>
                   Your workspace is ready. Sign in with your created User ID below.
                 </div>
               </div>
@@ -272,7 +272,7 @@ export default function LoginPage() {
                 style={{
                   fontSize: '1.02rem',
                   fontWeight: 800,
-                  color: '#1E443B',
+                  color: '#6253F8',
                   marginTop: '4px',
                 }}
               >
@@ -291,7 +291,9 @@ export default function LoginPage() {
                     fontSize: '0.82rem',
                     fontWeight: 700,
                     borderRadius: '8px',
-                    backgroundColor: '#1E443B',
+                    background: 'linear-gradient(135deg, #7957F6 0%, #6253F8 50%, #4054F5 100%)',
+                    color: '#FFFFFF',
+                    border: 'none',
                   }}
                 >
                   Continue to Workspace →
@@ -403,8 +405,8 @@ export default function LoginPage() {
                     transition: 'all 0.18s ease',
                   }}
                   onFocus={(e) => {
-                    e.currentTarget.style.borderColor = '#1E443B';
-                    e.currentTarget.style.boxShadow = '0 0 0 3px rgba(30, 68, 59, 0.1)';
+                    e.currentTarget.style.borderColor = '#6253F8';
+                    e.currentTarget.style.boxShadow = '0 0 0 3px rgba(98, 83, 248, 0.15)';
                   }}
                   onBlur={(e) => {
                     e.currentTarget.style.borderColor = '#E2E8F0';
@@ -436,7 +438,7 @@ export default function LoginPage() {
                 <span
                   style={{
                     fontSize: '0.78rem',
-                    color: '#059669',
+                    color: '#6253F8',
                     fontWeight: 600,
                     cursor: 'pointer',
                   }}
@@ -477,8 +479,8 @@ export default function LoginPage() {
                     transition: 'all 0.18s ease',
                   }}
                   onFocus={(e) => {
-                    e.currentTarget.style.borderColor = '#1E443B';
-                    e.currentTarget.style.boxShadow = '0 0 0 3px rgba(30, 68, 59, 0.1)';
+                    e.currentTarget.style.borderColor = '#6253F8';
+                    e.currentTarget.style.boxShadow = '0 0 0 3px rgba(98, 83, 248, 0.15)';
                   }}
                   onBlur={(e) => {
                     e.currentTarget.style.borderColor = '#E2E8F0';
@@ -529,7 +531,7 @@ export default function LoginPage() {
                 width: '100%',
                 padding: '14px 24px',
                 borderRadius: '12px',
-                background: 'linear-gradient(135deg, #1E443B 0%, #295F53 100%)',
+                background: 'linear-gradient(135deg, #7957F6 0%, #6253F8 50%, #4054F5 100%)',
                 color: '#FFFFFF',
                 fontSize: '0.98rem',
                 fontWeight: 800,
@@ -539,18 +541,18 @@ export default function LoginPage() {
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '8px',
-                boxShadow: '0 10px 22px -5px rgba(30, 68, 59, 0.38)',
+                boxShadow: '0 10px 22px -5px rgba(98, 83, 248, 0.42)',
                 transition: 'all 0.22s cubic-bezier(0.16, 1, 0.3, 1)',
               }}
               onMouseEnter={(e) => {
                 if (!loading) {
                   e.currentTarget.style.transform = 'translateY(-1.5px)';
-                  e.currentTarget.style.boxShadow = '0 14px 28px -5px rgba(30, 68, 59, 0.48)';
+                  e.currentTarget.style.boxShadow = '0 14px 28px -5px rgba(98, 83, 248, 0.52)';
                 }
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 10px 22px -5px rgba(30, 68, 59, 0.38)';
+                e.currentTarget.style.boxShadow = '0 10px 22px -5px rgba(98, 83, 248, 0.42)';
               }}
             >
               <span>{loading ? 'Authenticating...' : 'Sign In to Workspace'}</span>
@@ -571,7 +573,7 @@ export default function LoginPage() {
               transition: 'color 0.15s ease',
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.color = '#1E443B';
+              e.currentTarget.style.color = '#6253F8';
               e.currentTarget.style.textDecoration = 'underline';
             }}
             onMouseLeave={(e) => {
@@ -579,7 +581,7 @@ export default function LoginPage() {
               e.currentTarget.style.textDecoration = 'none';
             }}
           >
-            Need to configure a new dealership? <span style={{ color: '#1E443B', fontWeight: 700 }}>Begin Onboarding →</span>
+            Need to configure a new dealership? <span style={{ color: '#6253F8', fontWeight: 700 }}>Begin Onboarding →</span>
           </Link>
         </div>
 

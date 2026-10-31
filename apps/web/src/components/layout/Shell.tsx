@@ -123,7 +123,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
                   borderRadius: '8px',
                   objectFit: 'contain',
                   backgroundColor: '#FFFFFF',
-                  border: '1px solid rgba(30,68,59,0.15)',
+                  border: '1px solid rgba(98,83,248,0.18)',
                   flexShrink: 0,
                   boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
                 }}

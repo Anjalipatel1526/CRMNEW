@@ -360,10 +360,6 @@ export default function CustomersPage() {
               <X size={15} />
             </button>
           )}
-          <div className="search-kbd-badge">
-            <span>⌘</span>
-            <span>K</span>
-          </div>
         </div>
 
         {/* Filter Pills and Counter */}
@@ -593,7 +589,7 @@ export default function CustomersPage() {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: '#1E443B',
+                  color: '#6253F8',
                   fontSize: '1.5rem',
                 }}
               >
@@ -607,12 +603,19 @@ export default function CustomersPage() {
               </p>
               <button
                 type="button"
-                className="btn btn-primary"
+                className="btn btn-primary btn-md"
                 onClick={() => {
                   setSelectedCustomer(null);
                   setIsModalOpen(true);
                 }}
-                style={{ marginTop: '6px' }}
+                style={{
+                  marginTop: '8px',
+                  borderRadius: '999px',
+                  padding: '11px 26px',
+                  fontSize: '0.9rem',
+                  fontWeight: 700,
+                  boxShadow: '0 6px 18px rgba(98, 83, 248, 0.35)',
+                }}
               >
                 <Plus size={16} /> Add First Customer
               </button>
