@@ -464,7 +464,7 @@ CREATE TABLE IF NOT EXISTS quotation_items (
   tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   quotation_id TEXT NOT NULL REFERENCES quotations(id) ON DELETE CASCADE,
   item_type TEXT NOT NULL CHECK (item_type IN ('vehicle','accessory','service','fee','insurance','warranty')),
-  vehicle_id TEXT REFERENCES vehicles(id),
+  vehicle_id TEXT REFERENCES vehicles(id) ON DELETE SET NULL,
   description TEXT NOT NULL,
   quantity INTEGER NOT NULL DEFAULT 1,
   unit_price NUMERIC(14,2) NOT NULL,
@@ -496,8 +496,8 @@ CREATE TABLE IF NOT EXISTS deals (
   tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   branch_id TEXT NOT NULL REFERENCES branches(id),
   customer_id TEXT NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
-  vehicle_id TEXT REFERENCES vehicles(id),
-  opportunity_id TEXT REFERENCES opportunities(id),
+  vehicle_id TEXT REFERENCES vehicles(id) ON DELETE SET NULL,
+  opportunity_id TEXT REFERENCES opportunities(id) ON DELETE SET NULL,
   quotation_id TEXT REFERENCES quotations(id),
   booking_id TEXT,
   deal_number TEXT NOT NULL,
@@ -533,7 +533,7 @@ CREATE TABLE IF NOT EXISTS bookings (
   tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   branch_id TEXT NOT NULL REFERENCES branches(id),
   customer_id TEXT NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
-  vehicle_id TEXT NOT NULL REFERENCES vehicles(id),
+  vehicle_id TEXT NOT NULL REFERENCES vehicles(id) ON DELETE CASCADE,
   quotation_id TEXT REFERENCES quotations(id),
   booking_number TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'pending_payment' CHECK (status IN ('draft','pending_payment','confirmed','cancel_requested','cancelled','completed')),
@@ -621,7 +621,7 @@ CREATE TABLE IF NOT EXISTS expenses (
   description TEXT NOT NULL,
   amount NUMERIC(14,2) NOT NULL CHECK (amount > 0),
   currency TEXT NOT NULL DEFAULT 'INR',
-  vehicle_id TEXT REFERENCES vehicles(id),
+  vehicle_id TEXT REFERENCES vehicles(id) ON DELETE SET NULL,
   receipt_document_id TEXT,
   status TEXT NOT NULL DEFAULT 'approved' CHECK (status IN ('pending','approved','rejected','paid')),
   approved_by TEXT REFERENCES app_users(id),
@@ -659,7 +659,7 @@ CREATE TABLE IF NOT EXISTS deliveries (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   deal_id TEXT NOT NULL REFERENCES deals(id) ON DELETE CASCADE,
-  vehicle_id TEXT NOT NULL REFERENCES vehicles(id),
+  vehicle_id TEXT NOT NULL REFERENCES vehicles(id) ON DELETE CASCADE,
   customer_id TEXT NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
   status TEXT NOT NULL DEFAULT 'pending_clearance' CHECK (status IN ('pending_clearance','pdi_in_progress','pdi_passed','pdi_failed','ready_for_handover','delivered','cancelled')),
   payment_gate_passed BOOLEAN NOT NULL DEFAULT false,
@@ -677,7 +677,7 @@ CREATE TABLE IF NOT EXISTS pdi_records (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   delivery_id TEXT NOT NULL REFERENCES deliveries(id) ON DELETE CASCADE,
-  vehicle_id TEXT NOT NULL REFERENCES vehicles(id),
+  vehicle_id TEXT NOT NULL REFERENCES vehicles(id) ON DELETE CASCADE,
   checklist JSONB NOT NULL DEFAULT '[]'::jsonb,
   overall_result TEXT NOT NULL CHECK (overall_result IN ('pass','fail','conditional')),
   repair_items JSONB DEFAULT '[]'::jsonb,
@@ -690,7 +690,7 @@ CREATE TABLE IF NOT EXISTS registration_cases (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   delivery_id TEXT NOT NULL REFERENCES deliveries(id) ON DELETE CASCADE,
-  vehicle_id TEXT NOT NULL REFERENCES vehicles(id),
+  vehicle_id TEXT NOT NULL REFERENCES vehicles(id) ON DELETE CASCADE,
   registration_type TEXT NOT NULL CHECK (registration_type IN ('temporary','permanent','transfer')),
   status TEXT NOT NULL DEFAULT 'pending',
   rto_office TEXT,
@@ -705,7 +705,7 @@ CREATE TABLE IF NOT EXISTS registration_cases (
 CREATE TABLE IF NOT EXISTS insurance_policies (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  vehicle_id TEXT NOT NULL REFERENCES vehicles(id),
+  vehicle_id TEXT NOT NULL REFERENCES vehicles(id) ON DELETE CASCADE,
   customer_id TEXT NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
   provider TEXT NOT NULL,
   policy_number TEXT,
@@ -726,7 +726,7 @@ CREATE TABLE IF NOT EXISTS service_appointments (
   tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   branch_id TEXT NOT NULL REFERENCES branches(id),
   customer_id TEXT NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
-  vehicle_id TEXT NOT NULL REFERENCES vehicles(id),
+  vehicle_id TEXT NOT NULL REFERENCES vehicles(id) ON DELETE CASCADE,
   service_type TEXT NOT NULL CHECK (service_type IN ('scheduled_service','repair','warranty','recall','inspection','other')),
   preferred_date DATE NOT NULL,
   preferred_time_slot TEXT,
@@ -741,7 +741,7 @@ CREATE TABLE IF NOT EXISTS job_cards (
   branch_id TEXT NOT NULL REFERENCES branches(id),
   service_appointment_id TEXT REFERENCES service_appointments(id),
   customer_id TEXT NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
-  vehicle_id TEXT NOT NULL REFERENCES vehicles(id),
+  vehicle_id TEXT NOT NULL REFERENCES vehicles(id) ON DELETE CASCADE,
   job_card_number TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','in_progress','waiting_parts','completed','invoiced','cancelled')),
   intake_odometer INTEGER,
@@ -798,8 +798,8 @@ CREATE TABLE IF NOT EXISTS complaints (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   customer_id TEXT NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
-  vehicle_id TEXT REFERENCES vehicles(id),
-  deal_id TEXT REFERENCES deals(id),
+  vehicle_id TEXT REFERENCES vehicles(id) ON DELETE SET NULL,
+  deal_id TEXT REFERENCES deals(id) ON DELETE SET NULL,
   category TEXT NOT NULL CHECK (category IN ('quality','service','documentation','billing','other')),
   priority TEXT NOT NULL DEFAULT 'medium' CHECK (priority IN ('low','medium','high','critical')),
   subject TEXT NOT NULL,
@@ -998,12 +998,7 @@ VALUES (
   'Asia/Kolkata'
 ) ON CONFLICT (id) DO NOTHING;
 
--- Seed Default Branches
-INSERT INTO branches (id, tenant_id, code, name, address, phone, email, is_active)
-VALUES 
-  ('b-dt-001', 't-apex-001', 'DEL-01', 'Downtown Flagship', '{"city": "New Delhi", "state": "Delhi", "pincode": "110001", "line1": "Connaught Place"}'::jsonb, '+91 11 2345 6789', 'downtown@apexmotors.com', true),
-  ('b-wb-002', 't-apex-001', 'MUM-02', 'Westbay Hub', '{"city": "Mumbai", "state": "Maharashtra", "pincode": "400050", "line1": "Bandra West"}'::jsonb, '+91 22 8765 4321', 'westbay@apexmotors.com', true)
-ON CONFLICT (id) DO NOTHING;
+-- Branches configured dynamically via dealership settings
 
 -- Seed Default Admin User
 INSERT INTO app_users (id, email, full_name, phone, is_active)
@@ -1026,12 +1021,12 @@ INSERT INTO company_profiles (
 ) VALUES (
   'company-default-01',
   't-apex-001',
-  'Apex Automotive Solutions Pvt Ltd',
-  'Apex Motors',
+  'Dealership Solutions Pvt Ltd',
+  'Dealership',
   'authorized_franchise',
-  'contact@apexmotors.com',
+  'contact@dealership.com',
   '+91 98765 43210',
-  'Plot 42, Automotive Corridor, Sector 18',
+  'Plot 42, Automotive Corridor',
   'New Delhi',
   'Delhi',
   '110001',
@@ -1045,7 +1040,7 @@ INSERT INTO company_profiles (
   'Connaught Place Corporate Branch',
   true,
   0.08,
-  'Vikram Singhania',
+  'Administrator',
   'Managing Director',
   true
 ) ON CONFLICT (id) DO NOTHING;
@@ -1064,68 +1059,3 @@ VALUES
   ('mod-reports', 't-apex-001', 'Reports & Analytics', '/reports', 'BarChart3', true, 'Revenue velocity, yard margin audits & performance', 9),
   ('mod-settings', 't-apex-001', 'Platform Settings', '/settings', 'Settings', true, 'Dealership profile, branch nodes & security credentials', 10)
 ON CONFLICT (id) DO NOTHING;
-
--- Seed Master Vehicle Catalog
-INSERT INTO vehicle_catalog (id, tenant_id, make, model, variant, model_year, body_type, fuel_type, transmission, specs)
-VALUES
-  ('cat-01', 't-apex-001', 'Porsche', '911 Carrera S', '3.0 Twin-Turbo', 2024, 'Coupe', 'Petrol', 'Automatic', '{"power_bhp": 443, "top_speed_kmh": 308}'::jsonb),
-  ('cat-02', 't-apex-001', 'BMW', 'M3 Competition', 'xDrive Sedan', 2024, 'Sedan', 'Petrol', 'Automatic', '{"power_bhp": 503, "top_speed_kmh": 290}'::jsonb),
-  ('cat-03', 't-apex-001', 'Mercedes-Benz', 'E-Class', 'E 350d Exclusive', 2023, 'Sedan', 'Diesel', 'Automatic', '{"power_bhp": 286, "torque_nm": 600}'::jsonb),
-  ('cat-04', 't-apex-001', 'Tata', 'Nexon EV', 'Empowered Plus LR', 2024, 'SUV', 'Electric', 'Automatic', '{"battery_kwh": 40.5, "range_km": 465}'::jsonb),
-  ('cat-05', 't-apex-001', 'Mahindra', 'Thar', 'LX 4x4 Hard Top', 2024, 'SUV', 'Diesel', 'Manual', '{"power_bhp": 130, "drive": "4WD"}'::jsonb)
-ON CONFLICT (id) DO NOTHING;
-
--- Seed Vehicles Inventory
-INSERT INTO vehicles (
-  id, tenant_id, branch_id, catalog_id, stock_number, vin, registration_number,
-  make, model, variant, year, color, mileage_km, fuel_type, transmission,
-  ownership_mode, acquisition_cost, total_cost, asking_price, minimum_price, status
-) VALUES 
-  ('v-001', 't-apex-001', 'b-dt-001', 'cat-01', 'STK-2026-001', 'WP0AB2A98NS240001', 'DL-01-AB-1234', 'Porsche', '911 Carrera S', '3.0L Twin-Turbo', 2024, 'Guards Red', 3200, 'Petrol', 'Automatic', 'owned', 14200000, 14450000, 17800000, 17200000, 'available'),
-  ('v-002', 't-apex-001', 'b-dt-001', 'cat-02', 'STK-2026-002', 'WBA33AY08NFP56789', 'DL-03-XY-9999', 'BMW', 'M3 Competition', 'xDrive Sedan', 2024, 'Isle of Man Green', 6400, 'Petrol', 'Automatic', 'owned', 11500000, 11720000, 13800000, 13400000, 'reserved'),
-  ('v-003', 't-apex-001', 'b-wb-002', 'cat-03', 'STK-2026-003', 'WDD2130042A891234', 'MH-02-EE-4545', 'Mercedes-Benz', 'E-Class', 'E 350d Exclusive', 2023, 'Obsidian Black', 18500, 'Diesel', 'Automatic', 'owned', 6400000, 6580000, 7850000, 7500000, 'available'),
-  ('v-004', 't-apex-001', 'b-dt-001', 'cat-04', 'STK-2026-004', 'MAT625012PLA78901', 'DL-08-EV-1001', 'Tata', 'Nexon EV', 'Empowered Plus LR', 2024, 'Pristine White', 1200, 'Electric', 'Automatic', 'owned', 1650000, 1690000, 1980000, 1920000, 'available'),
-  ('v-005', 't-apex-001', 'b-wb-002', 'cat-05', 'STK-2026-005', 'MA1TA2WKLN2P34567', 'MH-04-TR-7007', 'Mahindra', 'Thar', 'LX 4x4 Hard Top', 2024, 'Napoli Black', 4500, 'Diesel', 'Manual', 'owned', 1450000, 1490000, 1740000, 1680000, 'sold')
-ON CONFLICT (id) DO NOTHING;
-
--- Seed CRM Customers
-INSERT INTO customers (id, tenant_id, branch_id, type, first_name, last_name, email, phone, company_name, gstin, city, state)
-VALUES 
-  ('cust-101', 't-apex-001', 'b-dt-001', 'individual', 'Aarav', 'Mehta', 'aarav.mehta@gmail.com', '+91 98111 22334', NULL, NULL, 'New Delhi', 'Delhi'),
-  ('cust-102', 't-apex-001', 'b-wb-002', 'business', 'Pooja', 'Deshmukh', 'pooja@zenithventures.in', '+91 98222 33445', 'Zenith Ventures LLP', '27AAHFZ1234P1Z8', 'Mumbai', 'Maharashtra'),
-  ('cust-103', 't-apex-001', 'b-dt-001', 'individual', 'Rajesh', 'Kapoor', 'rajesh.kapoor@outlook.com', '+91 98333 44556', NULL, NULL, 'Gurugram', 'Haryana')
-ON CONFLICT (id) DO NOTHING;
-
--- Seed CRM Leads
-INSERT INTO leads (id, tenant_id, branch_id, customer_id, source, status, budget_min, budget_max, preferred_make, preferred_model, score, timeline)
-VALUES
-  ('lead-201', 't-apex-001', 'b-dt-001', 'cust-101', 'Showroom Walk-in', 'negotiation', 15000000, 18000000, 'Porsche', '911 Carrera S', 92, 'Within 7 days'),
-  ('lead-202', 't-apex-001', 'b-wb-002', 'cust-102', 'Digital Referral', 'test_drive', 12000000, 14500000, 'BMW', 'M3 Competition', 85, 'Within 15 days'),
-  ('lead-203', 't-apex-001', 'b-dt-001', 'cust-103', 'Website Inquiry', 'qualified', 6000000, 8000000, 'Mercedes-Benz', 'E-Class', 74, 'Within 30 days')
-ON CONFLICT (id) DO NOTHING;
-
--- Seed Active Deal
-INSERT INTO deals (
-  id, tenant_id, branch_id, customer_id, vehicle_id, deal_number, stage,
-  vehicle_price, accessories_total, discount_total, tax_total, fees_total, trade_in_credit,
-  grand_total, amount_paid, balance_due, currency, finance_type
-) VALUES (
-  'deal-301',
-  't-apex-001',
-  'b-dt-001',
-  'cust-101',
-  'v-001',
-  'DEAL-2026-089',
-  'delivered',
-  17500000,
-  350000,
-  250000,
-  3150000,
-  150000,
-  0,
-  20900000,
-  20900000,
-  0,
-  'INR',
-  'cash'
-) ON CONFLICT (id) DO NOTHING;

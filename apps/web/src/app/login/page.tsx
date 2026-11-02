@@ -73,7 +73,7 @@ export default function LoginPage() {
 
     // Default demo credentials or fallback
     if (
-      (inputUser.toLowerCase() === 'admin' || inputUser.toLowerCase() === 'admin@apexmotors.com' || inputUser.length > 0) &&
+      (inputUser.toLowerCase() === 'admin' || inputUser.length > 0) &&
       (inputPass === 'admin123' || inputPass.length >= 4)
     ) {
       setTimeout(() => {

@@ -191,19 +191,19 @@ export default function CustomersPage() {
     );
 
     if (lead) {
-      const exactAmount = lead.budgetMax || lead.budgetMin || 2480000;
+      const exactAmount = lead.budgetMax || lead.budgetMin || 0;
       return {
-        car: `${lead.preferredMake} ${lead.preferredModel}`.trim(),
+        car: `${lead.preferredMake} ${lead.preferredModel}`.trim() || 'Vehicle Selection In Progress',
         fuelOrVariant: `${lead.preferredFuelType || 'Fuel'} · ${lead.status.replace('_', ' ')}`,
-        price: `₹${(exactAmount / 100000).toFixed(2)} Lakh`,
-        priceLabel: 'Closing Value',
+        price: exactAmount > 0 ? `₹${(exactAmount / 100000).toFixed(2)} Lakh` : '—',
+        priceLabel: 'Budget Range',
       };
     }
 
     return {
-      car: (c as any).preferredVehicle || 'Mahindra XUV700 AX7L',
-      fuelOrVariant: 'New Inquiry',
-      price: '₹24.80 Lakh',
+      car: (c as any).preferredVehicle || 'Not specified',
+      fuelOrVariant: 'Direct Client',
+      price: (c as any).budget ? String((c as any).budget) : '—',
       priceLabel: 'Closing Value',
     };
   };

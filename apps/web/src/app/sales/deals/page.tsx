@@ -105,8 +105,8 @@ export default function DealsPage() {
         />
         <StatCard
           title="Pending Gate Approvals"
-          value="1 Deal"
-          sub="HDFC Bank loan disbursement pending"
+          value={`${deals.filter((d) => d.stage === 'finance' || d.stage === 'documents' || d.stage === 'pdi').length} Deals`}
+          sub={deals.length > 0 ? "Gate compliance & verification checks" : "No pending deal stage approvals"}
           icon={<Clock size={18} />}
           accentColor="orange"
         />

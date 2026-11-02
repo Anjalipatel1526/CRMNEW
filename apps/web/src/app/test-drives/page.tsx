@@ -43,16 +43,16 @@ export default function TestDrivesPage() {
     customerName: '',
     customerPhone: '',
     customerEmail: '',
-    vehicleName: 'Mahindra XUV700 AX7L AWD (Midnight Black)',
-    vehicleReg: 'MH-02-EZ-4120',
+    vehicleName: '',
+    vehicleReg: '',
     date: new Date().toISOString().split('T')[0],
-    timeSlot: '04:00 PM - 04:45 PM',
+    timeSlot: '',
     durationMinutes: 45,
-    assignedStaff: 'John Fernandes',
+    assignedStaff: '',
     dlNumber: '',
-    kycVerified: true,
-    startOdo: 5000,
-    route: 'Western Express Highway Sprint (15 km)',
+    kycVerified: false,
+    startOdo: 0,
+    route: '',
   });
 
   useEffect(() => {

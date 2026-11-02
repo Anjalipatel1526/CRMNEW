@@ -1,5 +1,6 @@
 import {
   Customer,
+  Branch,
   Lead,
   Vehicle,
   VehicleCatalog,
@@ -23,7 +24,7 @@ import { supabase, isSupabaseConfigured } from './supabase';
 
 interface DataStore {
   tenant: any;
-  branches: any[];
+  branches: Branch[];
   userContext: UserContext;
   customers: Customer[];
   leads: Lead[];
@@ -39,66 +40,39 @@ interface DataStore {
 const initialData: DataStore = {
   tenant: {
     id: 't-apex-001',
-    name: 'Apex Motors Group',
-    slug: 'apex-motors',
+    name: 'Dealership Group',
+    slug: 'dealership',
     status: 'active' as const,
     dealerModel: 'mixed' as const,
-    primaryContactName: 'Vikramaditya Singhania',
-    primaryEmail: 'admin@apexmotors.com',
-    primaryPhone: '+91 98200 11223',
+    primaryContactName: 'Administrator',
+    primaryEmail: 'admin@dealership.com',
+    primaryPhone: '+91 98000 00000',
     currency: 'INR',
     timezone: 'Asia/Kolkata',
     settings: {},
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
-  branches: [
-    {
-      id: 'b-dt-001',
-      tenantId: 't-apex-001',
-      code: 'DEL-01',
-      name: 'Apex Downtown Flagship',
-      address: { line1: 'Connaught Place', city: 'New Delhi', state: 'Delhi', pincode: '110001' },
-      phone: '+91 11 2345 6789',
-      email: 'downtown@apexmotors.com',
-      timezone: 'Asia/Kolkata',
-      isActive: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-    {
-      id: 'b-wb-002',
-      tenantId: 't-apex-001',
-      code: 'MUM-02',
-      name: 'Apex Westbay Hub',
-      address: { line1: 'Bandra West', city: 'Mumbai', state: 'Maharashtra', pincode: '400050' },
-      phone: '+91 22 8765 4321',
-      email: 'westbay@apexmotors.com',
-      timezone: 'Asia/Kolkata',
-      isActive: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-  ],
+  branches: [],
   userContext: {
     user: {
       id: 'u-admin-001',
-      email: 'admin@apexmotors.com',
-      fullName: 'Vikram Singhania',
-      phone: '+91 98200 11223',
+      email: 'admin@dealership.com',
+      fullName: 'Administrator',
+      phone: '+91 98000 00000',
       isActive: true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     },
     tenant: {
       id: 't-apex-001',
-      name: 'Apex Motors Group',
-      slug: 'apex-motors',
+      name: 'Dealership Group',
+      slug: 'dealership',
       status: 'active' as const,
       dealerModel: 'mixed' as const,
-      primaryContactName: 'Vikramaditya Singhania',
-      primaryEmail: 'admin@apexmotors.com',
-      primaryPhone: '+91 98200 11223',
+      primaryContactName: 'Administrator',
+      primaryEmail: 'admin@dealership.com',
+      primaryPhone: '+91 98000 00000',
       currency: 'INR',
       timezone: 'Asia/Kolkata',
       settings: {},
@@ -110,36 +84,13 @@ const initialData: DataStore = {
       tenantId: 't-apex-001',
       userId: 'u-admin-001',
       roleKey: 'tenant_admin' as const,
-      branchIds: ['b-dt-001', 'b-wb-002'],
+      branchIds: [],
       branchScope: 'all' as const,
       isActive: true,
       createdAt: new Date().toISOString(),
     },
     permissions: ['all'],
-    branches: [
-      {
-        id: 'b-dt-001',
-        tenantId: 't-apex-001',
-        code: 'DEL-01',
-        name: 'Apex Downtown Flagship',
-        address: { city: 'New Delhi' },
-        timezone: 'Asia/Kolkata',
-        isActive: true,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      },
-      {
-        id: 'b-wb-002',
-        tenantId: 't-apex-001',
-        code: 'MUM-02',
-        name: 'Apex Westbay Hub',
-        address: { city: 'Mumbai' },
-        timezone: 'Asia/Kolkata',
-        isActive: true,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      },
-    ],
+    branches: [],
   },
   customers: [],
   leads: [],
@@ -159,10 +110,29 @@ class DataService {
   constructor() {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('crm_store');
-      const saved = localStorage.getItem('crm_store_clean_v1');
+      localStorage.removeItem('crm_store_clean_v1');
+      const saved = localStorage.getItem('crm_store_clean_v2');
       if (saved) {
         try {
-          this.data = JSON.parse(saved);
+          const parsed = JSON.parse(saved);
+          // Sanitize any stale mock records from earlier versions
+          const mockCustIds = new Set(['cust-101', 'cust-102', 'cust-103', 'cust-001', 'cust-002', 'cust-003']);
+          const mockLeadIds = new Set(['lead-201', 'lead-202', 'lead-203', 'lead-001', 'lead-002', 'lead-003']);
+          const mockDealIds = new Set(['deal-301', 'deal-001']);
+          const mockBranchIds = new Set(['b-dt-001', 'b-wb-002', 'b-001', 'b-002']);
+          if (Array.isArray(parsed.customers)) {
+            parsed.customers = parsed.customers.filter((c: any) => !mockCustIds.has(c.id));
+          }
+          if (Array.isArray(parsed.leads)) {
+            parsed.leads = parsed.leads.filter((l: any) => !mockLeadIds.has(l.id));
+          }
+          if (Array.isArray(parsed.deals)) {
+            parsed.deals = parsed.deals.filter((d: any) => !mockDealIds.has(d.id));
+          }
+          if (Array.isArray(parsed.branches)) {
+            parsed.branches = parsed.branches.filter((b: any) => !mockBranchIds.has(b.id));
+          }
+          this.data = parsed;
         } catch (e) {
           console.error('Failed to parse local storage', e);
         }
@@ -178,7 +148,7 @@ class DataService {
 
   private persist() {
     if (typeof window !== 'undefined') {
-      localStorage.setItem('crm_store_clean_v1', JSON.stringify(this.data));
+      localStorage.setItem('crm_store_clean_v2', JSON.stringify(this.data));
       window.dispatchEvent(new CustomEvent('crm-data-changed'));
     }
   }
@@ -191,6 +161,7 @@ class DataService {
     this.isSyncing = true;
     try {
       await Promise.allSettled([
+        this.fetchBranches(),
         this.fetchCustomers(),
         this.fetchLeads(),
         this.fetchVehicles(),
@@ -208,8 +179,100 @@ class DataService {
     return this.data.userContext;
   }
 
-  getBranches() {
-    return this.data.branches;
+  getBranches(): Branch[] {
+    return this.data.branches || [];
+  }
+
+  async fetchBranches(): Promise<Branch[]> {
+    if (isSupabaseConfigured()) {
+      try {
+        const { data, error } = await supabase
+          .from('branches')
+          .select('*')
+          .order('created_at', { ascending: true });
+
+        if (error) {
+          console.warn('[API] Supabase fetchBranches error:', error.message);
+        } else if (data && Array.isArray(data)) {
+          const remoteBranches: Branch[] = data.map((r: any) => ({
+            id: r.id,
+            tenantId: r.tenant_id || 't-apex-001',
+            code: r.code || '',
+            name: r.name || '',
+            address: r.address || { line1: '', city: '', state: '', pincode: '' },
+            phone: r.phone || '',
+            email: r.email || '',
+            timezone: r.timezone || 'Asia/Kolkata',
+            isActive: r.is_active !== false,
+            createdAt: r.created_at || new Date().toISOString(),
+            updatedAt: r.updated_at || new Date().toISOString(),
+          }));
+
+          const remoteIds = new Set(remoteBranches.map((b) => b.id));
+          const localOnly = (this.data.branches || []).filter(
+            (b) => !remoteIds.has(b.id) && !['b-dt-001', 'b-wb-002', 'b-001', 'b-002'].includes(b.id)
+          );
+          this.data.branches = [...remoteBranches, ...localOnly];
+          this.persist();
+          return this.data.branches;
+        }
+      } catch (err) {
+        console.warn('[API] fetchBranches unexpected error:', err);
+      }
+    }
+    return this.data.branches || [];
+  }
+
+  async saveBranch(branch: Branch): Promise<Branch> {
+    if (!this.data.branches) this.data.branches = [];
+    const existingIndex = this.data.branches.findIndex((b) => b.id === branch.id);
+    if (existingIndex >= 0) {
+      this.data.branches[existingIndex] = { ...branch, updatedAt: new Date().toISOString() };
+    } else {
+      this.data.branches.push(branch);
+    }
+    this.persist();
+
+    if (isSupabaseConfigured()) {
+      try {
+        const payload = {
+          id: branch.id,
+          tenant_id: branch.tenantId || 't-apex-001',
+          code: branch.code,
+          name: branch.name,
+          address: branch.address || {},
+          phone: branch.phone || null,
+          email: branch.email || null,
+          timezone: branch.timezone || 'Asia/Kolkata',
+          is_active: branch.isActive !== false,
+          updated_at: new Date().toISOString(),
+        };
+        const { error } = await supabase.from('branches').upsert(payload);
+        if (error) {
+          console.warn('[API] Supabase saveBranch upsert error:', error.message);
+        }
+      } catch (err) {
+        console.warn('[API] saveBranch unexpected error:', err);
+      }
+    }
+    return branch;
+  }
+
+  async deleteBranch(id: string): Promise<boolean> {
+    this.data.branches = (this.data.branches || []).filter((b) => b.id !== id);
+    this.persist();
+
+    if (isSupabaseConfigured()) {
+      try {
+        const { error } = await supabase.from('branches').delete().eq('id', id);
+        if (error) {
+          console.warn('[API] Supabase deleteBranch error:', error.message);
+        }
+      } catch (err) {
+        console.warn('[API] deleteBranch unexpected error:', err);
+      }
+    }
+    return true;
   }
 
   // ==========================================
@@ -435,8 +498,8 @@ class DataService {
                 ? `Buyer for ${r.preferred_model}`
                 : 'Walk-in Client',
               customer: cust,
-              assigneeName: 'John Fernandes',
-              branchName: 'Apex Downtown Flagship',
+              assigneeName: '',
+              branchName: 'Main Showroom',
             };
             if (cust?.phone) (mappedLead as any).customerPhone = cust.phone;
             if (cust?.email) (mappedLead as any).customerEmail = cust.email;
@@ -470,8 +533,8 @@ class DataService {
       assignedTo: leadData.assignedTo || 'u-sales-003',
       budgetMin: Number(leadData.budgetMin) || 1500000,
       budgetMax: Number(leadData.budgetMax) || 2000000,
-      preferredMake: leadData.preferredMake || 'Hyundai',
-      preferredModel: leadData.preferredModel || 'Creta',
+      preferredMake: leadData.preferredMake || '',
+      preferredModel: leadData.preferredModel || '',
       preferredFuelType: leadData.preferredFuelType || 'Petrol',
       score: Number(leadData.score) || 75,
       notes: leadData.notes || '',
@@ -481,8 +544,8 @@ class DataService {
       updatedAt: new Date().toISOString(),
       customerName: leadData.customerName || (cust ? `${cust.firstName} ${cust.lastName}` : 'Walk-in Customer'),
       customer: cust,
-      assigneeName: 'John Fernandes',
-      branchName: branch ? branch.name : 'Apex Downtown Flagship',
+      assigneeName: leadData.assignedToName || '',
+      branchName: branch ? branch.name : 'Main Showroom',
     };
     if (leadData.customerPhone || cust?.phone) {
       (newLead as any).customerPhone = leadData.customerPhone || cust?.phone;
@@ -641,7 +704,7 @@ class DataService {
             version: r.version || 1,
             createdAt: r.created_at || new Date().toISOString(),
             updatedAt: r.updated_at || new Date().toISOString(),
-            branchName: 'Apex Downtown Flagship',
+            branchName: 'Main Showroom',
           }));
 
           const remoteIds = new Set(remoteVehicles.map((v) => v.id));
@@ -701,7 +764,7 @@ class DataService {
       version: 1,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      branchName: 'Apex Downtown Flagship',
+      branchName: 'Main Showroom',
     };
 
     this.data.vehicles.unshift(newVeh);
@@ -816,7 +879,7 @@ class DataService {
       createdAt: new Date().toISOString(),
       customerName: cust ? `${cust.firstName} ${cust.lastName}` : 'Customer',
       vehicleName: veh ? `${veh.make} ${veh.model}` : 'Vehicle',
-      assignedToName: 'John Fernandes',
+      assignedToName: aptData.assignedToName || '',
     };
     this.data.appointments.unshift(newApt);
     this.persist();
@@ -999,7 +1062,7 @@ class DataService {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       customerName: cust ? `${cust.firstName} ${cust.lastName}` : 'Valued Client',
-      branchName: 'Apex Downtown Flagship',
+      branchName: 'Main Showroom',
     };
 
     this.data.quotations.unshift(newQ);

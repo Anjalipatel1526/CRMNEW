@@ -15,6 +15,7 @@ import {
   Employee,
   EmployeeAccessControl,
 } from '@/lib/employee-store';
+import Link from 'next/link';
 import {
   Users,
   Plus,
@@ -43,6 +44,11 @@ import {
   MapPin,
   Building2,
   X,
+  UserPlus,
+  Banknote,
+  Briefcase,
+  RefreshCw,
+  Sparkles,
 } from 'lucide-react';
 
 export default function EmployeesPage() {
@@ -117,19 +123,168 @@ export default function EmployeesPage() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedForLeave, setSelectedForLeave] = useState<Employee | null>(null);
   const [selectedForAccess, setSelectedForAccess] = useState<Employee | null>(null);
+  const [createdCredentialsModal, setCreatedCredentialsModal] = useState<{
+    isOpen: boolean;
+    employee: Employee | null;
+  }>({ isOpen: false, employee: null });
+  const [showTempPassInModal, setShowTempPassInModal] = useState(false);
+  const [showAccessRolesExpanded, setShowAccessRolesExpanded] = useState(true);
 
-  // New Employee Form
+  // New Employee Form matching user screenshot
   const [newEmpForm, setNewEmpForm] = useState({
     fullName: '',
-    email: '',
+    designation: '',
+    customDesignation: '',
     phone: '',
-    designation: 'Sales Executive',
+    email: '',
+    salary: '',
+    salaryCategory: 'Annual CTC',
+    isAdmin: false,
     department: 'Sales' as any,
     branch: 'Apex Downtown Flagship',
-    salary: '₹75,000 / mo',
+    employeeCode: '',
     password: '',
     avatarUrl: '',
+    accessControl: {
+      pipeline: true,
+      customers: true,
+      inventory: true,
+      procurement: false,
+      deals: true,
+      finance: false,
+      testDrives: true,
+      documents: false,
+      reports: false,
+      settings: false,
+    } as EmployeeAccessControl,
   });
+
+  const handleOpenAddModal = () => {
+    const currentList = getEmployees();
+    const nextCount = currentList.length + 1;
+    const nextCode = `EMP-${String(nextCount).padStart(3, '0')}`;
+    const generatedPass = `Temp@${Math.floor(1000 + Math.random() * 9000)}`;
+
+    setNewEmpForm({
+      fullName: '',
+      designation: '',
+      customDesignation: '',
+      phone: '',
+      email: '',
+      salary: '',
+      salaryCategory: 'Annual CTC',
+      isAdmin: false,
+      department: 'Sales',
+      branch: 'Apex Downtown Flagship',
+      employeeCode: nextCode,
+      password: generatedPass,
+      avatarUrl: '',
+      accessControl: {
+        pipeline: true,
+        customers: true,
+        inventory: true,
+        procurement: false,
+        deals: true,
+        finance: false,
+        testDrives: true,
+        documents: false,
+        reports: false,
+        settings: false,
+      },
+    });
+    setShowTempPassInModal(false);
+    setShowAccessRolesExpanded(true);
+    setIsAddModalOpen(true);
+  };
+
+  const handleRegeneratePassword = () => {
+    const generatedPass = `Temp@${Math.floor(1000 + Math.random() * 9000)}`;
+    setNewEmpForm((prev) => ({ ...prev, password: generatedPass }));
+  };
+
+  const handleRolePreset = (preset: 'all' | 'sales' | 'finance' | 'service' | 'clear') => {
+    if (preset === 'all') {
+      setNewEmpForm((prev) => ({
+        ...prev,
+        accessControl: {
+          pipeline: true,
+          customers: true,
+          inventory: true,
+          procurement: true,
+          deals: true,
+          finance: true,
+          testDrives: true,
+          documents: true,
+          reports: true,
+          settings: true,
+        },
+      }));
+    } else if (preset === 'sales') {
+      setNewEmpForm((prev) => ({
+        ...prev,
+        accessControl: {
+          pipeline: true,
+          customers: true,
+          inventory: true,
+          procurement: false,
+          deals: true,
+          finance: false,
+          testDrives: true,
+          documents: false,
+          reports: false,
+          settings: false,
+        },
+      }));
+    } else if (preset === 'finance') {
+      setNewEmpForm((prev) => ({
+        ...prev,
+        accessControl: {
+          pipeline: false,
+          customers: true,
+          inventory: false,
+          procurement: true,
+          deals: true,
+          finance: true,
+          testDrives: false,
+          documents: true,
+          reports: true,
+          settings: false,
+        },
+      }));
+    } else if (preset === 'service') {
+      setNewEmpForm((prev) => ({
+        ...prev,
+        accessControl: {
+          pipeline: false,
+          customers: true,
+          inventory: true,
+          procurement: false,
+          deals: false,
+          finance: false,
+          testDrives: true,
+          documents: true,
+          reports: false,
+          settings: false,
+        },
+      }));
+    } else {
+      setNewEmpForm((prev) => ({
+        ...prev,
+        accessControl: {
+          pipeline: false,
+          customers: false,
+          inventory: false,
+          procurement: false,
+          deals: false,
+          finance: false,
+          testDrives: false,
+          documents: false,
+          reports: false,
+          settings: false,
+        },
+      }));
+    }
+  };
 
   // Leave Form
   const [newLeaveForm, setNewLeaveForm] = useState({
@@ -164,33 +319,62 @@ export default function EmployeesPage() {
 
   const handleCreateEmployee = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newEmpForm.fullName.trim()) return;
+    if (!newEmpForm.fullName.trim()) {
+      showToast('Please enter the employee full name.');
+      return;
+    }
+
+    const resolvedRole =
+      newEmpForm.designation === 'custom'
+        ? (newEmpForm.customDesignation.trim() || 'Staff Member')
+        : (newEmpForm.designation || 'Sales Executive');
+
+    let resolvedDept = 'Sales';
+    const dLower = resolvedRole.toLowerCase();
+    if (dLower.includes('finance') || dLower.includes('account')) resolvedDept = 'Finance';
+    else if (dLower.includes('inventory') || dLower.includes('procurement')) resolvedDept = 'Operations';
+    else if (dLower.includes('service') || dLower.includes('tech')) resolvedDept = 'Service';
+    else if (dLower.includes('manager') || dLower.includes('director')) resolvedDept = 'Management';
+    if (newEmpForm.isAdmin) resolvedDept = 'Admin';
+
+    const empCode = newEmpForm.employeeCode.trim() || `EMP-${String(employees.length + 1).padStart(3, '0')}`;
+    const tempPass = newEmpForm.password.trim() || `Temp@${Math.floor(1000 + Math.random() * 9000)}`;
 
     const created = addEmployee({
       fullName: newEmpForm.fullName.trim(),
-      email: newEmpForm.email.trim(),
-      phone: newEmpForm.phone.trim(),
-      designation: newEmpForm.designation,
-      department: newEmpForm.department,
+      email: newEmpForm.email.trim() || `${empCode.toLowerCase()}@dealership.com`,
+      phone: newEmpForm.phone.trim() || '+91 98000 00000',
+      designation: resolvedRole,
+      department: resolvedDept as any,
       branch: newEmpForm.branch,
-      salary: newEmpForm.salary,
-      password: newEmpForm.password.trim() || `Apex@${Math.floor(1000 + Math.random() * 9000)}!Secure`,
+      salary: newEmpForm.salary.trim()
+        ? (newEmpForm.salary.startsWith('₹') ? newEmpForm.salary.trim() : `₹${newEmpForm.salary.trim()}`)
+        : (newEmpForm.salaryCategory === 'Annual CTC' ? '₹6,00,000' : '₹50,000'),
+      salaryCategory: newEmpForm.salaryCategory || 'Annual CTC',
+      isAdmin: newEmpForm.isAdmin,
+      employeeCode: empCode,
+      password: tempPass,
+      isTemporaryPassword: true,
+      mustChangePassword: true,
       avatarUrl: newEmpForm.avatarUrl || '',
+      accessControl: newEmpForm.isAdmin ? {
+        pipeline: true,
+        customers: true,
+        inventory: true,
+        procurement: true,
+        deals: true,
+        finance: true,
+        testDrives: true,
+        documents: true,
+        reports: true,
+        settings: true,
+      } : newEmpForm.accessControl,
     });
 
     setIsAddModalOpen(false);
-    setNewEmpForm({
-      fullName: '',
-      email: '',
-      phone: '',
-      designation: 'Sales Executive',
-      department: 'Sales',
-      branch: 'Apex Downtown Flagship',
-      salary: '₹75,000 / mo',
-      password: '',
-      avatarUrl: '',
-    });
-    showToast(`Employee ${created.fullName} (${created.employeeCode}) created successfully!`);
+    setEmployees(getEmployees());
+    setCreatedCredentialsModal({ isOpen: true, employee: created });
+    showToast(`Employee ${created.fullName} (${created.employeeCode}) onboarded successfully!`);
   };
 
   const handleApplyLeave = (e: React.FormEvent) => {
@@ -287,14 +471,39 @@ export default function EmployeesPage() {
           </p>
         </div>
 
-        <button
-          type="button"
-          className="unique-lead-submit-btn"
-          onClick={() => setIsAddModalOpen(true)}
-        >
-          <Plus size={15} />
-          <span className="btn-text">Add New Employee</span>
-        </button>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <Link
+            href="/emplogin"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '9px 16px',
+              borderRadius: '12px',
+              border: '1.5px solid #C7D2FE',
+              backgroundColor: '#EEF2FF',
+              color: '#4F46E5',
+              fontWeight: 700,
+              fontSize: '0.84rem',
+              textDecoration: 'none',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <Shield size={15} />
+            <span>Employee Login Portal</span>
+            <ExternalLink size={13} />
+          </Link>
+
+          <button
+            type="button"
+            className="unique-lead-submit-btn"
+            onClick={handleOpenAddModal}
+          >
+            <Plus size={15} />
+            <span className="btn-text">Add Employee</span>
+          </button>
+        </div>
       </div>
 
       {/* Controls Bar */}
@@ -485,16 +694,94 @@ export default function EmployeesPage() {
                         {emp.employeeCode}
                       </span>
                       <span className="badge badge-green">{emp.department}</span>
+                      {emp.isAdmin && (
+                        <span
+                          style={{
+                            fontSize: '0.72rem',
+                            padding: '2px 8px',
+                            borderRadius: '6px',
+                            backgroundColor: '#FEF3C7',
+                            color: '#92400E',
+                            border: '1px solid #FDE68A',
+                            fontWeight: 700,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                          }}
+                        >
+                          <Shield size={11} /> Admin Privileges
+                        </span>
+                      )}
+                      {emp.mustChangePassword ? (
+                        <span
+                          style={{
+                            fontSize: '0.72rem',
+                            padding: '2px 8px',
+                            borderRadius: '6px',
+                            backgroundColor: '#FFFBEB',
+                            color: '#B45309',
+                            border: '1px solid #FDE68A',
+                            fontWeight: 700,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                          }}
+                        >
+                          <KeyRound size={11} /> Temp Password (1st Login Pending)
+                        </span>
+                      ) : (
+                        <span
+                          style={{
+                            fontSize: '0.72rem',
+                            padding: '2px 8px',
+                            borderRadius: '6px',
+                            backgroundColor: '#DCFCE7',
+                            color: '#166534',
+                            border: '1px solid #BBF7D0',
+                            fontWeight: 700,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                          }}
+                        >
+                          <CheckCircle2 size={11} /> Permanent Password Active
+                        </span>
+                      )}
                     </div>
 
-                    <div style={{ fontSize: '0.8rem', color: '#64748B', marginTop: '2px' }}>
-                      {emp.designation} • {emp.branch}
+                    <div style={{ fontSize: '0.8rem', color: '#64748B', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <span>{emp.designation} • {emp.branch}</span>
+                      <span>•</span>
+                      <span style={{ fontWeight: 600, color: '#334155' }}>
+                        {emp.salary || '₹6,00,000'} ({emp.salaryCategory || 'Annual CTC'})
+                      </span>
                     </div>
                   </div>
                 </div>
 
-                {/* Right: Action Buttons (NO View Card button) */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {/* Right: Action Buttons */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <Link
+                    href={`/emplogin?emp=${emp.employeeCode}`}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: '8px',
+                      border: '1px solid #C7D2FE',
+                      background: '#EEF2FF',
+                      color: '#4F46E5',
+                      fontSize: '0.78rem',
+                      fontWeight: 700,
+                      textDecoration: 'none',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+                    }}
+                  >
+                    <KeyRound size={13} />
+                    <span>Staff Login</span>
+                  </Link>
+
                   <button
                     type="button"
                     onClick={() => setSelectedForLeave(emp)}
@@ -512,7 +799,7 @@ export default function EmployeesPage() {
                     }}
                   >
                     <Calendar size={13} style={{ color: '#2563EB' }} />
-                    <span>Leave Records ({emp.leaveHistory.length})</span>
+                    <span>Leave ({emp.leaveHistory.length})</span>
                   </button>
 
                   <button
@@ -533,7 +820,7 @@ export default function EmployeesPage() {
                     }}
                   >
                     <Shield size={13} />
-                    <span>Access Control</span>
+                    <span>Access Roles</span>
                   </button>
                 </div>
               </div>
@@ -543,233 +830,918 @@ export default function EmployeesPage() {
       )}
       </div>
 
-      {/* Add Employee Modal */}
+      {/* Add Employee Modal - Recreated to match user screenshot */}
       {isAddModalOpen && (
-        <Modal
-          isOpen={isAddModalOpen}
-          onClose={() => setIsAddModalOpen(false)}
-          title="Onboard New Dealership Staff / Employee"
-          maxWidth="700px"
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.55)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px',
+            overflowY: 'auto',
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsAddModalOpen(false);
+          }}
         >
-          <form onSubmit={handleCreateEmployee} className="inspo-form-wrapper">
-            {/* Employee Photo Upload Option */}
+          <div
+            style={{
+              backgroundColor: '#FFFFFF',
+              borderRadius: '24px',
+              maxWidth: '640px',
+              width: '100%',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              overflow: 'hidden',
+              border: '1px solid #E2E8F0',
+            }}
+          >
+            {/* Modal Header */}
             <div
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '16px',
-                padding: '12px 14px',
-                background: '#F8FAFC',
-                borderRadius: '12px',
-                border: '1.5px dashed #CBD5E1',
-                marginBottom: '16px',
+                justifyContent: 'space-between',
+                padding: '22px 28px 18px',
+                borderBottom: '1px solid #F1F5F9',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                <div
+                  style={{
+                    width: '44px',
+                    height: '44px',
+                    borderRadius: '14px',
+                    backgroundColor: '#EEF2FF',
+                    color: '#4F46E5',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 2px 8px rgba(79, 70, 229, 0.12)',
+                  }}
+                >
+                  <UserPlus size={22} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '1.22rem', fontWeight: 800, color: '#0F172A', margin: 0 }}>
+                    Add Employee
+                  </h3>
+                  <p style={{ fontSize: '0.82rem', color: '#64748B', margin: '3px 0 0 0', fontWeight: 500 }}>
+                    Configure staff access and login credentials
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsAddModalOpen(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#94A3B8',
+                  cursor: 'pointer',
+                  padding: '6px',
+                  borderRadius: '10px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'background-color 0.15s ease',
+                }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Body Form */}
+            <form onSubmit={handleCreateEmployee} style={{ padding: '24px 28px', maxHeight: 'calc(90vh - 140px)', overflowY: 'auto' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                {/* Row 1: Full Name & Designation / Role */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
+                  {/* Full Name */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#1E293B', marginBottom: '6px' }}>
+                      Full Name <span style={{ color: '#EF4444' }}>*</span>
+                    </label>
+                    <div style={{ position: 'relative' }}>
+                      <User
+                        size={16}
+                        style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }}
+                      />
+                      <input
+                        type="text"
+                        required
+                        value={newEmpForm.fullName}
+                        onChange={(e) => setNewEmpForm({ ...newEmpForm, fullName: e.target.value })}
+                        placeholder="e.g. John Doe"
+                        style={{
+                          width: '100%',
+                          height: '44px',
+                          padding: '0 12px 0 38px',
+                          borderRadius: '12px',
+                          border: '1.5px solid #E2E8F0',
+                          backgroundColor: '#FFFFFF',
+                          fontSize: '0.88rem',
+                          color: '#0F172A',
+                          outline: 'none',
+                          boxSizing: 'border-box',
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Designation / Role */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#1E293B', marginBottom: '6px' }}>
+                      Designation / Role
+                    </label>
+                    <div style={{ position: 'relative' }}>
+                      <Briefcase
+                        size={16}
+                        style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8', pointerEvents: 'none' }}
+                      />
+                      <select
+                        value={newEmpForm.designation}
+                        onChange={(e) => setNewEmpForm({ ...newEmpForm, designation: e.target.value })}
+                        style={{
+                          width: '100%',
+                          height: '44px',
+                          padding: '0 32px 0 38px',
+                          borderRadius: '12px',
+                          border: '1.5px solid #E2E8F0',
+                          backgroundColor: '#FFFFFF',
+                          fontSize: '0.88rem',
+                          color: newEmpForm.designation ? '#0F172A' : '#94A3B8',
+                          outline: 'none',
+                          boxSizing: 'border-box',
+                          cursor: 'pointer',
+                          appearance: 'none',
+                          backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394A3B8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
+                          backgroundRepeat: 'no-repeat',
+                          backgroundPosition: 'right 14px center',
+                        }}
+                      >
+                        <option value="" disabled>Select a Role</option>
+                        <option value="Sales Executive">Sales Executive</option>
+                        <option value="Sales Manager">Sales Manager</option>
+                        <option value="Finance Manager">Finance Manager</option>
+                        <option value="Inventory Manager">Inventory Manager</option>
+                        <option value="Service Advisor">Service Advisor</option>
+                        <option value="Technician">Technician</option>
+                        <option value="Receptionist">Receptionist</option>
+                        <option value="Telecaller">Telecaller</option>
+                        <option value="Accountant">Accountant</option>
+                        <option value="General Manager">General Manager</option>
+                        <option value="custom">+ Custom Role</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* If Custom Role selected */}
+                {newEmpForm.designation === 'custom' && (
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#1E293B', marginBottom: '6px' }}>
+                      Enter Custom Designation / Job Title
+                    </label>
+                    <input
+                      type="text"
+                      value={newEmpForm.customDesignation}
+                      onChange={(e) => setNewEmpForm({ ...newEmpForm, customDesignation: e.target.value })}
+                      placeholder="e.g. Lead Valuator & Inspector"
+                      style={{
+                        width: '100%',
+                        height: '42px',
+                        padding: '0 14px',
+                        borderRadius: '10px',
+                        border: '1.5px solid #C7D2FE',
+                        backgroundColor: '#F8FAFC',
+                        fontSize: '0.88rem',
+                        color: '#0F172A',
+                        outline: 'none',
+                        boxSizing: 'border-box',
+                      }}
+                    />
+                  </div>
+                )}
+
+                {/* Row 2: Phone Number & Email Address */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
+                  {/* Phone Number */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#1E293B', marginBottom: '6px' }}>
+                      Phone Number
+                    </label>
+                    <div style={{ position: 'relative' }}>
+                      <Phone
+                        size={16}
+                        style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }}
+                      />
+                      <input
+                        type="tel"
+                        value={newEmpForm.phone}
+                        onChange={(e) => setNewEmpForm({ ...newEmpForm, phone: e.target.value })}
+                        placeholder="e.g. +1 555 0199"
+                        style={{
+                          width: '100%',
+                          height: '44px',
+                          padding: '0 12px 0 38px',
+                          borderRadius: '12px',
+                          border: '1.5px solid #E2E8F0',
+                          backgroundColor: '#FFFFFF',
+                          fontSize: '0.88rem',
+                          color: '#0F172A',
+                          outline: 'none',
+                          boxSizing: 'border-box',
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Email Address */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#1E293B', marginBottom: '6px' }}>
+                      Email Address
+                    </label>
+                    <div style={{ position: 'relative' }}>
+                      <Mail
+                        size={16}
+                        style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }}
+                      />
+                      <input
+                        type="email"
+                        value={newEmpForm.email}
+                        onChange={(e) => setNewEmpForm({ ...newEmpForm, email: e.target.value })}
+                        placeholder="e.g. john@example.com"
+                        style={{
+                          width: '100%',
+                          height: '44px',
+                          padding: '0 12px 0 38px',
+                          borderRadius: '12px',
+                          border: '1.5px solid #E2E8F0',
+                          backgroundColor: '#FFFFFF',
+                          fontSize: '0.88rem',
+                          color: '#0F172A',
+                          outline: 'none',
+                          boxSizing: 'border-box',
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Row 3: Salary & Salary Category */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
+                  {/* Salary */}
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                      <label style={{ fontSize: '0.82rem', fontWeight: 700, color: '#1E293B' }}>
+                        {newEmpForm.salaryCategory === 'Annual CTC' ? 'Annual CTC (₹)' : 'Salary (₹)'}
+                      </label>
+                      {newEmpForm.salaryCategory === 'Annual CTC' && newEmpForm.salary && !isNaN(Number(newEmpForm.salary.replace(/[^0-9.]/g, ''))) && Number(newEmpForm.salary.replace(/[^0-9.]/g, '')) > 0 && (
+                        <span style={{ fontSize: '0.72rem', color: '#16A34A', fontWeight: 700 }}>
+                          ≈ ₹{Math.round(Number(newEmpForm.salary.replace(/[^0-9.]/g, '')) / 12).toLocaleString('en-IN')}/mo
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ position: 'relative' }}>
+                      <Banknote
+                        size={16}
+                        style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }}
+                      />
+                      <input
+                        type="text"
+                        value={newEmpForm.salary}
+                        onChange={(e) => setNewEmpForm({ ...newEmpForm, salary: e.target.value })}
+                        placeholder={newEmpForm.salaryCategory === 'Annual CTC' ? 'e.g. 600000' : 'e.g. 50000'}
+                        style={{
+                          width: '100%',
+                          height: '44px',
+                          padding: '0 12px 0 38px',
+                          borderRadius: '12px',
+                          border: '1.5px solid #E2E8F0',
+                          backgroundColor: '#FFFFFF',
+                          fontSize: '0.88rem',
+                          color: '#0F172A',
+                          outline: 'none',
+                          boxSizing: 'border-box',
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Salary Category */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#1E293B', marginBottom: '6px' }}>
+                      Salary Category
+                    </label>
+                    <div style={{ position: 'relative' }}>
+                      <Calendar
+                        size={16}
+                        style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8', pointerEvents: 'none' }}
+                      />
+                      <select
+                        value={newEmpForm.salaryCategory}
+                        onChange={(e) => setNewEmpForm({ ...newEmpForm, salaryCategory: e.target.value })}
+                        style={{
+                          width: '100%',
+                          height: '44px',
+                          padding: '0 32px 0 38px',
+                          borderRadius: '12px',
+                          border: '1.5px solid #E2E8F0',
+                          backgroundColor: '#FFFFFF',
+                          fontSize: '0.88rem',
+                          color: '#0F172A',
+                          outline: 'none',
+                          boxSizing: 'border-box',
+                          cursor: 'pointer',
+                          appearance: 'none',
+                          backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394A3B8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
+                          backgroundRepeat: 'no-repeat',
+                          backgroundPosition: 'right 14px center',
+                        }}
+                      >
+                        <option value="Annual CTC">Annual CTC</option>
+                        <option value="Monthly Fixed">Monthly Fixed</option>
+                        <option value="Monthly + Commission">Monthly + Commission</option>
+                        <option value="Bi-Weekly">Bi-Weekly</option>
+                        <option value="Weekly">Weekly</option>
+                        <option value="Daily">Daily</option>
+                        <option value="Contract / Retainer">Contract / Retainer</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Row 4: Admin Privileges Banner Card */}
+                <div
+                  style={{
+                    backgroundColor: '#FEFCE8',
+                    border: '1.5px solid #FDE68A',
+                    borderRadius: '14px',
+                    padding: '14px 18px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '12px',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <Shield size={24} style={{ color: '#D97706', flexShrink: 0 }} />
+                    <div>
+                      <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#92400E' }}>
+                        Admin Privileges
+                      </div>
+                      <div style={{ fontSize: '0.78rem', color: '#78350F', marginTop: '2px' }}>
+                        Grant full system access and allow viewing all company documents/financial data.
+                      </div>
+                    </div>
+                  </div>
+
+                  <input
+                    type="checkbox"
+                    checked={newEmpForm.isAdmin}
+                    onChange={(e) => {
+                      const val = e.target.checked;
+                      setNewEmpForm({
+                        ...newEmpForm,
+                        isAdmin: val,
+                        accessControl: val ? {
+                          pipeline: true,
+                          customers: true,
+                          inventory: true,
+                          procurement: true,
+                          deals: true,
+                          finance: true,
+                          testDrives: true,
+                          documents: true,
+                          reports: true,
+                          settings: true,
+                        } : newEmpForm.accessControl,
+                      });
+                    }}
+                    style={{
+                      width: '20px',
+                      height: '20px',
+                      cursor: 'pointer',
+                      accentColor: '#4F46E5',
+                      borderRadius: '6px',
+                    }}
+                  />
+                </div>
+
+                {/* Row 5: Access Roles for Employee */}
+                {!newEmpForm.isAdmin && (
+                  <div
+                    style={{
+                      backgroundColor: '#F8FAFC',
+                      border: '1.5px solid #E2E8F0',
+                      borderRadius: '14px',
+                      padding: '14px 16px',
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        marginBottom: '10px',
+                      }}
+                    >
+                      <div style={{ fontSize: '0.8rem', fontWeight: 800, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        Module Access Roles
+                      </div>
+                      <div style={{ display: 'flex', gap: '4px' }}>
+                        <button
+                          type="button"
+                          onClick={() => handleRolePreset('all')}
+                          style={{ fontSize: '0.68rem', padding: '2px 8px', borderRadius: '6px', border: '1px solid #CBD5E1', background: '#FFFFFF', cursor: 'pointer', fontWeight: 700 }}
+                        >
+                          All
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRolePreset('sales')}
+                          style={{ fontSize: '0.68rem', padding: '2px 8px', borderRadius: '6px', border: '1px solid #CBD5E1', background: '#FFFFFF', cursor: 'pointer', fontWeight: 700 }}
+                        >
+                          Sales
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRolePreset('finance')}
+                          style={{ fontSize: '0.68rem', padding: '2px 8px', borderRadius: '6px', border: '1px solid #CBD5E1', background: '#FFFFFF', cursor: 'pointer', fontWeight: 700 }}
+                        >
+                          Finance
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRolePreset('service')}
+                          style={{ fontSize: '0.68rem', padding: '2px 8px', borderRadius: '6px', border: '1px solid #CBD5E1', background: '#FFFFFF', cursor: 'pointer', fontWeight: 700 }}
+                        >
+                          Service
+                        </button>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px' }}>
+                      {[
+                        { key: 'pipeline', label: 'Pipeline & Leads' },
+                        { key: 'customers', label: 'Customers' },
+                        { key: 'inventory', label: 'Inventory' },
+                        { key: 'deals', label: 'Deals & Quotes' },
+                        { key: 'testDrives', label: 'Test Drives' },
+                        { key: 'procurement', label: 'Procurement' },
+                        { key: 'finance', label: 'Finance & Accounts' },
+                        { key: 'documents', label: 'Invoices & Docs' },
+                        { key: 'reports', label: 'Reports / BI' },
+                        { key: 'settings', label: 'Settings' },
+                      ].map((item) => {
+                        const isChecked = !!(newEmpForm.accessControl as any)[item.key];
+                        return (
+                          <label
+                            key={item.key}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              padding: '6px 8px',
+                              borderRadius: '8px',
+                              border: isChecked ? '1px solid #C7D2FE' : '1px solid #E2E8F0',
+                              backgroundColor: isChecked ? '#EEF2FF' : '#FFFFFF',
+                              cursor: 'pointer',
+                              fontSize: '0.76rem',
+                              fontWeight: 600,
+                              color: isChecked ? '#4338CA' : '#475569',
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={(e) => {
+                                setNewEmpForm({
+                                  ...newEmpForm,
+                                  accessControl: {
+                                    ...newEmpForm.accessControl,
+                                    [item.key]: e.target.checked,
+                                  },
+                                });
+                              }}
+                              style={{ width: '14px', height: '14px', accentColor: '#4F46E5', cursor: 'pointer' }}
+                            />
+                            <span>{item.label}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Section: LOGIN CREDENTIALS */}
+                <div>
+                  <div
+                    style={{
+                      fontSize: '0.74rem',
+                      fontWeight: 800,
+                      color: '#64748B',
+                      letterSpacing: '0.06em',
+                      textTransform: 'uppercase',
+                      marginBottom: '10px',
+                    }}
+                  >
+                    LOGIN CREDENTIALS
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
+                    {/* Employee ID */}
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#1E293B', marginBottom: '6px' }}>
+                        Employee ID
+                      </label>
+                      <input
+                        type="text"
+                        value={newEmpForm.employeeCode}
+                        onChange={(e) => setNewEmpForm({ ...newEmpForm, employeeCode: e.target.value })}
+                        placeholder="e.g. EMP-001"
+                        style={{
+                          width: '100%',
+                          height: '44px',
+                          padding: '0 14px',
+                          borderRadius: '12px',
+                          border: '1.5px solid #E2E8F0',
+                          backgroundColor: '#F8FAFC',
+                          fontFamily: 'monospace',
+                          fontWeight: 700,
+                          fontSize: '0.88rem',
+                          color: '#2563EB',
+                          outline: 'none',
+                          boxSizing: 'border-box',
+                        }}
+                      />
+                    </div>
+
+                    {/* Temporary Password */}
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                        <label style={{ fontSize: '0.82rem', fontWeight: 700, color: '#1E293B' }}>
+                          Temporary Password
+                        </label>
+                        <button
+                          type="button"
+                          onClick={handleRegeneratePassword}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: '#4F46E5',
+                            fontSize: '0.72rem',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '3px',
+                          }}
+                        >
+                          <RefreshCw size={11} /> Regenerate
+                        </button>
+                      </div>
+                      <div style={{ position: 'relative' }}>
+                        <Lock
+                          size={16}
+                          style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }}
+                        />
+                        <input
+                          type={showTempPassInModal ? 'text' : 'password'}
+                          value={newEmpForm.password}
+                          onChange={(e) => setNewEmpForm({ ...newEmpForm, password: e.target.value })}
+                          placeholder="Temporary password"
+                          style={{
+                            width: '100%',
+                            height: '44px',
+                            padding: '0 40px 0 38px',
+                            borderRadius: '12px',
+                            border: '1.5px solid #E2E8F0',
+                            backgroundColor: '#FFFFFF',
+                            fontFamily: 'monospace',
+                            fontSize: '0.88rem',
+                            color: '#0F172A',
+                            outline: 'none',
+                            boxSizing: 'border-box',
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowTempPassInModal(!showTempPassInModal)}
+                          style={{
+                            position: 'absolute',
+                            right: '12px',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            background: 'none',
+                            border: 'none',
+                            color: '#94A3B8',
+                            cursor: 'pointer',
+                            padding: '4px',
+                          }}
+                        >
+                          {showTempPassInModal ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '10px 14px',
+                      backgroundColor: '#F8FAFC',
+                      borderRadius: '10px',
+                      border: '1px solid #E2E8F0',
+                      marginTop: '12px',
+                      fontSize: '0.76rem',
+                      color: '#475569',
+                      lineHeight: '1.4',
+                    }}
+                  >
+                    <KeyRound size={15} style={{ color: '#4F46E5', flexShrink: 0 }} />
+                    <span>
+                      <strong>First-Time Login Workflow:</strong> Give this temporary password to the employee. When they log in at <code>/emplogin</code>, they will be required to create their own personal password before accessing the system.
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Footer Buttons */}
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginTop: '24px',
+                  paddingTop: '20px',
+                  borderTop: '1px solid #F1F5F9',
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setIsAddModalOpen(false)}
+                  style={{
+                    padding: '11px 26px',
+                    borderRadius: '12px',
+                    border: '1.5px solid #CBD5E1',
+                    backgroundColor: '#FFFFFF',
+                    color: '#475569',
+                    fontSize: '0.9rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  style={{
+                    padding: '11px 32px',
+                    borderRadius: '12px',
+                    backgroundColor: '#4F46E5',
+                    color: '#FFFFFF',
+                    fontSize: '0.92rem',
+                    fontWeight: 700,
+                    border: 'none',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 14px rgba(79, 70, 229, 0.35)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <span>Create Login</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Pop-up Credentials Modal when employee is created */}
+      {createdCredentialsModal.isOpen && createdCredentialsModal.employee && (
+        <Modal
+          isOpen={createdCredentialsModal.isOpen}
+          onClose={() => setCreatedCredentialsModal({ isOpen: false, employee: null })}
+          title="Employee Login Created Successfully!"
+          maxWidth="560px"
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '18px', padding: '4px' }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                padding: '14px',
+                backgroundColor: '#DCFCE7',
+                borderRadius: '14px',
+                border: '1px solid #86EFAC',
               }}
             >
               <div
                 style={{
-                  width: '64px',
-                  height: '64px',
-                  borderRadius: '14px',
-                  backgroundColor: '#E2E8F0',
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '10px',
+                  backgroundColor: '#16A34A',
+                  color: '#FFFFFF',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   flexShrink: 0,
-                  overflow: 'hidden',
-                  border: '1.5px solid #CBD5E1',
-                  boxShadow: '0 2px 6px rgba(0,0,0,0.05)',
                 }}
               >
-                {newEmpForm.avatarUrl ? (
-                  <img
-                    src={newEmpForm.avatarUrl}
-                    alt="Preview"
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                  />
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', color: '#64748B' }}>
-                    <Camera size={22} style={{ color: '#0284C7' }} />
-                    <span style={{ fontSize: '0.62rem', fontWeight: 700 }}>PHOTO</span>
-                  </div>
-                )}
+                <CheckCircle2 size={24} />
               </div>
-
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: '0.84rem', fontWeight: 700, color: '#0F172A', marginBottom: '2px' }}>
-                  Employee Profile Photo <span style={{ fontSize: '0.74rem', color: '#64748B', fontWeight: 500 }}>(Optional)</span>
+              <div>
+                <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#14532D' }}>
+                  {createdCredentialsModal.employee.fullName}
                 </div>
-                <div style={{ fontSize: '0.74rem', color: '#64748B', marginBottom: '8px' }}>
-                  Upload a photo from your computer or pick from dealership executive avatars.
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                  <label
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '5px',
-                      padding: '5px 12px',
-                      borderRadius: '8px',
-                      border: '1px solid #CBD5E1',
-                      background: '#FFFFFF',
-                      fontSize: '0.76rem',
-                      fontWeight: 700,
-                      color: '#0F172A',
-                      cursor: 'pointer',
-                      boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-                    }}
-                  >
-                    <Upload size={13} style={{ color: '#0284C7' }} />
-                    <span>Upload Image</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => handleImageFileChange(e, 'add')}
-                      style={{ display: 'none' }}
-                    />
-                  </label>
-
-                  {newEmpForm.avatarUrl && (
-                    <button
-                      type="button"
-                      onClick={() => setNewEmpForm((prev) => ({ ...prev, avatarUrl: '' }))}
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                        padding: '5px 10px',
-                        borderRadius: '8px',
-                        border: '1px solid #FCA5A5',
-                        background: '#FEF2F2',
-                        color: '#DC2626',
-                        fontSize: '0.74rem',
-                        fontWeight: 700,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      <Trash2 size={12} /> Remove
-                    </button>
-                  )}
-
-                  {/* Preset Avatar options */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: 'auto' }}>
-                    <span style={{ fontSize: '0.7rem', color: '#64748B', fontWeight: 600 }}>Presets:</span>
-                    {PRESET_AVATARS.slice(0, 4).map((url, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => setNewEmpForm((prev) => ({ ...prev, avatarUrl: url }))}
-                        title={`Select preset avatar ${idx + 1}`}
-                        style={{
-                          width: '26px',
-                          height: '26px',
-                          borderRadius: '50%',
-                          border: newEmpForm.avatarUrl === url ? '2px solid #0284C7' : '1px solid #CBD5E1',
-                          overflow: 'hidden',
-                          cursor: 'pointer',
-                          padding: 0,
-                        }}
-                      >
-                        <img src={url} alt={`Preset ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      </button>
-                    ))}
-                  </div>
+                <div style={{ fontSize: '0.78rem', color: '#166534' }}>
+                  {createdCredentialsModal.employee.designation} • Temporary credentials generated
                 </div>
               </div>
             </div>
 
-            <div className="form-grid-2">
-              <div className="form-group">
-                <label className="form-label">Full Name <span className="req-star">*</span></label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={newEmpForm.fullName}
-                  onChange={(e) => setNewEmpForm({ ...newEmpForm, fullName: e.target.value })}
-                  placeholder="e.g. Rahul Deshmukh"
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Designation</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={newEmpForm.designation}
-                  onChange={(e) => setNewEmpForm({ ...newEmpForm, designation: e.target.value })}
-                  placeholder="e.g. Sales Executive"
-                  required
-                />
-              </div>
+            <div style={{ fontSize: '0.84rem', color: '#475569', lineHeight: '1.45' }}>
+              Share these temporary login details with the staff member. They will be prompted to create their own permanent password upon signing in.
             </div>
 
-            <div className="form-grid-3">
-              <div className="form-group">
-                <label className="form-label">Department</label>
-                <select
-                  className="form-select"
-                  value={newEmpForm.department}
-                  onChange={(e) => setNewEmpForm({ ...newEmpForm, department: e.target.value as any })}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {/* Employee ID */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '12px 14px',
+                  borderRadius: '12px',
+                  backgroundColor: '#F8FAFC',
+                  border: '1.5px solid #E2E8F0',
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: '0.7rem', color: '#64748B', fontWeight: 700, textTransform: 'uppercase' }}>
+                    Employee ID
+                  </div>
+                  <div style={{ fontSize: '1rem', fontWeight: 800, color: '#1E293B', fontFamily: 'monospace' }}>
+                    {createdCredentialsModal.employee.employeeCode}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleCopy(createdCredentialsModal.employee!.employeeCode, 'cred-id')}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '6px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #CBD5E1',
+                    background: '#FFFFFF',
+                    fontSize: '0.76rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
                 >
-                  <option value="Sales">Sales</option>
-                  <option value="Finance">Finance & Accounts</option>
-                  <option value="Operations">Operations</option>
-                  <option value="Service">Service</option>
-                  <option value="Management">Management</option>
-                </select>
+                  {copiedId === 'cred-id' ? <Check size={14} style={{ color: '#16A34A' }} /> : <Copy size={14} />}
+                  <span>{copiedId === 'cred-id' ? 'Copied' : 'Copy ID'}</span>
+                </button>
               </div>
 
-              <div className="form-group">
-                <label className="form-label">Corporate Email</label>
-                <input
-                  type="email"
-                  className="form-input"
-                  value={newEmpForm.email}
-                  onChange={(e) => setNewEmpForm({ ...newEmpForm, email: e.target.value })}
-                  placeholder="rahul@apexmotors.com"
-                  required
-                />
+              {/* Temporary Password */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '12px 14px',
+                  borderRadius: '12px',
+                  backgroundColor: '#F8FAFC',
+                  border: '1.5px solid #E2E8F0',
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: '0.7rem', color: '#64748B', fontWeight: 700, textTransform: 'uppercase' }}>
+                    Temporary Password
+                  </div>
+                  <div style={{ fontSize: '1rem', fontWeight: 800, color: '#4F46E5', fontFamily: 'monospace' }}>
+                    {createdCredentialsModal.employee.password}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleCopy(createdCredentialsModal.employee!.password, 'cred-pass')}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '6px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #CBD5E1',
+                    background: '#FFFFFF',
+                    fontSize: '0.76rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {copiedId === 'cred-pass' ? <Check size={14} style={{ color: '#16A34A' }} /> : <Copy size={14} />}
+                  <span>{copiedId === 'cred-pass' ? 'Copied' : 'Copy Password'}</span>
+                </button>
               </div>
 
-              <div className="form-group">
-                <label className="form-label">Phone</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={newEmpForm.phone}
-                  onChange={(e) => setNewEmpForm({ ...newEmpForm, phone: e.target.value })}
-                  placeholder="+91 98765 43210"
-                  required
-                />
+              {/* Portal URL */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '12px 14px',
+                  borderRadius: '12px',
+                  backgroundColor: '#EEF2FF',
+                  border: '1.5px solid #C7D2FE',
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: '0.7rem', color: '#4338CA', fontWeight: 700, textTransform: 'uppercase' }}>
+                    Staff Login URL
+                  </div>
+                  <div style={{ fontSize: '0.86rem', fontWeight: 700, color: '#312E81' }}>
+                    /emplogin
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleCopy(`${window.location.origin}/emplogin`, 'cred-url')}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '6px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #C7D2FE',
+                    background: '#FFFFFF',
+                    color: '#4F46E5',
+                    fontSize: '0.76rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {copiedId === 'cred-url' ? <Check size={14} style={{ color: '#16A34A' }} /> : <Copy size={14} />}
+                  <span>{copiedId === 'cred-url' ? 'Copied' : 'Copy URL'}</span>
+                </button>
               </div>
             </div>
 
-            <div className="form-group" style={{ backgroundColor: '#F8FAFC', padding: '12px', borderRadius: '10px', border: '1px solid #E2E8F0' }}>
-              <label className="form-label" style={{ fontWeight: 800 }}>Dealership CRM Password</label>
-              <input
-                type="text"
-                className="form-input"
-                value={newEmpForm.password}
-                onChange={(e) => setNewEmpForm({ ...newEmpForm, password: e.target.value })}
-                placeholder="Leave blank to auto-generate password"
-              />
-            </div>
-
-            <div className="unique-modal-footer-bar" style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #E2E8F0' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
               <button
                 type="button"
-                className="unique-btn-cancel"
-                onClick={() => setIsAddModalOpen(false)}
+                onClick={() => setCreatedCredentialsModal({ isOpen: false, employee: null })}
+                style={{
+                  padding: '10px 20px',
+                  borderRadius: '10px',
+                  border: '1px solid #CBD5E1',
+                  background: '#FFFFFF',
+                  color: '#475569',
+                  fontWeight: 700,
+                  fontSize: '0.86rem',
+                  cursor: 'pointer',
+                }}
               >
-                <ChevronLeft size={16} /> Cancel
+                Done
               </button>
-              <button type="submit" className="unique-lead-submit-btn">
-                <span className="btn-text">Create Employee</span>
-                <ChevronRight size={15} className="btn-arrow-icon" />
-              </button>
+              <Link
+                href={`/emplogin?emp=${createdCredentialsModal.employee.employeeCode}`}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '10px 22px',
+                  borderRadius: '10px',
+                  backgroundColor: '#4F46E5',
+                  color: '#FFFFFF',
+                  fontWeight: 700,
+                  fontSize: '0.86rem',
+                  textDecoration: 'none',
+                  boxShadow: '0 4px 12px rgba(79, 70, 229, 0.3)',
+                }}
+              >
+                <span>Open Employee Login (/emplogin)</span>
+                <ExternalLink size={14} />
+              </Link>
             </div>
-          </form>
+          </div>
         </Modal>
       )}
 
@@ -1357,7 +2329,7 @@ export default function EmployeesPage() {
                       {selectedProfileCardEmp.designation}
                     </div>
                     <div style={{ fontSize: '0.78rem', color: '#16A34A', fontWeight: 800, marginTop: '3px' }}>
-                      {selectedProfileCardEmp.salary} <span style={{ color: '#64748B', fontWeight: 500 }}>(Base Monthly CTC)</span>
+                      {selectedProfileCardEmp.salary} <span style={{ color: '#64748B', fontWeight: 500 }}>({selectedProfileCardEmp.salaryCategory || 'Annual CTC'})</span>
                     </div>
                     <div style={{ fontSize: '0.72rem', color: '#94A3B8', marginTop: '2px' }}>
                       Joined: {selectedProfileCardEmp.joiningDate}

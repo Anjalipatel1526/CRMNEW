@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api-client';
+import { Branch } from '@crm/shared-types';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Modal } from '@/components/ui/Modal';
 import { WordFadeIn } from '@/components/ui/WordFadeIn';
@@ -165,8 +166,21 @@ export default function SettingsPage() {
   const [selectedDriveForComplete, setSelectedDriveForComplete] = useState<TestDrive | null>(null);
 
   // Branches & Modals
-  const [branches, setBranches] = useState(api.getBranches());
+  const [branches, setBranches] = useState<Branch[]>([]);
   const [isBranchModalOpen, setIsBranchModalOpen] = useState(false);
+  const [editingBranch, setEditingBranch] = useState<Branch | null>(null);
+  const [deleteConfirmBranch, setDeleteConfirmBranch] = useState<Branch | null>(null);
+  const [branchForm, setBranchForm] = useState({
+    name: '',
+    code: '',
+    line1: '',
+    city: '',
+    state: '',
+    pincode: '',
+    phone: '',
+    email: '',
+    isActive: true,
+  });
   const [isCustomModuleModalOpen, setIsCustomModuleModalOpen] = useState(false);
   const [isNewEmployeeModalOpen, setIsNewEmployeeModalOpen] = useState(false);
   const [isNewTestDriveModalOpen, setIsNewTestDriveModalOpen] = useState(false);
@@ -190,8 +204,8 @@ export default function SettingsPage() {
     phone: '',
     designation: 'Sales Executive',
     department: 'Sales' as any,
-    branch: 'Apex Downtown Flagship',
-    salary: '₹75,000 / mo',
+    branch: '',
+    salary: '',
     password: '',
     avatarUrl: '',
   });
@@ -201,7 +215,7 @@ export default function SettingsPage() {
     leaveType: 'casual' as any,
     startDate: new Date().toISOString().split('T')[0],
     endDate: new Date(Date.now() + 86400000).toISOString().split('T')[0],
-    days: 2,
+    days: 1,
     reason: '',
   });
 
@@ -210,16 +224,16 @@ export default function SettingsPage() {
     customerName: '',
     customerPhone: '',
     customerEmail: '',
-    vehicleName: 'Mahindra XUV700 AX7L AWD (Midnight Black)',
-    vehicleReg: 'MH-02-EZ-4120',
+    vehicleName: '',
+    vehicleReg: '',
     date: new Date().toISOString().split('T')[0],
-    timeSlot: '04:00 PM - 04:45 PM',
+    timeSlot: '',
     durationMinutes: 45,
-    assignedStaff: 'John Fernandes',
+    assignedStaff: '',
     dlNumber: '',
-    kycVerified: true,
-    startOdo: 5000,
-    route: 'Western Express Highway Sprint (15 km)',
+    kycVerified: false,
+    startOdo: 0,
+    route: '',
   });
 
   // End drive form
@@ -232,7 +246,11 @@ export default function SettingsPage() {
     setModules(getModules());
     setEmployees(getEmployees());
     setTestDrives(getTestDrives());
+    setBranches(api.getBranches());
 
+    api.fetchBranches().then((data) => {
+      if (Array.isArray(data)) setBranches([...data]);
+    });
     fetchEmployees().then((data) => {
       if (Array.isArray(data)) setEmployees([...data]);
     });
@@ -243,21 +261,119 @@ export default function SettingsPage() {
     const handleModulesChanged = () => setModules(getModules());
     const handleEmployeesChanged = () => setEmployees(getEmployees());
     const handleTestDrivesChanged = () => setTestDrives(getTestDrives());
+    const handleBranchesChanged = () => setBranches(api.getBranches());
 
     window.addEventListener('crm-modules-changed', handleModulesChanged);
     window.addEventListener('crm-employees-changed', handleEmployeesChanged);
     window.addEventListener('crm-testdrives-changed', handleTestDrivesChanged);
+    window.addEventListener('crm-data-changed', handleBranchesChanged);
 
     return () => {
       window.removeEventListener('crm-modules-changed', handleModulesChanged);
       window.removeEventListener('crm-employees-changed', handleEmployeesChanged);
       window.removeEventListener('crm-testdrives-changed', handleTestDrivesChanged);
+      window.removeEventListener('crm-data-changed', handleBranchesChanged);
     };
   }, []);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3200);
+  };
+
+  // Branch Modal Openers & Actions
+  const openAddBranchModal = () => {
+    setEditingBranch(null);
+    setBranchForm({
+      name: '',
+      code: '',
+      line1: '',
+      city: '',
+      state: '',
+      pincode: '',
+      phone: '',
+      email: '',
+      isActive: true,
+    });
+    setIsBranchModalOpen(true);
+  };
+
+  const openEditBranchModal = (b: Branch) => {
+    setEditingBranch(b);
+    setBranchForm({
+      name: b.name || '',
+      code: b.code || '',
+      line1: b.address?.line1 || '',
+      city: b.address?.city || '',
+      state: b.address?.state || '',
+      pincode: b.address?.pincode || '',
+      phone: b.phone || '',
+      email: b.email || '',
+      isActive: b.isActive !== false,
+    });
+    setIsBranchModalOpen(true);
+  };
+
+  const handleSaveBranch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!branchForm.name.trim() || !branchForm.code.trim()) {
+      showToast('Branch name and branch code are required!');
+      return;
+    }
+
+    if (editingBranch) {
+      const updated: Branch = {
+        ...editingBranch,
+        name: branchForm.name.trim(),
+        code: branchForm.code.trim().toUpperCase(),
+        address: {
+          ...editingBranch.address,
+          line1: branchForm.line1.trim(),
+          city: branchForm.city.trim(),
+          state: branchForm.state.trim(),
+          pincode: branchForm.pincode.trim(),
+        },
+        phone: branchForm.phone.trim(),
+        email: branchForm.email.trim(),
+        isActive: branchForm.isActive,
+        updatedAt: new Date().toISOString(),
+      };
+      await api.saveBranch(updated);
+      setBranches(api.getBranches());
+      setIsBranchModalOpen(false);
+      setEditingBranch(null);
+      showToast(`Branch "${updated.name}" (${updated.code}) updated successfully!`);
+    } else {
+      const newBranch: Branch = {
+        id: 'b-' + Date.now(),
+        tenantId: 't-apex-001',
+        code: branchForm.code.trim().toUpperCase(),
+        name: branchForm.name.trim(),
+        address: {
+          line1: branchForm.line1.trim(),
+          city: branchForm.city.trim(),
+          state: branchForm.state.trim(),
+          pincode: branchForm.pincode.trim(),
+        },
+        phone: branchForm.phone.trim() || '+91 98765 43210',
+        email: branchForm.email.trim() || `${branchForm.code.toLowerCase()}@dealership.com`,
+        timezone: 'Asia/Kolkata',
+        isActive: branchForm.isActive,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      await api.saveBranch(newBranch);
+      setBranches(api.getBranches());
+      setIsBranchModalOpen(false);
+      showToast(`Branch "${newBranch.name}" (${newBranch.code}) created successfully!`);
+    }
+  };
+
+  const handleDeleteBranch = async (branch: Branch) => {
+    await api.deleteBranch(branch.id);
+    setBranches(api.getBranches());
+    setDeleteConfirmBranch(null);
+    showToast(`Branch "${branch.name}" (${branch.code}) deleted successfully.`);
   };
 
   // Toggle Module Plugin (Plugin In / Plugin Out)
@@ -560,101 +676,6 @@ export default function SettingsPage() {
           </p>
         </div>
 
-        {/* System Badges */}
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          <span
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 12px',
-              borderRadius: '999px',
-              background: '#E6F4EF',
-              color: '#6253F8',
-              fontSize: '0.78rem',
-              fontWeight: 800,
-            }}
-          >
-            <ShieldCheck size={14} /> Multi-Tenant Apex Group
-          </span>
-          <span
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 12px',
-              borderRadius: '999px',
-              background: '#EFF6FF',
-              color: '#1E40AF',
-              fontSize: '0.78rem',
-              fontWeight: 800,
-            }}
-          >
-            <Sparkles size={14} /> {modules.filter((m) => m.isPluggedIn).length} Modules Plugged In
-          </span>
-        </div>
-      </div>
-
-      {/* Company Profile & Onboarding Setup Banner */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '16px',
-          padding: '16px 20px',
-          background: 'linear-gradient(135deg, #7957F6 0%, #6253F8 50%, #4054F5 100%)',
-          borderRadius: '16px',
-          color: '#FFFFFF',
-          marginBottom: '20px',
-          boxShadow: '0 4px 15px rgba(30,68,59,0.15)',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <div
-            style={{
-              width: '44px',
-              height: '44px',
-              borderRadius: '12px',
-              backgroundColor: 'rgba(255,255,255,0.15)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Building2 size={22} style={{ color: '#FFFFFF' }} />
-          </div>
-          <div>
-            <div style={{ fontWeight: 800, fontSize: '0.96rem' }}>
-              Dealership Company Profile, Logo Watermark & Invoice Signatory
-            </div>
-            <div style={{ fontSize: '0.78rem', opacity: 0.85, marginTop: '2px' }}>
-              Configure company legal entity, GST/PAN credentials, upload logo for invoice watermarks, and draw authorized digital signature.
-            </div>
-          </div>
-        </div>
-
-        <Link
-          href="/onboarding"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '9px 18px',
-            backgroundColor: '#FFFFFF',
-            color: '#6253F8',
-            borderRadius: '10px',
-            fontWeight: 800,
-            fontSize: '0.82rem',
-            textDecoration: 'none',
-            boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          <Sparkles size={14} />
-          <span>Launch Onboarding Wizard →</span>
-        </Link>
       </div>
 
       {/* KPI Stats Row */}
@@ -1479,13 +1500,22 @@ export default function SettingsPage() {
       )}
 
       {/* ========================================================
-          TAB 4: DEALERSHIP BRANCHES
+          TAB 4: DEALERSHIP BRANCHES & SHOWROOMS
           ======================================================== */}
       {activeTab === 'branches' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+          {/* Header Bar */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+            <div>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text)', margin: 0 }}>
+                Dealership Branches & Showrooms
+              </h2>
+              <p style={{ fontSize: '0.82rem', color: 'var(--muted)', margin: '4px 0 0 0' }}>
+                Configure multi-location physical showrooms, regional fulfillment centers, and workshop facilities.
+              </p>
+            </div>
             <button
-              onClick={() => setIsBranchModalOpen(true)}
+              onClick={openAddBranchModal}
               className="unique-lead-submit-btn"
             >
               <Plus size={15} />
@@ -1493,38 +1523,183 @@ export default function SettingsPage() {
             </button>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '14px' }}>
-            {branches.map((b) => (
+          {branches.length === 0 ? (
+            <div
+              style={{
+                backgroundColor: '#FFFFFF',
+                border: '2px dashed #CBD5E1',
+                borderRadius: '16px',
+                padding: '48px 24px',
+                textAlign: 'center',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
               <div
-                key={b.id}
                 style={{
-                  backgroundColor: '#FFFFFF',
-                  border: '1.5px solid #E2E8F0',
-                  borderRadius: '16px',
-                  padding: '18px',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
+                  width: '56px',
+                  height: '56px',
+                  borderRadius: '50%',
+                  backgroundColor: '#EFF6FF',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: '14px',
+                  color: '#2563EB',
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                <Building2 size={28} />
+              </div>
+              <h3 style={{ margin: '0 0 6px 0', fontSize: '1.1rem', fontWeight: 800, color: '#0F172A' }}>
+                No Dealership Branches Configured
+              </h3>
+              <p style={{ margin: '0 0 18px 0', fontSize: '0.84rem', color: '#64748B', maxWidth: '420px' }}>
+                The initial mock branches have been removed. Add your first dealership showroom or branch office to begin.
+              </p>
+              <button
+                type="button"
+                onClick={openAddBranchModal}
+                className="unique-lead-submit-btn"
+              >
+                <Plus size={15} />
+                <span className="btn-text">Add Your First Branch</span>
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
+              {branches.map((b) => (
+                <div
+                  key={b.id}
+                  style={{
+                    backgroundColor: '#FFFFFF',
+                    border: '1.5px solid #E2E8F0',
+                    borderRadius: '16px',
+                    padding: '20px',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
                   <div>
-                    <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#2563EB', background: '#EFF6FF', padding: '2px 8px', borderRadius: '4px' }}>
-                      {b.code}
-                    </span>
-                    <h3 style={{ margin: '6px 0 0 0', fontSize: '1.05rem', fontWeight: 800, color: '#0F172A' }}>
+                    {/* Header Row: Code, Active Badge, and Action Buttons (Edit & Delete) */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span
+                          style={{
+                            fontSize: '0.72rem',
+                            fontWeight: 800,
+                            color: '#2563EB',
+                            background: '#EFF6FF',
+                            padding: '3px 8px',
+                            borderRadius: '6px',
+                            border: '1px solid #BFDBFE',
+                          }}
+                        >
+                          {b.code}
+                        </span>
+                        <span className={`badge ${b.isActive !== false ? 'badge-green' : 'badge-gray'}`}>
+                          {b.isActive !== false ? 'Active Showroom' : 'Inactive'}
+                        </span>
+                      </div>
+
+                      {/* Edit and Delete Actions */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <button
+                          type="button"
+                          onClick={() => openEditBranchModal(b)}
+                          title="Edit branch details"
+                          style={{
+                            width: '32px',
+                            height: '32px',
+                            borderRadius: '8px',
+                            border: '1px solid #E2E8F0',
+                            backgroundColor: '#F8FAFC',
+                            color: '#475569',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease',
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = '#EFF6FF';
+                            e.currentTarget.style.color = '#2563EB';
+                            e.currentTarget.style.borderColor = '#BFDBFE';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = '#F8FAFC';
+                            e.currentTarget.style.color = '#475569';
+                            e.currentTarget.style.borderColor = '#E2E8F0';
+                          }}
+                        >
+                          <Pencil size={14} />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setDeleteConfirmBranch(b)}
+                          title="Delete branch"
+                          style={{
+                            width: '32px',
+                            height: '32px',
+                            borderRadius: '8px',
+                            border: '1px solid #FEE2E2',
+                            backgroundColor: '#FEF2F2',
+                            color: '#DC2626',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease',
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = '#FEE2E2';
+                            e.currentTarget.style.color = '#B91C1C';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = '#FEF2F2';
+                            e.currentTarget.style.color = '#DC2626';
+                          }}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+
+                    <h3 style={{ margin: '0 0 10px 0', fontSize: '1.1rem', fontWeight: 800, color: '#0F172A' }}>
                       {b.name}
                     </h3>
-                  </div>
-                  <span className="badge badge-green">Active Showroom</span>
-                </div>
 
-                <div style={{ fontSize: '0.8rem', color: '#64748B', lineHeight: 1.5, marginTop: '8px' }}>
-                  <div>{b.address?.line1 || b.address?.city}</div>
-                  <div style={{ marginTop: '4px' }}>Phone: {b.phone}</div>
-                  <div>Email: {b.email}</div>
+                    {/* Location & Contact Meta */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.8rem', color: '#64748B' }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                        <MapPin size={14} style={{ color: '#6253F8', flexShrink: 0, marginTop: '2px' }} />
+                        <span>
+                          {[b.address?.line1, b.address?.city, b.address?.state, b.address?.pincode].filter(Boolean).join(', ') || 'Address not configured'}
+                        </span>
+                      </div>
+                      {b.phone && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <Phone size={14} style={{ color: '#059669', flexShrink: 0 }} />
+                          <span>{b.phone}</span>
+                        </div>
+                      )}
+                      {b.email && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <Mail size={14} style={{ color: '#2563EB', flexShrink: 0 }} />
+                          <span>{b.email}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -3177,73 +3352,205 @@ export default function SettingsPage() {
       )}
 
       {/* ========================================================
-          MODAL: ADD DEALERSHIP BRANCH
+          MODAL: ADD / EDIT DEALERSHIP BRANCH
           ======================================================== */}
       {isBranchModalOpen && (
         <Modal
           isOpen={isBranchModalOpen}
-          onClose={() => setIsBranchModalOpen(false)}
-          title="Add New Dealership Branch / Showroom"
+          onClose={() => {
+            setIsBranchModalOpen(false);
+            setEditingBranch(null);
+          }}
+          title={editingBranch ? 'Edit Dealership Branch / Showroom' : 'Add New Dealership Branch / Showroom'}
+          maxWidth="560px"
         >
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              const form = e.target as any;
-              const code = form.branchCode.value;
-              const name = form.branchName.value;
-              const address = form.address.value;
-              const phone = form.phone.value;
+          <form onSubmit={handleSaveBranch} className="inspo-form-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '12px' }}>
+              <div className="form-group">
+                <label className="form-label">Branch / Showroom Name *</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={branchForm.name}
+                  onChange={(e) => setBranchForm({ ...branchForm, name: e.target.value })}
+                  placeholder="e.g. Autobourn Downtown Hub"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Branch Code *</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={branchForm.code}
+                  onChange={(e) => setBranchForm({ ...branchForm, code: e.target.value })}
+                  placeholder="e.g. HQ-01, MUM-02"
+                  required
+                  style={{ textTransform: 'uppercase' }}
+                />
+              </div>
+            </div>
 
-              const newBranch = {
-                id: 'b-' + Date.now(),
-                tenantId: 't-apex-001',
-                code,
-                name,
-                address: { line1: address, city: 'Mumbai', state: 'Maharashtra', pincode: '400001' },
-                phone: phone || '+91 22 2200 4400',
-                email: `${code.toLowerCase()}@apexmotors.com`,
-                timezone: 'Asia/Kolkata',
-                isActive: true,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-              };
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div className="form-group">
+                <label className="form-label">Contact Phone</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={branchForm.phone}
+                  onChange={(e) => setBranchForm({ ...branchForm, phone: e.target.value })}
+                  placeholder="+91 22 2600 9900"
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Official Email</label>
+                <input
+                  type="email"
+                  className="form-input"
+                  value={branchForm.email}
+                  onChange={(e) => setBranchForm({ ...branchForm, email: e.target.value })}
+                  placeholder="branch@dealership.com"
+                />
+              </div>
+            </div>
 
-              setBranches([...branches, newBranch]);
-              setIsBranchModalOpen(false);
-              showToast(`Branch ${name} (${code}) configured successfully!`);
-            }}
-            className="inspo-form-wrapper"
-          >
             <div className="form-group">
-              <label className="form-label">Branch Code</label>
-              <input name="branchCode" type="text" className="form-input" placeholder="e.g. ES-03, BKC-04" required />
+              <label className="form-label">Physical Address / Line 1</label>
+              <input
+                type="text"
+                className="form-input"
+                value={branchForm.line1}
+                onChange={(e) => setBranchForm({ ...branchForm, line1: e.target.value })}
+                placeholder="Plot / Street / Building / Area"
+              />
             </div>
-            <div className="form-group">
-              <label className="form-label">Branch Name</label>
-              <input name="branchName" type="text" className="form-input" placeholder="e.g. Apex BKC Luxury Hub" required />
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+              <div className="form-group">
+                <label className="form-label">City</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={branchForm.city}
+                  onChange={(e) => setBranchForm({ ...branchForm, city: e.target.value })}
+                  placeholder="e.g. Mumbai"
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">State</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={branchForm.state}
+                  onChange={(e) => setBranchForm({ ...branchForm, state: e.target.value })}
+                  placeholder="e.g. Maharashtra"
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Pincode</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={branchForm.pincode}
+                  onChange={(e) => setBranchForm({ ...branchForm, pincode: e.target.value })}
+                  placeholder="e.g. 400001"
+                />
+              </div>
             </div>
-            <div className="form-group">
-              <label className="form-label">Physical Address</label>
-              <input name="address" type="text" className="form-input" placeholder="Plot / Street / Area, City" required />
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+              <input
+                type="checkbox"
+                id="branch-is-active"
+                checked={branchForm.isActive}
+                onChange={(e) => setBranchForm({ ...branchForm, isActive: e.target.checked })}
+                style={{ width: '16px', height: '16px', accentColor: '#2563EB', cursor: 'pointer' }}
+              />
+              <label htmlFor="branch-is-active" style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--text)', cursor: 'pointer' }}>
+                Showroom is currently active & operational
+              </label>
             </div>
-            <div className="form-group">
-              <label className="form-label">Contact Phone</label>
-              <input name="phone" type="text" className="form-input" placeholder="+91 22 2600 9900" />
-            </div>
-            <div className="unique-modal-footer-bar" style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #E2E8F0' }}>
+
+            <div className="unique-modal-footer-bar" style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #E2E8F0', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
               <button
                 type="button"
                 className="unique-btn-cancel"
-                onClick={() => setIsBranchModalOpen(false)}
+                onClick={() => {
+                  setIsBranchModalOpen(false);
+                  setEditingBranch(null);
+                }}
               >
                 <ChevronLeft size={16} /> Cancel
               </button>
               <button type="submit" className="unique-lead-submit-btn">
-                <span className="btn-text">Register Branch</span>
+                <span className="btn-text">{editingBranch ? 'Update Branch' : 'Register Branch'}</span>
                 <ChevronRight size={15} className="btn-arrow-icon" />
               </button>
             </div>
           </form>
+        </Modal>
+      )}
+
+      {/* ========================================================
+          MODAL: DELETE CONFIRMATION
+          ======================================================== */}
+      {deleteConfirmBranch && (
+        <Modal
+          isOpen={!!deleteConfirmBranch}
+          onClose={() => setDeleteConfirmBranch(null)}
+          title="Delete Dealership Branch"
+          maxWidth="450px"
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                padding: '12px 14px',
+                borderRadius: '12px',
+                backgroundColor: '#FEF2F2',
+                border: '1px solid #FECACA',
+                color: '#991B1B',
+              }}
+            >
+              <AlertCircle size={22} style={{ color: '#DC2626', flexShrink: 0 }} />
+              <div style={{ fontSize: '0.86rem', lineHeight: '1.4' }}>
+                Are you sure you want to delete <strong>{deleteConfirmBranch.name}</strong> ({deleteConfirmBranch.code})? This location will be removed from your showroom network.
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '8px' }}>
+              <button
+                type="button"
+                className="unique-btn-cancel"
+                onClick={() => setDeleteConfirmBranch(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDeleteBranch(deleteConfirmBranch)}
+                style={{
+                  backgroundColor: '#DC2626',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  borderRadius: '999px',
+                  padding: '7px 18px',
+                  fontSize: '0.84rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  boxShadow: '0 2px 6px rgba(220, 38, 38, 0.3)',
+                }}
+              >
+                <Trash2 size={14} />
+                <span>Delete Branch</span>
+              </button>
+            </div>
+          </div>
         </Modal>
       )}
     </div>

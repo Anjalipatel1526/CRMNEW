@@ -27,7 +27,7 @@ export interface EmployeeAccessControl {
 
 export interface Employee {
   id: string;
-  employeeCode: string; // e.g. APEX-EMP-001
+  employeeCode: string; // e.g. EMP-001 or APEX-EMP-001
   fullName: string;
   email: string;
   phone: string;
@@ -36,8 +36,12 @@ export interface Employee {
   branch: string;
   joiningDate: string;
   salary: string;
+  salaryCategory?: string; // e.g. Monthly, Bi-weekly, Hourly, Fixed, etc.
+  isAdmin?: boolean; // Admin Privileges toggle
   status: 'active' | 'on_leave' | 'inactive';
-  password: string; // Dealership CRM access password
+  password: string; // Dealership CRM access password (temporary or permanent)
+  isTemporaryPassword?: boolean; // true if assigned by admin as temporary password
+  mustChangePassword?: boolean; // true if employee must set their own password on first login
   avatarUrl?: string; // Dealership staff photo / avatar
   leaveBalance: {
     casual: { total: number; used: number };
@@ -96,7 +100,7 @@ export async function fetchEmployees(): Promise<Employee[]> {
           const existing = localMap.get(row.id);
           return {
             id: row.id,
-            employeeCode: existing?.employeeCode || `APEX-EMP-${row.id.slice(-3).toUpperCase()}`,
+            employeeCode: existing?.employeeCode || `EMP-${row.id.slice(-3).toUpperCase()}`,
             fullName: row.full_name || 'Staff Member',
             email: row.email || '',
             phone: row.phone || '+91 98000 00000',
@@ -104,9 +108,13 @@ export async function fetchEmployees(): Promise<Employee[]> {
             department: (row.department as any) || 'Sales',
             branch: existing?.branch || 'Apex Downtown Flagship',
             joiningDate: row.joined_at || new Date().toISOString().split('T')[0],
-            salary: existing?.salary || '₹60,000 / mo',
+            salary: existing?.salary || '₹6,00,000',
+            salaryCategory: existing?.salaryCategory || 'Annual CTC',
+            isAdmin: existing?.isAdmin ?? false,
             status: row.is_active ? 'active' : 'inactive',
-            password: existing?.password || `Apex@${Math.floor(1000 + Math.random() * 9000)}!Secure`,
+            password: existing?.password || `Temp@${Math.floor(1000 + Math.random() * 9000)}`,
+            isTemporaryPassword: existing?.isTemporaryPassword ?? true,
+            mustChangePassword: existing?.mustChangePassword ?? true,
             avatarUrl: existing?.avatarUrl || '',
             leaveBalance: existing?.leaveBalance || {
               casual: { total: 12, used: 0 },
@@ -159,21 +167,54 @@ export function saveEmployees(employees: Employee[]): void {
 export function addEmployee(employeeData: Partial<Employee>): Employee {
   const current = getEmployees();
   const count = current.length + 1;
-  const code = `APEX-EMP-${String(count).padStart(3, '0')}`;
+  const code = employeeData.employeeCode || `EMP-${String(count).padStart(3, '0')}`;
+  const isTemporary = employeeData.isTemporaryPassword !== undefined ? employeeData.isTemporaryPassword : true;
+  const mustChange = employeeData.mustChangePassword !== undefined ? employeeData.mustChangePassword : true;
+  const isAdmin = !!employeeData.isAdmin;
+
+  const defaultAllAccess: EmployeeAccessControl = {
+    pipeline: true,
+    customers: true,
+    inventory: true,
+    procurement: true,
+    deals: true,
+    finance: true,
+    testDrives: true,
+    documents: true,
+    reports: true,
+    settings: true,
+  };
+
+  const defaultStaffAccess: EmployeeAccessControl = {
+    pipeline: true,
+    customers: true,
+    inventory: true,
+    procurement: false,
+    deals: true,
+    finance: false,
+    testDrives: true,
+    documents: false,
+    reports: false,
+    settings: false,
+  };
 
   const newEmp: Employee = {
-    id: 'emp-' + Date.now(),
-    employeeCode: employeeData.employeeCode || code,
+    id: employeeData.id || 'emp-' + Date.now(),
+    employeeCode: code,
     fullName: employeeData.fullName || 'New Employee',
-    email: employeeData.email || `employee.${Date.now()}@apexmotors.com`,
+    email: employeeData.email || `employee.${Date.now()}@dealership.com`,
     phone: employeeData.phone || '+91 98000 00000',
     designation: employeeData.designation || 'Sales Executive',
-    department: employeeData.department || 'Sales',
-    branch: employeeData.branch || 'Apex Downtown Flagship',
+    department: employeeData.department || (isAdmin ? 'Admin' : 'Sales'),
+    branch: employeeData.branch || 'Main Showroom',
     joiningDate: employeeData.joiningDate || new Date().toISOString().split('T')[0],
-    salary: employeeData.salary || '₹60,000 / mo',
+    salary: employeeData.salary || '',
+    salaryCategory: employeeData.salaryCategory || 'Annual CTC',
+    isAdmin: isAdmin,
     status: employeeData.status || 'active',
-    password: employeeData.password || `Apex@${Math.floor(1000 + Math.random() * 9000)}!Secure`,
+    password: employeeData.password || `Temp@${Math.floor(1000 + Math.random() * 9000)}`,
+    isTemporaryPassword: isTemporary,
+    mustChangePassword: mustChange,
     avatarUrl: employeeData.avatarUrl || '',
     leaveBalance: {
       casual: { total: 12, used: 0 },
@@ -181,18 +222,7 @@ export function addEmployee(employeeData: Partial<Employee>): Employee {
       paid: { total: 18, used: 0 },
     },
     leaveHistory: [],
-    accessControl: employeeData.accessControl || {
-      pipeline: true,
-      customers: true,
-      inventory: true,
-      procurement: false,
-      deals: true,
-      finance: false,
-      testDrives: true,
-      documents: false,
-      reports: false,
-      settings: false,
-    },
+    accessControl: isAdmin ? defaultAllAccess : (employeeData.accessControl || defaultStaffAccess),
   };
 
   const updated = [newEmp, ...current];
@@ -268,6 +298,61 @@ export function updateEmployeePassword(id: string, newPassword: string): boolean
   emp.password = newPassword;
   saveEmployees(current);
   return true;
+}
+
+export function setEmployeePermanentPassword(id: string, newPassword: string): boolean {
+  const current = getEmployees();
+  const emp = current.find((e) => e.id === id);
+  if (!emp) return false;
+  emp.password = newPassword;
+  emp.mustChangePassword = false;
+  emp.isTemporaryPassword = false;
+  saveEmployees(current);
+  return true;
+}
+
+export function resetEmployeeTemporaryPassword(id: string, tempPassword?: string): { success: boolean; newTempPassword?: string } {
+  const current = getEmployees();
+  const emp = current.find((e) => e.id === id);
+  if (!emp) return { success: false };
+  const generated = tempPassword?.trim() || `Temp@${Math.floor(1000 + Math.random() * 9000)}`;
+  emp.password = generated;
+  emp.mustChangePassword = true;
+  emp.isTemporaryPassword = true;
+  saveEmployees(current);
+  return { success: true, newTempPassword: generated };
+}
+
+export function verifyEmployeeLogin(
+  idOrEmail: string,
+  pass: string
+): { success: boolean; employee?: Employee; requiresPasswordChange?: boolean; error?: string } {
+  const all = getEmployees();
+  const q = idOrEmail.trim().toLowerCase();
+  const emp = all.find(
+    (e) =>
+      e.employeeCode.toLowerCase() === q ||
+      e.email.toLowerCase() === q ||
+      (e.phone && e.phone.replace(/[^0-9]/g, '').endsWith(q.replace(/[^0-9]/g, '')))
+  );
+
+  if (!emp) {
+    return { success: false, error: 'No employee record found matching this Employee ID or Email.' };
+  }
+
+  if (emp.status === 'inactive') {
+    return { success: false, error: 'This employee account is inactive. Please contact your administrator.' };
+  }
+
+  if (emp.password !== pass) {
+    return {
+      success: false,
+      error: 'Invalid password. If this is your first time logging in, please enter the temporary password provided by your administrator.',
+    };
+  }
+
+  const requiresPasswordChange = emp.mustChangePassword === true || emp.isTemporaryPassword === true;
+  return { success: true, employee: emp, requiresPasswordChange };
 }
 
 export function updateEmployeeAccessControl(id: string, access: EmployeeAccessControl): boolean {

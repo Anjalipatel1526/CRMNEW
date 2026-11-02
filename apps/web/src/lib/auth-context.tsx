@@ -6,13 +6,21 @@ import { api } from './api-client';
 
 const SESSION_KEY = 'crm_active_user_session_v1';
 
+import type { EmployeeAccessControl } from './employee-store';
+
 export interface UserSession {
   isLoggedIn: boolean;
   userId: string;
   fullName: string;
   email: string;
   role: UserRole;
+  avatarUrl?: string;
+  phone?: string;
   loggedAt: string;
+  employeeId?: string;
+  employeeCode?: string;
+  isAdmin?: boolean;
+  accessControl?: EmployeeAccessControl;
 }
 
 export function saveUserSession(session: UserSession) {
@@ -51,7 +59,20 @@ interface AuthContextType {
   setBranch: (branchId: string) => void;
   activeRole: UserRole;
   switchRole: (role: UserRole) => void;
-  loginUser: (emailOrId: string, fullName?: string, role?: UserRole) => void;
+  loginUser: (
+    emailOrId: string,
+    fullName?: string,
+    role?: UserRole,
+    meta?: {
+      employeeId?: string;
+      employeeCode?: string;
+      isAdmin?: boolean;
+      avatarUrl?: string;
+      phone?: string;
+      accessControl?: EmployeeAccessControl;
+    }
+  ) => void;
+  updateUserProfile: (updates: { fullName?: string; email?: string; phone?: string; avatarUrl?: string }) => void;
   logout: () => void;
   isLoggedIn: boolean;
   isMounted: boolean;
@@ -74,6 +95,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const applySession = () => {
       const saved = getUserSession();
+      const localAvatar = typeof window !== 'undefined' ? localStorage.getItem('crm_user_avatar') : null;
       if (saved && saved.isLoggedIn) {
         setIsLoggedIn(true);
         setActiveRole(saved.role);
@@ -84,6 +106,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             id: saved.userId,
             email: saved.email,
             fullName: saved.fullName,
+            phone: saved.phone || prev.user.phone,
+            avatarUrl: saved.avatarUrl || localAvatar || prev.user.avatarUrl,
           },
           membership: {
             ...prev.membership,
@@ -92,6 +116,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }));
       } else {
         setIsLoggedIn(false);
+        if (localAvatar) {
+          setUserContext((prev) => ({
+            ...prev,
+            user: {
+              ...prev.user,
+              avatarUrl: localAvatar,
+            },
+          }));
+        }
       }
     };
 
@@ -101,16 +134,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       applySession();
     };
 
+    const handleProfileChanged = () => {
+      applySession();
+    };
+
     const handleStorage = (e: StorageEvent) => {
-      if (e.key === SESSION_KEY) {
+      if (e.key === SESSION_KEY || e.key === 'crm_user_avatar') {
         applySession();
       }
     };
 
     window.addEventListener('crm-session-changed', handleSessionChanged);
+    window.addEventListener('crm-user-profile-changed', handleProfileChanged);
     window.addEventListener('storage', handleStorage);
     return () => {
       window.removeEventListener('crm-session-changed', handleSessionChanged);
+      window.removeEventListener('crm-user-profile-changed', handleProfileChanged);
       window.removeEventListener('storage', handleStorage);
     };
   }, []);
@@ -137,10 +176,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const loginUser = (emailOrId: string, fullName?: string, role: UserRole = 'tenant_admin') => {
+  const loginUser = (
+    emailOrId: string,
+    fullName?: string,
+    role: UserRole = 'tenant_admin',
+    meta?: {
+      employeeId?: string;
+      employeeCode?: string;
+      isAdmin?: boolean;
+      avatarUrl?: string;
+      phone?: string;
+      accessControl?: EmployeeAccessControl;
+    }
+  ) => {
     const resolvedName = fullName || emailOrId.split('@')[0] || 'Administrator';
     const resolvedEmail = emailOrId.includes('@') ? emailOrId : `${emailOrId.toLowerCase().replace(/\s+/g, '')}@dealership.com`;
     const resolvedUserId = emailOrId;
+    const localAvatar = meta?.avatarUrl || (typeof window !== 'undefined' ? localStorage.getItem('crm_user_avatar') || '' : '');
 
     const newSession: UserSession = {
       isLoggedIn: true,
@@ -148,7 +200,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       fullName: resolvedName,
       email: resolvedEmail,
       role: role,
+      avatarUrl: localAvatar,
+      phone: meta?.phone,
       loggedAt: new Date().toISOString(),
+      employeeId: meta?.employeeId,
+      employeeCode: meta?.employeeCode,
+      isAdmin: meta?.isAdmin,
+      accessControl: meta?.accessControl,
     };
 
     saveUserSession(newSession);
@@ -162,12 +220,54 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         id: resolvedUserId,
         email: resolvedEmail,
         fullName: resolvedName,
+        phone: meta?.phone || prev.user.phone,
+        avatarUrl: localAvatar,
       },
       membership: {
         ...prev.membership,
         roleKey: role,
       },
     }));
+  };
+
+  const updateUserProfile = (updates: { fullName?: string; email?: string; phone?: string; avatarUrl?: string }) => {
+    const current = getUserSession() || {
+      isLoggedIn: true,
+      userId: userContext.user.id || 'usr-admin-01',
+      fullName: userContext.user.fullName || 'Administrator',
+      email: userContext.user.email || 'admin@dealership.com',
+      role: activeRole,
+      loggedAt: new Date().toISOString(),
+    };
+    const updated: UserSession = {
+      ...current,
+      ...(updates.fullName ? { fullName: updates.fullName } : {}),
+      ...(updates.email ? { email: updates.email } : {}),
+      ...(updates.phone !== undefined ? { phone: updates.phone } : {}),
+      ...(updates.avatarUrl !== undefined ? { avatarUrl: updates.avatarUrl } : {}),
+    };
+    saveUserSession(updated);
+
+    if (updates.avatarUrl !== undefined) {
+      if (updates.avatarUrl) {
+        localStorage.setItem('crm_user_avatar', updates.avatarUrl);
+      } else {
+        localStorage.removeItem('crm_user_avatar');
+      }
+    }
+
+    setUserContext((prev) => ({
+      ...prev,
+      user: {
+        ...prev.user,
+        ...(updates.fullName ? { fullName: updates.fullName } : {}),
+        ...(updates.email ? { email: updates.email } : {}),
+        ...(updates.phone !== undefined ? { phone: updates.phone } : {}),
+        ...(updates.avatarUrl !== undefined ? { avatarUrl: updates.avatarUrl } : {}),
+      },
+    }));
+
+    window.dispatchEvent(new CustomEvent('crm-user-profile-changed', { detail: updated }));
   };
 
   const logout = () => {
@@ -188,6 +288,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         activeRole,
         switchRole,
         loginUser,
+        updateUserProfile,
         logout,
         isLoggedIn,
         isMounted,
