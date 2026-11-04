@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { api } from '@/lib/api-client';
+import { getTestDrives } from '@/lib/test-drive-store';
 import { Customer } from '@crm/shared-types';
 import { Modal } from '@/components/ui/Modal';
 import {
@@ -25,6 +26,7 @@ import {
   ChevronLeft,
   Car,
   Tag,
+  Trash2,
 } from 'lucide-react';
 import { WordFadeIn } from '@/components/ui/WordFadeIn';
 
@@ -103,6 +105,7 @@ export default function CustomersPage() {
   const [deals, setDeals] = useState(api.getDeals());
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [customerToDelete, setCustomerToDelete] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
     // Fetch directly from Supabase backend on mount
@@ -155,9 +158,9 @@ export default function CustomersPage() {
             d.customerName.toLowerCase().trim())
     );
 
-    if (deal) {
+    if (deal && deal.vehicleName) {
       return {
-        car: deal.vehicleName || 'Vehicle Selected',
+        car: deal.vehicleName,
         fuelOrVariant: `${deal.stage.replace('_', ' ')} · ${deal.financeType ? deal.financeType.toUpperCase() : 'Active Deal'}`,
         price: `₹${(deal.grandTotal / 100000).toFixed(2)} Lakh`,
         priceLabel: 'Closing Value',
@@ -165,23 +168,26 @@ export default function CustomersPage() {
     }
 
     // 2. Check if customer has direct preferred vehicle override
-    if ((c as any).preferredVehicle && (c as any).budget) {
-      const b = String((c as any).budget).trim();
+    const userPreferred = (c as any).preferredVehicle ? String((c as any).preferredVehicle).trim() : '';
+    if (userPreferred && userPreferred !== 'Not specified') {
+      const b = (c as any).budget ? String((c as any).budget).trim() : '';
       const numMatch = b.replace(/[^0-9.]/g, '');
-      const formattedPrice = b.includes('Lakh') || b.includes('L')
-        ? (b.startsWith('₹') ? b : `₹${b}`)
-        : numMatch
-        ? `₹${numMatch} Lakh`
-        : b.startsWith('₹') ? b : `₹${b}`;
+      const formattedPrice = b
+        ? b.includes('Lakh') || b.includes('L')
+          ? (b.startsWith('₹') ? b : `₹${b}`)
+          : numMatch
+          ? `₹${numMatch} Lakh`
+          : b.startsWith('₹') ? b : `₹${b}`
+        : '—';
       return {
-        car: (c as any).preferredVehicle,
+        car: userPreferred,
         fuelOrVariant: (c as any).fuelType || 'Customer Selected',
         price: formattedPrice,
         priceLabel: 'Closing Value',
       };
     }
 
-    // 3. Check matching lead
+    // 3. Check matching lead only if a specific car was requested
     const lead = leads.find(
       (l) =>
         l.customerId === c.id ||
@@ -190,26 +196,102 @@ export default function CustomersPage() {
             l.customerName.toLowerCase().trim())
     );
 
-    if (lead) {
-      const exactAmount = lead.budgetMax || lead.budgetMin || 0;
-      return {
-        car: `${lead.preferredMake} ${lead.preferredModel}`.trim() || 'Vehicle Selection In Progress',
-        fuelOrVariant: `${lead.preferredFuelType || 'Fuel'} · ${lead.status.replace('_', ' ')}`,
-        price: exactAmount > 0 ? `₹${(exactAmount / 100000).toFixed(2)} Lakh` : '—',
-        priceLabel: 'Budget Range',
-      };
+    if (lead && (lead.preferredMake || lead.preferredModel)) {
+      const leadCar = `${lead.preferredMake || ''} ${lead.preferredModel || ''}`.trim();
+      if (leadCar) {
+        const exactAmount = lead.budgetMax || lead.budgetMin || 0;
+        return {
+          car: leadCar,
+          fuelOrVariant: `${lead.preferredFuelType || 'Fuel'} · ${lead.status.replace('_', ' ')}`,
+          price: exactAmount > 0 ? `₹${(exactAmount / 100000).toFixed(2)} Lakh` : '—',
+          priceLabel: 'Budget Range',
+        };
+      }
     }
 
     return {
-      car: (c as any).preferredVehicle || 'Not specified',
+      car: 'Not specified',
       fuelOrVariant: 'Direct Client',
       price: (c as any).budget ? String((c as any).budget) : '—',
       priceLabel: 'Closing Value',
     };
   };
 
+  const getCustomerTimeline = (c: Customer) => {
+    const items: { color: string; title: string; subtitle: string }[] = [];
+
+    // 1. Check for real deals
+    const cDeals = deals.filter(
+      (d) =>
+        d.customerId === c.id ||
+        (d.customerName &&
+          `${c.firstName} ${c.lastName}`.toLowerCase().trim() ===
+            d.customerName.toLowerCase().trim())
+    );
+
+    cDeals.forEach((d) => {
+      items.push({
+        color: '#2563EB',
+        title: `Deal ${d.stage.replace('_', ' ')}${d.vehicleName ? ` — ${d.vehicleName}` : ''}`,
+        subtitle: `Deal #${d.dealNumber || d.id} · Grand Total: ₹${(d.grandTotal / 100000).toFixed(2)} Lakh`,
+      });
+    });
+
+    // 2. Check for real test drives
+    try {
+      const cDrives = getTestDrives().filter(
+        (td) =>
+          (td.customerName &&
+            `${c.firstName} ${c.lastName}`.toLowerCase().trim() ===
+              td.customerName.toLowerCase().trim()) ||
+          (td.customerPhone && c.phone && td.customerPhone.trim() === c.phone.trim())
+      );
+
+      cDrives.forEach((td) => {
+        items.push({
+          color: '#0D9488',
+          title: `Test Drive ${td.status.replace('_', ' ')}${td.vehicleName ? ` — ${td.vehicleName}` : ''}`,
+          subtitle: `Scheduled: ${td.date || 'Recent'} ${td.timeSlot ? `(${td.timeSlot})` : ''} · Route: ${td.route || 'Showroom Circuit'}`,
+        });
+      });
+    } catch {
+      // test drives storage fallback
+    }
+
+    // 3. Check if user explicitly wrote a preferred vehicle
+    const userPreferredCar = (c as any).preferredVehicle ? String((c as any).preferredVehicle).trim() : '';
+    if (userPreferredCar && userPreferredCar !== 'Not specified' && cDeals.length === 0) {
+      items.push({
+        color: '#7C3AED',
+        title: `Vehicle Selected — ${userPreferredCar}`,
+        subtitle: (c as any).budget ? `Target Budget: ${(c as any).budget}` : 'Client specified interest in this vehicle.',
+      });
+    }
+
+    // 4. If no deals, test drives, or preferred vehicle, show neutral account status without ANY fake car names
+    if (items.length === 0) {
+      const createdDate = c.createdAt
+        ? new Date(c.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+        : 'Recent';
+      items.push({
+        color: '#2563EB',
+        title: 'Customer Profile Created',
+        subtitle: `Account registered in CRM system on ${createdDate}.`,
+      });
+      items.push({
+        color: '#64748B',
+        title: 'Vehicle Selection Pending',
+        subtitle: 'No car selected or desired model specified yet.',
+      });
+    }
+
+    return items;
+  };
+
   const handleStartEditCustomer = (customer: Customer) => {
-    const carPref = getCustomerCarPreference(customer);
+    const rawCar = (customer as any).preferredVehicle ? String((customer as any).preferredVehicle).trim() : '';
+    const rawBudget = (customer as any).budget ? String((customer as any).budget).trim() : '';
+
     setFormData({
       firstName: customer.firstName,
       lastName: customer.lastName,
@@ -219,8 +301,8 @@ export default function CustomersPage() {
       phone: customer.phone || '',
       panNumber: customer.panNumber || '',
       city: customer.address?.city || '',
-      preferredVehicle: (customer as any).preferredVehicle || carPref.car,
-      budget: (customer as any).budget || carPref.price,
+      preferredVehicle: rawCar === 'Not specified' ? '' : rawCar,
+      budget: rawBudget === '—' ? '' : rawBudget,
     });
     setEditingCustomerId(customer.id);
     setSelectedCustomer(null);
@@ -248,6 +330,30 @@ export default function CustomersPage() {
     setCustomers([...api.getCustomers()]);
     setIsModalOpen(false);
     setFormData(emptyCustomerForm);
+  };
+
+  const requestDeleteCustomer = (customerId: string, customerName?: string) => {
+    setCustomerToDelete({
+      id: customerId,
+      name: customerName || 'this customer',
+    });
+  };
+
+  const confirmDeleteCustomer = () => {
+    if (!customerToDelete) return;
+    const { id } = customerToDelete;
+
+    api.deleteCustomer(id);
+    setCustomers([...api.getCustomers()]);
+    if (selectedCustomer && selectedCustomer.id === id) {
+      setSelectedCustomer(null);
+    }
+    if (editingCustomerId === id) {
+      setIsModalOpen(false);
+      setEditingCustomerId(null);
+      setFormData(emptyCustomerForm);
+    }
+    setCustomerToDelete(null);
   };
 
   // Filtered customer list
@@ -557,6 +663,36 @@ export default function CustomersPage() {
                       <span>Details</span>
                       <ChevronRight size={13} />
                     </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        requestDeleteCustomer(customer.id, `${customer.firstName} ${customer.lastName}`);
+                      }}
+                      title="Delete customer record"
+                      style={{
+                        padding: '6px 8px',
+                        borderRadius: '8px',
+                        border: '1px solid #FECACA',
+                        background: '#FEF2F2',
+                        color: '#DC2626',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        transition: 'all 0.15s ease',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = '#FEE2E2';
+                        e.currentTarget.style.borderColor = '#FCA5A5';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = '#FEF2F2';
+                        e.currentTarget.style.borderColor = '#FECACA';
+                      }}
+                    >
+                      <Trash2 size={13} />
+                    </button>
                   </div>
                 </div>
               );
@@ -835,14 +971,41 @@ export default function CustomersPage() {
             </div>
           </div>
 
-          <div className="unique-modal-footer-bar" style={{ marginTop: '12px', paddingTop: '16px', borderTop: '1px solid #E2E8F0' }}>
-            <button
-              type="button"
-              className="unique-btn-cancel"
-              onClick={() => setIsModalOpen(false)}
-            >
-              <ChevronLeft size={16} /> Cancel
-            </button>
+          <div className="unique-modal-footer-bar" style={{ marginTop: '12px', paddingTop: '16px', borderTop: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button
+                type="button"
+                className="unique-btn-cancel"
+                onClick={() => {
+                  setIsModalOpen(false);
+                  setEditingCustomerId(null);
+                  setFormData(emptyCustomerForm);
+                }}
+              >
+                <ChevronLeft size={16} /> Cancel
+              </button>
+              {editingCustomerId && (
+                <button
+                  type="button"
+                  onClick={() => requestDeleteCustomer(editingCustomerId, `${formData.firstName} ${formData.lastName}`)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '8px 14px',
+                    borderRadius: '8px',
+                    border: '1px solid #FECACA',
+                    backgroundColor: '#FEF2F2',
+                    color: '#DC2626',
+                    fontSize: '0.84rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  <Trash2 size={14} /> Delete Customer
+                </button>
+              )}
+            </div>
             <button
               type="submit"
               className="unique-lead-submit-btn"
@@ -854,7 +1017,7 @@ export default function CustomersPage() {
         </form>
       </Modal>
 
-      {/* Customer Detail Dossier Modal with Top Edit and Close Buttons */}
+      {/* Customer Detail Dossier Modal with Top Edit, Delete and Close Buttons */}
       {selectedCustomer && (
         <Modal
           isOpen={!!selectedCustomer}
@@ -871,6 +1034,20 @@ export default function CustomersPage() {
               >
                 <Edit3 size={14} />
                 <span>Edit</span>
+              </button>
+              <button
+                type="button"
+                className="modal-header-btn-delete"
+                onClick={() =>
+                  requestDeleteCustomer(
+                    selectedCustomer.id,
+                    `${selectedCustomer.firstName} ${selectedCustomer.lastName}`
+                  )
+                }
+                title="Delete customer record"
+              >
+                <Trash2 size={14} />
+                <span>Delete</span>
               </button>
               <button
                 type="button"
@@ -1059,20 +1236,22 @@ export default function CustomersPage() {
                     PAN / Tax ID:
                   </span>
                   <div style={{ fontWeight: 700, fontFamily: 'monospace' }}>
-                    {selectedCustomer.panNumber || selectedCustomer.gstin || 'ABCPS1234M'}
+                    {selectedCustomer.panNumber || selectedCustomer.gstin || 'Not Provided'}
                   </div>
                 </div>
                 <div>
                   <span style={{ color: '#64748B', fontSize: '0.72rem', display: 'block', marginBottom: '2px' }}>
                     Aadhaar Status:
                   </span>
-                  <div style={{ fontWeight: 700, color: '#16A34A' }}>Linked (Masked)</div>
+                  <div style={{ fontWeight: 700, color: selectedCustomer.panNumber ? '#16A34A' : '#64748B' }}>
+                    {selectedCustomer.panNumber ? 'Linked (Masked)' : 'Pending'}
+                  </div>
                 </div>
                 <div>
                   <span style={{ color: '#64748B', fontSize: '0.72rem', display: 'block', marginBottom: '2px' }}>
                     Registered City:
                   </span>
-                  <div style={{ fontWeight: 700 }}>{selectedCustomer.address?.city || 'Mumbai'}</div>
+                  <div style={{ fontWeight: 700 }}>{selectedCustomer.address?.city || 'Not Specified'}</div>
                 </div>
               </div>
             </div>
@@ -1090,47 +1269,113 @@ export default function CustomersPage() {
                 Automotive Lifetime Timeline
               </h4>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-                  <div
-                    style={{
-                      width: '10px',
-                      height: '10px',
-                      borderRadius: '50%',
-                      backgroundColor: '#2563EB',
-                      marginTop: '5px',
-                      flexShrink: 0,
-                    }}
-                  />
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: '0.86rem', color: '#0F172A' }}>
-                      Deal Initialized — Mahindra XUV700 AX7L
-                    </div>
-                    <div style={{ fontSize: '0.76rem', color: '#64748B' }}>
-                      Quotation #Q-2024-001 accepted, deposit of ₹1,00,000 paid.
-                    </div>
-                  </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-                  <div
-                    style={{
-                      width: '10px',
-                      height: '10px',
-                      borderRadius: '50%',
-                      backgroundColor: '#0D9488',
-                      marginTop: '5px',
-                      flexShrink: 0,
-                    }}
-                  />
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: '0.86rem', color: '#0F172A' }}>
-                      Test Drive Completed
-                    </div>
-                    <div style={{ fontSize: '0.76rem', color: '#64748B' }}>
-                      45 min drive route on Western Express Highway. Rating: 5/5 stars.
+                {getCustomerTimeline(selectedCustomer).map((item, idx) => (
+                  <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                    <div
+                      style={{
+                        width: '10px',
+                        height: '10px',
+                        borderRadius: '50%',
+                        backgroundColor: item.color,
+                        marginTop: '5px',
+                        flexShrink: 0,
+                      }}
+                    />
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: '0.86rem', color: '#0F172A' }}>
+                        {item.title}
+                      </div>
+                      <div style={{ fontSize: '0.76rem', color: '#64748B' }}>
+                        {item.subtitle}
+                      </div>
                     </div>
                   </div>
-                </div>
+                ))}
               </div>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Centered In-App Delete Confirmation Modal (Middle of screen, clean white without theme) */}
+      {customerToDelete && (
+        <Modal
+          isOpen={!!customerToDelete}
+          onClose={() => setCustomerToDelete(null)}
+          title="Delete Customer"
+          maxWidth="460px"
+          zIndex={100002}
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '4px 0 2px 0' }}>
+            <div style={{ fontSize: '0.94rem', color: '#1E293B', lineHeight: '1.5' }}>
+              Are you sure you want to delete customer <strong>&quot;{customerToDelete.name}&quot;</strong>?
+            </div>
+            <div style={{ fontSize: '0.82rem', color: '#64748B', lineHeight: '1.4' }}>
+              This action cannot be undone. All CRM records, history, and associations for this customer will be permanently removed.
+            </div>
+
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'flex-end',
+                gap: '10px',
+                marginTop: '6px',
+                paddingTop: '14px',
+                borderTop: '1px solid #E2E8F0',
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setCustomerToDelete(null)}
+                style={{
+                  padding: '8px 18px',
+                  borderRadius: '10px',
+                  border: '1px solid #CBD5E1',
+                  background: '#FFFFFF',
+                  color: '#475569',
+                  fontSize: '0.84rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = '#F8FAFC';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = '#FFFFFF';
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteCustomer}
+                style={{
+                  padding: '8px 20px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: '#DC2626',
+                  color: '#FFFFFF',
+                  fontSize: '0.84rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  boxShadow: '0 2px 6px rgba(220, 38, 38, 0.25)',
+                  transition: 'all 0.15s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = '#B91C1C';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = '#DC2626';
+                }}
+              >
+                <Trash2 size={13} />
+                <span>Delete</span>
+              </button>
             </div>
           </div>
         </Modal>

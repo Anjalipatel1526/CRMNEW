@@ -13,6 +13,7 @@ interface ModalProps {
   maxWidth?: string;
   headerContent?: React.ReactNode;
   headerActions?: React.ReactNode;
+  zIndex?: number;
 }
 
 export function Modal({
@@ -24,6 +25,7 @@ export function Modal({
   maxWidth = '780px',
   headerContent,
   headerActions,
+  zIndex,
 }: ModalProps) {
   const [mounted, setMounted] = useState(false);
 
@@ -48,7 +50,13 @@ export function Modal({
   if (!isOpen || !mounted) return null;
 
   return createPortal(
-    <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true">
+    <div
+      className="modal-overlay"
+      style={zIndex ? { zIndex } : undefined}
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
       <div
         className="modal-content"
         style={{ maxWidth }}

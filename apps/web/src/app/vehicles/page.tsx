@@ -79,6 +79,28 @@ export default function VehiclesPage() {
 
   const [formData, setFormData] = useState(emptyFormData);
 
+  interface AnglePhotos {
+    front: string;
+    side_angled: string;
+    side: string;
+    back: string;
+  }
+
+  const VEHICLE_ANGLES: { key: keyof AnglePhotos; label: string; sublabel: string }[] = [
+    { key: 'front', label: 'Front View', sublabel: 'Main Cover' },
+    { key: 'side_angled', label: 'Side Angled', sublabel: 'Front 3/4' },
+    { key: 'side', label: 'Side Profile', sublabel: 'Full Side' },
+    { key: 'back', label: 'Rear / Back', sublabel: 'Back View' },
+  ];
+
+  const [anglePhotos, setAnglePhotos] = useState<AnglePhotos>({
+    front: '',
+    side_angled: '',
+    side: '',
+    back: '',
+  });
+  const [extraPhotos, setExtraPhotos] = useState<string[]>([]);
+
   const compressImage = (file: File): Promise<string> => {
     return new Promise((resolve) => {
       if (!file.type.startsWith('image/')) {
@@ -121,54 +143,61 @@ export default function VehiclesPage() {
     });
   };
 
-  const appendFiles = (fileList: FileList | File[]) => {
+  const syncFormDataImages = (angles: AnglePhotos, extras: string[]) => {
+    const angleList = [angles.front, angles.side_angled, angles.side, angles.back].filter(Boolean);
+    const combined = [...angleList, ...extras];
+    setFormData((prev) => ({
+      ...prev,
+      images: combined,
+      imageUrl: combined[0] || '',
+    }));
+  };
+
+  const handleSlotUpload = async (slot: keyof AnglePhotos, file?: File) => {
+    if (!file) return;
+    const compressed = await compressImage(file);
+    if (!compressed) return;
+    setAnglePhotos((prev) => {
+      const updated = { ...prev, [slot]: compressed };
+      syncFormDataImages(updated, extraPhotos);
+      return updated;
+    });
+  };
+
+  const handleRemoveSlotPhoto = (slot: keyof AnglePhotos) => {
+    setAnglePhotos((prev) => {
+      const updated = { ...prev, [slot]: '' };
+      syncFormDataImages(updated, extraPhotos);
+      return updated;
+    });
+  };
+
+  const handleExtraUpload = async (fileList: FileList | null) => {
+    if (!fileList || fileList.length === 0) return;
     const files = Array.from(fileList);
-    if (!files.length) return;
-    const promises = files.map((file) => compressImage(file));
-    Promise.all(promises).then((dataUrls) => {
-      const valid = dataUrls.filter(Boolean);
-      if (valid.length === 0) return;
-      setFormData((prev) => {
-        const combined = [...prev.images, ...valid];
-        return {
-          ...prev,
-          images: combined,
-          imageUrl: prev.imageUrl || combined[0] || '',
-        };
-      });
+    const promises = files.map((f) => compressImage(f));
+    const results = (await Promise.all(promises)).filter(Boolean);
+    if (results.length === 0) return;
+    setExtraPhotos((prev) => {
+      const updated = [...prev, ...results];
+      syncFormDataImages(anglePhotos, updated);
+      return updated;
     });
   };
 
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      appendFiles(e.target.files);
-      e.target.value = '';
-    }
-  };
-
-  const handleRemovePhoto = (indexToRemove: number) => {
-    setFormData((prev) => {
-      const updated = prev.images.filter((_, idx) => idx !== indexToRemove);
-      return {
-        ...prev,
-        images: updated,
-        imageUrl: updated[0] || '',
-      };
+  const handleRemoveExtraPhoto = (indexToRemove: number) => {
+    setExtraPhotos((prev) => {
+      const updated = prev.filter((_, idx) => idx !== indexToRemove);
+      syncFormDataImages(anglePhotos, updated);
+      return updated;
     });
   };
 
-  const handleSetCoverPhoto = (coverIndex: number) => {
-    setFormData((prev) => {
-      if (coverIndex < 0 || coverIndex >= prev.images.length) return prev;
-      const target = prev.images[coverIndex];
-      const rest = prev.images.filter((_, idx) => idx !== coverIndex);
-      const reordered = [target, ...rest];
-      return {
-        ...prev,
-        images: reordered,
-        imageUrl: target,
-      };
-    });
+  const handleClearAllPhotos = () => {
+    const emptyAngles: AnglePhotos = { front: '', side_angled: '', side: '', back: '' };
+    setAnglePhotos(emptyAngles);
+    setExtraPhotos([]);
+    syncFormDataImages(emptyAngles, []);
   };
 
   const handleStartEdit = (v: Vehicle) => {
@@ -179,6 +208,16 @@ export default function VehiclesPage() {
         : (v as any).imageUrl
           ? [(v as any).imageUrl]
           : [];
+
+    const loadedAngles: AnglePhotos = {
+      front: vImages[0] || '',
+      side_angled: vImages[1] || '',
+      side: vImages[2] || '',
+      back: vImages[3] || '',
+    };
+    const loadedExtras = vImages.slice(4);
+    setAnglePhotos(loadedAngles);
+    setExtraPhotos(loadedExtras);
 
     setFormData({
       branchId: v.branchId,
@@ -246,6 +285,8 @@ export default function VehiclesPage() {
     setVehicles([...api.getVehicles()]);
     setIsAddModalOpen(false);
     setFormData(emptyFormData);
+    setAnglePhotos({ front: '', side_angled: '', side: '', back: '' });
+    setExtraPhotos([]);
   };
 
   const handleUpdateStatus = (vehicleId: string, newStatus: VehicleStatus) => {
@@ -306,6 +347,8 @@ export default function VehiclesPage() {
           onClick={() => {
             setEditingVehicleId(null);
             setFormData(emptyFormData);
+            setAnglePhotos({ front: '', side_angled: '', side: '', back: '' });
+            setExtraPhotos([]);
             setIsAddModalOpen(true);
           }}
           className="btn btn-primary btn-sm"
@@ -860,6 +903,8 @@ export default function VehiclesPage() {
           setIsAddModalOpen(false);
           setEditingVehicleId(null);
           setFormData(emptyFormData);
+          setAnglePhotos({ front: '', side_angled: '', side: '', back: '' });
+          setExtraPhotos([]);
         }}
         title={editingVehicleId ? 'Edit Vehicle Stock Record' : 'Add New Inventory Stock'}
         maxWidth="740px"
@@ -880,130 +925,265 @@ export default function VehiclesPage() {
           </div>
 
           {/* Multiple Photos of the Car Upload & Gallery Option */}
-          <div className="form-group" style={{ marginBottom: '16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-              <label className="form-label" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Camera size={15} style={{ color: '#2563EB' }} />
-                <span>Multiple Photos of the Car</span>
-                {formData.images.length > 0 && (
-                  <span
-                    style={{
-                      fontSize: '0.74rem',
-                      fontWeight: 600,
-                      color: '#2563EB',
-                      backgroundColor: '#EFF6FF',
-                      padding: '2px 8px',
-                      borderRadius: '999px',
-                    }}
-                  >
-                    {formData.images.length} {formData.images.length === 1 ? 'photo' : 'photos'} added
-                  </span>
-                )}
-              </label>
-              {formData.images.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setFormData((prev) => ({ ...prev, images: [], imageUrl: '' }))}
+          {(() => {
+            const totalPhotosCount = [anglePhotos.front, anglePhotos.side_angled, anglePhotos.side, anglePhotos.back].filter(Boolean).length + extraPhotos.length;
+            return (
+              <div className="form-group" style={{ marginBottom: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <label className="form-label" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Camera size={15} style={{ color: '#2563EB' }} />
+                    <span>Multiple Photos of the Car</span>
+                    {totalPhotosCount > 0 && (
+                      <span
+                        style={{
+                          fontSize: '0.74rem',
+                          fontWeight: 600,
+                          color: '#2563EB',
+                          backgroundColor: '#EFF6FF',
+                          padding: '2px 8px',
+                          borderRadius: '999px',
+                        }}
+                      >
+                        {totalPhotosCount} {totalPhotosCount === 1 ? 'photo' : 'photos'} added
+                      </span>
+                    )}
+                  </label>
+                  {totalPhotosCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleClearAllPhotos}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#EF4444',
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                      }}
+                    >
+                      <Trash2 size={12} /> Clear All Photos
+                    </button>
+                  )}
+                </div>
+
+                {/* Photo Slots Grid: 4 Core Angles (Front, Side Angled, Side, Back) + Extra Photos + Plus Icon Extra Option */}
+                <div
                   style={{
-                    background: 'none',
-                    border: 'none',
-                    color: '#EF4444',
-                    fontSize: '0.75rem',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(122px, 1fr))',
+                    gap: '10px',
                   }}
                 >
-                  <Trash2 size={12} /> Clear All Photos
-                </button>
-              )}
-            </div>
+                  {VEHICLE_ANGLES.map((angle) => {
+                    const imgUrl = anglePhotos[angle.key];
+                    const isFront = angle.key === 'front';
 
-            {/* Gallery Grid if photos exist */}
-            {formData.images.length > 0 ? (
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))',
-                  gap: '10px',
-                  marginBottom: 0,
-                }}
-              >
-                {formData.images.map((imgUrl, idx) => {
-                  const isCover = idx === 0;
-                  return (
+                    if (imgUrl) {
+                      return (
+                        <div
+                          key={angle.key}
+                          style={{
+                            position: 'relative',
+                            height: '115px',
+                            borderRadius: '12px',
+                            overflow: 'hidden',
+                            border: isFront ? '2px solid #2563EB' : '1.5px solid #CBD5E1',
+                            boxShadow: isFront ? '0 3px 10px rgba(37, 99, 235, 0.2)' : '0 1px 3px rgba(0,0,0,0.05)',
+                            backgroundColor: '#0F172A',
+                          }}
+                        >
+                          <img
+                            src={imgUrl}
+                            alt={angle.label}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          />
+
+                          {/* Angle Badge */}
+                          <div
+                            style={{
+                              position: 'absolute',
+                              top: '5px',
+                              left: '5px',
+                              background: isFront ? '#2563EB' : 'rgba(15, 23, 42, 0.82)',
+                              color: '#FFFFFF',
+                              padding: '2px 6px',
+                              borderRadius: '5px',
+                              fontSize: '0.64rem',
+                              fontWeight: 700,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '3px',
+                              boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                              backdropFilter: 'blur(4px)',
+                            }}
+                          >
+                            {isFront && <Star size={9} fill="#FFFFFF" />}
+                            <span>{angle.label}</span>
+                          </div>
+
+                          {/* Replace & Delete Buttons */}
+                          <div style={{ position: 'absolute', top: '5px', right: '5px', display: 'flex', gap: '3px' }}>
+                            <label
+                              htmlFor={`file-input-${angle.key}`}
+                              title={`Change ${angle.label} photo`}
+                              style={{
+                                width: '22px',
+                                height: '22px',
+                                borderRadius: '5px',
+                                backgroundColor: 'rgba(15, 23, 42, 0.75)',
+                                color: '#FFFFFF',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                backdropFilter: 'blur(4px)',
+                              }}
+                            >
+                              <Camera size={11} />
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveSlotPhoto(angle.key)}
+                              title={`Remove ${angle.label} photo`}
+                              style={{
+                                width: '22px',
+                                height: '22px',
+                                borderRadius: '5px',
+                                backgroundColor: 'rgba(239, 68, 68, 0.9)',
+                                color: '#FFFFFF',
+                                border: 'none',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                backdropFilter: 'blur(4px)',
+                              }}
+                            >
+                              <Trash2 size={11} />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <label
+                        key={angle.key}
+                        htmlFor={`file-input-${angle.key}`}
+                        style={{
+                          height: '115px',
+                          borderRadius: '12px',
+                          border: '2px dashed #CBD5E1',
+                          backgroundColor: '#F8FAFC',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                          padding: '8px',
+                          textAlign: 'center',
+                          transition: 'all 0.18s ease',
+                          userSelect: 'none',
+                        }}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.currentTarget.style.borderColor = '#2563EB';
+                          e.currentTarget.style.backgroundColor = '#EFF6FF';
+                        }}
+                        onDragLeave={(e) => {
+                          e.currentTarget.style.borderColor = '#CBD5E1';
+                          e.currentTarget.style.backgroundColor = '#F8FAFC';
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          e.currentTarget.style.borderColor = '#CBD5E1';
+                          e.currentTarget.style.backgroundColor = '#F8FAFC';
+                          if (e.dataTransfer.files?.[0]) handleSlotUpload(angle.key, e.dataTransfer.files[0]);
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: '32px',
+                            height: '32px',
+                            borderRadius: '8px',
+                            backgroundColor: '#EFF6FF',
+                            color: '#2563EB',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            marginBottom: '4px',
+                          }}
+                        >
+                          <Camera size={16} />
+                        </div>
+                        <div style={{ fontSize: '0.76rem', fontWeight: 700, color: '#1E293B' }}>{angle.label}</div>
+                        <div style={{ fontSize: '0.65rem', color: '#64748B', marginTop: '1px' }}>{angle.sublabel}</div>
+                        <span
+                          style={{
+                            marginTop: '4px',
+                            fontSize: '0.62rem',
+                            fontWeight: 600,
+                            color: '#2563EB',
+                            backgroundColor: '#DBEAFE',
+                            padding: '1px 6px',
+                            borderRadius: '4px',
+                          }}
+                        >
+                          + Upload
+                        </span>
+                      </label>
+                    );
+                  })}
+
+                  {/* Extra Photos if any */}
+                  {extraPhotos.map((imgUrl, extraIdx) => (
                     <div
-                      key={idx}
+                      key={`extra-${extraIdx}`}
                       style={{
                         position: 'relative',
-                        height: '100px',
-                        borderRadius: '10px',
+                        height: '115px',
+                        borderRadius: '12px',
                         overflow: 'hidden',
-                        border: isCover ? '2px solid #2563EB' : '1.5px solid #CBD5E1',
-                        boxShadow: isCover ? '0 3px 10px rgba(37, 99, 235, 0.2)' : '0 1px 3px rgba(0,0,0,0.05)',
+                        border: '1.5px solid #CBD5E1',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
                         backgroundColor: '#0F172A',
                       }}
                     >
                       <img
                         src={imgUrl}
-                        alt={`Vehicle Angle ${idx + 1}`}
+                        alt={`Extra Photo ${extraIdx + 1}`}
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                       />
-
-                      {/* Cover badge / Index */}
-                      {isCover ? (
-                        <div
-                          style={{
-                            position: 'absolute',
-                            top: '5px',
-                            left: '5px',
-                            background: '#2563EB',
-                            color: '#FFFFFF',
-                            padding: '2px 7px',
-                            borderRadius: '6px',
-                            fontSize: '0.67rem',
-                            fontWeight: 700,
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '3px',
-                            boxShadow: '0 2px 4px rgba(0,0,0,0.25)',
-                          }}
-                        >
-                          <Star size={10} fill="#FFFFFF" /> Cover
-                        </div>
-                      ) : (
-                        <div
-                          style={{
-                            position: 'absolute',
-                            top: '5px',
-                            left: '5px',
-                            background: 'rgba(15, 23, 42, 0.75)',
-                            color: '#FFFFFF',
-                            padding: '2px 6px',
-                            borderRadius: '6px',
-                            fontSize: '0.65rem',
-                            fontWeight: 700,
-                            backdropFilter: 'blur(4px)',
-                          }}
-                        >
-                          #{idx + 1}
-                        </div>
-                      )}
-
-                      {/* Delete button (top right) */}
+                      <div
+                        style={{
+                          position: 'absolute',
+                          top: '5px',
+                          left: '5px',
+                          background: 'rgba(15, 23, 42, 0.82)',
+                          color: '#FFFFFF',
+                          padding: '2px 6px',
+                          borderRadius: '5px',
+                          fontSize: '0.64rem',
+                          fontWeight: 700,
+                          backdropFilter: 'blur(4px)',
+                        }}
+                      >
+                        Extra #{extraIdx + 1}
+                      </div>
                       <button
                         type="button"
-                        onClick={() => handleRemovePhoto(idx)}
-                        title="Remove this photo"
+                        onClick={() => handleRemoveExtraPhoto(extraIdx)}
+                        title="Remove extra photo"
                         style={{
                           position: 'absolute',
                           top: '5px',
                           right: '5px',
-                          width: '24px',
-                          height: '24px',
-                          borderRadius: '6px',
+                          width: '22px',
+                          height: '22px',
+                          borderRadius: '5px',
                           backgroundColor: 'rgba(239, 68, 68, 0.9)',
                           color: '#FFFFFF',
                           border: 'none',
@@ -1014,159 +1194,134 @@ export default function VehiclesPage() {
                           backdropFilter: 'blur(4px)',
                         }}
                       >
-                        <Trash2 size={12} />
+                        <Trash2 size={11} />
                       </button>
-
-                      {/* Make Cover action */}
-                      {!isCover && (
-                        <button
-                          type="button"
-                          onClick={() => handleSetCoverPhoto(idx)}
-                          title="Set as primary cover photo"
-                          style={{
-                            position: 'absolute',
-                            bottom: '5px',
-                            left: '5px',
-                            right: '5px',
-                            padding: '3px 4px',
-                            borderRadius: '5px',
-                            backgroundColor: 'rgba(15, 23, 42, 0.85)',
-                            color: '#F8FAFC',
-                            border: '1px solid rgba(255, 255, 255, 0.25)',
-                            fontSize: '0.66rem',
-                            fontWeight: 600,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '4px',
-                            cursor: 'pointer',
-                            backdropFilter: 'blur(4px)',
-                          }}
-                        >
-                          <Star size={10} /> Make Cover
-                        </button>
-                      )}
                     </div>
-                  );
-                })}
+                  ))}
 
-                {/* "+ Add More Photos" button tile */}
-                <label
-                  htmlFor="car-photo-file-input"
-                  style={{
-                    height: '100px',
-                    borderRadius: '10px',
-                    border: '2px dashed #93C5FD',
-                    backgroundColor: '#F0F7FF',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'pointer',
-                    gap: '4px',
-                    color: '#2563EB',
-                    transition: 'all 0.15s ease',
-                  }}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    e.currentTarget.style.borderColor = '#2563EB';
-                    e.currentTarget.style.backgroundColor = '#DBEAFE';
-                  }}
-                  onDragLeave={(e) => {
-                    e.currentTarget.style.borderColor = '#93C5FD';
-                    e.currentTarget.style.backgroundColor = '#F0F7FF';
-                  }}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    e.currentTarget.style.borderColor = '#93C5FD';
-                    e.currentTarget.style.backgroundColor = '#F0F7FF';
-                    if (e.dataTransfer.files) appendFiles(e.dataTransfer.files);
-                  }}
-                >
-                  <div
+                  {/* "+ Extra Images" tile */}
+                  <label
+                    htmlFor="file-input-extra"
                     style={{
-                      width: '28px',
-                      height: '28px',
-                      borderRadius: '8px',
-                      backgroundColor: '#DBEAFE',
+                      height: '115px',
+                      borderRadius: '12px',
+                      border: '2px dashed #93C5FD',
+                      backgroundColor: '#F0F7FF',
                       display: 'flex',
+                      flexDirection: 'column',
                       alignItems: 'center',
                       justifyContent: 'center',
+                      cursor: 'pointer',
+                      padding: '8px',
+                      textAlign: 'center',
+                      color: '#2563EB',
+                      transition: 'all 0.18s ease',
+                      userSelect: 'none',
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.currentTarget.style.borderColor = '#2563EB';
+                      e.currentTarget.style.backgroundColor = '#DBEAFE';
+                    }}
+                    onDragLeave={(e) => {
+                      e.currentTarget.style.borderColor = '#93C5FD';
+                      e.currentTarget.style.backgroundColor = '#F0F7FF';
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.currentTarget.style.borderColor = '#93C5FD';
+                      e.currentTarget.style.backgroundColor = '#F0F7FF';
+                      if (e.dataTransfer.files) handleExtraUpload(e.dataTransfer.files);
                     }}
                   >
-                    <Plus size={16} />
-                  </div>
-                  <span style={{ fontSize: '0.72rem', fontWeight: 700 }}>+ Add Photos</span>
-                  <span style={{ fontSize: '0.64rem', color: '#64748B' }}>Multi-select</span>
-                </label>
-              </div>
-            ) : (
-              /* Big dropzone when 0 photos */
-              <label
-                htmlFor="car-photo-file-input"
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: '24px 16px',
-                  border: '2px dashed #CBD5E1',
-                  borderRadius: '14px',
-                  backgroundColor: '#F8FAFC',
-                  cursor: 'pointer',
-                  transition: 'all 0.18s ease',
-                  textAlign: 'center',
-                  marginBottom: 0,
-                }}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  e.currentTarget.style.borderColor = '#2563EB';
-                  e.currentTarget.style.backgroundColor = '#EFF6FF';
-                }}
-                onDragLeave={(e) => {
-                  e.currentTarget.style.borderColor = '#CBD5E1';
-                  e.currentTarget.style.backgroundColor = '#F8FAFC';
-                }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  e.currentTarget.style.borderColor = '#CBD5E1';
-                  e.currentTarget.style.backgroundColor = '#F8FAFC';
-                  if (e.dataTransfer.files) appendFiles(e.dataTransfer.files);
-                }}
-              >
-                <div
-                  style={{
-                    width: '42px',
-                    height: '42px',
-                    borderRadius: '12px',
-                    background: '#EFF6FF',
-                    color: '#2563EB',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginBottom: '8px',
-                  }}
-                >
-                  <Camera size={20} />
+                    <div
+                      style={{
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '8px',
+                        backgroundColor: '#DBEAFE',
+                        color: '#2563EB',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginBottom: '4px',
+                      }}
+                    >
+                      <Plus size={18} />
+                    </div>
+                    <div style={{ fontSize: '0.76rem', fontWeight: 700, color: '#1E40AF' }}>+ Extra Images</div>
+                    <div style={{ fontSize: '0.65rem', color: '#64748B', marginTop: '1px' }}>Interior, Cabin...</div>
+                    <span
+                      style={{
+                        marginTop: '4px',
+                        fontSize: '0.62rem',
+                        fontWeight: 600,
+                        color: '#1E40AF',
+                        backgroundColor: '#DBEAFE',
+                        padding: '1px 6px',
+                        borderRadius: '4px',
+                      }}
+                    >
+                      Multi-select
+                    </span>
+                  </label>
                 </div>
-                <div style={{ fontSize: '0.86rem', fontWeight: 700, color: '#0F172A' }}>
-                  Click to upload multiple car photos or drag & drop
-                </div>
-                <div style={{ fontSize: '0.74rem', color: '#64748B', marginTop: '2px' }}>
-                  Select multiple photos at once (Exterior front/rear, interior, dashboard, engine)
-                </div>
-              </label>
-            )}
 
-            <input
-              id="car-photo-file-input"
-              type="file"
-              accept="image/*"
-              multiple
-              onChange={handlePhotoUpload}
-              style={{ display: 'none' }}
-            />
-          </div>
+                {/* Hidden file inputs for each slot & extra */}
+                <input
+                  id="file-input-front"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    if (e.target.files?.[0]) handleSlotUpload('front', e.target.files[0]);
+                    e.target.value = '';
+                  }}
+                  style={{ display: 'none' }}
+                />
+                <input
+                  id="file-input-side_angled"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    if (e.target.files?.[0]) handleSlotUpload('side_angled', e.target.files[0]);
+                    e.target.value = '';
+                  }}
+                  style={{ display: 'none' }}
+                />
+                <input
+                  id="file-input-side"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    if (e.target.files?.[0]) handleSlotUpload('side', e.target.files[0]);
+                    e.target.value = '';
+                  }}
+                  style={{ display: 'none' }}
+                />
+                <input
+                  id="file-input-back"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    if (e.target.files?.[0]) handleSlotUpload('back', e.target.files[0]);
+                    e.target.value = '';
+                  }}
+                  style={{ display: 'none' }}
+                />
+                <input
+                  id="file-input-extra"
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={(e) => {
+                    if (e.target.files) handleExtraUpload(e.target.files);
+                    e.target.value = '';
+                  }}
+                  style={{ display: 'none' }}
+                />
+              </div>
+            );
+          })()}
 
           <div className="form-grid-3">
             <div className="form-group">
@@ -1345,6 +1500,8 @@ export default function VehiclesPage() {
                 setIsAddModalOpen(false);
                 setEditingVehicleId(null);
                 setFormData(emptyFormData);
+                setAnglePhotos({ front: '', side_angled: '', side: '', back: '' });
+                setExtraPhotos([]);
               }}
             >
               <ChevronLeft size={16} /> Cancel
