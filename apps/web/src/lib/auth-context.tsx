@@ -59,6 +59,7 @@ interface AuthContextType {
   setBranch: (branchId: string) => void;
   activeRole: UserRole;
   switchRole: (role: UserRole) => void;
+  session: UserSession | null;
   loginUser: (
     emailOrId: string,
     fullName?: string,
@@ -88,6 +89,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [currentBranch, setCurrentBranch] = useState<Branch>(branches[0]);
   const [activeRole, setActiveRole] = useState<UserRole>(initialContext.membership.roleKey);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [session, setSession] = useState<UserSession | null>(null);
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
@@ -95,6 +97,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const applySession = () => {
       const saved = getUserSession();
+      setSession(saved);
       const localAvatar = typeof window !== 'undefined' ? localStorage.getItem('crm_user_avatar') : null;
       if (saved && saved.isLoggedIn) {
         setIsLoggedIn(true);
@@ -205,11 +208,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       loggedAt: new Date().toISOString(),
       employeeId: meta?.employeeId,
       employeeCode: meta?.employeeCode,
-      isAdmin: meta?.isAdmin,
+      isAdmin: Boolean(meta?.isAdmin),
       accessControl: meta?.accessControl,
     };
 
     saveUserSession(newSession);
+    setSession(newSession);
 
     setActiveRole(role);
     setIsLoggedIn(true);
@@ -247,6 +251,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       ...(updates.avatarUrl !== undefined ? { avatarUrl: updates.avatarUrl } : {}),
     };
     saveUserSession(updated);
+    setSession(updated);
 
     if (updates.avatarUrl !== undefined) {
       if (updates.avatarUrl) {
@@ -272,6 +277,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = () => {
     clearUserSession();
+    setSession(null);
     setIsLoggedIn(false);
     setUserContext(initialContext);
     if (typeof window !== 'undefined') {
@@ -287,6 +293,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setBranch,
         activeRole,
         switchRole,
+        session,
         loginUser,
         updateUserProfile,
         logout,

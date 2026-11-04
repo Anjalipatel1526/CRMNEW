@@ -38,6 +38,7 @@ export interface CompanyProfile {
 
   // Branding & Watermark
   logoUrl?: string; // Data URL or Image URL
+  brandColor?: string; // Hex color for invoices and documents e.g. #F27A1A
   watermarkEnabled: boolean;
   watermarkOpacity: number; // e.g. 0.07
 
@@ -78,11 +79,12 @@ export const DEFAULT_COMPANY_PROFILE: CompanyProfile = {
   ifscCode: '',
   branchName: '',
   upiId: '',
-  logoUrl: '',
+  logoUrl: '/unai-logo.png',
+  brandColor: '#6253F8',
   watermarkEnabled: true,
-  watermarkOpacity: 0.08,
-  authorizedSignatoryName: '',
-  authorizedSignatoryDesignation: '',
+  watermarkOpacity: 0.22,
+  authorizedSignatoryName: 'Anjali',
+  authorizedSignatoryDesignation: 'COO',
   signatureUrl: '',
   isOnboarded: false,
   updatedAt: new Date().toISOString(),
@@ -145,7 +147,20 @@ export function getCompanyProfile(): CompanyProfile {
     if (!parsed) {
       return DEFAULT_COMPANY_PROFILE;
     }
-    return { ...DEFAULT_COMPANY_PROFILE, ...parsed };
+    const profile = { ...DEFAULT_COMPANY_PROFILE, ...parsed };
+    if (!profile.logoUrl) {
+      profile.logoUrl = '/unai-logo.png';
+    }
+    if (profile.brandColor === '#F27A1A' || profile.brandColor === '#0284C7' || profile.brandColor === '#EA580C') {
+      profile.brandColor = '#6253F8';
+    }
+    if (!profile.authorizedSignatoryName || profile.authorizedSignatoryName === 'Witzharrey') {
+      profile.authorizedSignatoryName = 'Anjali';
+    }
+    if (!profile.authorizedSignatoryDesignation || profile.authorizedSignatoryDesignation === 'Manager') {
+      profile.authorizedSignatoryDesignation = 'COO';
+    }
+    return profile;
   } catch (err) {
     console.error('Failed to load company profile from storage:', err);
     return DEFAULT_COMPANY_PROFILE;
@@ -191,11 +206,12 @@ export async function fetchCompanyProfile(): Promise<CompanyProfile> {
           ifscCode: data.ifsc_code || '',
           branchName: data.branch_name || '',
           upiId: data.upi_id || '',
-          logoUrl: data.logo_url || '',
+          logoUrl: data.logo_url || '/unai-logo.png',
+          brandColor: data.brand_color || '#6253F8',
           watermarkEnabled: data.watermark_enabled ?? true,
-          watermarkOpacity: Number(data.watermark_opacity) || 0.08,
-          authorizedSignatoryName: data.authorized_signatory_name || '',
-          authorizedSignatoryDesignation: data.authorized_signatory_designation || '',
+          watermarkOpacity: Number(data.watermark_opacity) || 0.22,
+          authorizedSignatoryName: data.authorized_signatory_name || 'Anjali',
+          authorizedSignatoryDesignation: data.authorized_signatory_designation || 'COO',
           signatureUrl: data.signature_url || '',
           isOnboarded: data.is_onboarded ?? true,
           updatedAt: data.updated_at || new Date().toISOString(),
@@ -254,10 +270,11 @@ export function saveCompanyProfile(profile: Partial<CompanyProfile>): CompanyPro
         branch_name: updated.branchName || '',
         upi_id: updated.upiId || '',
         logo_url: updated.logoUrl || '',
+        brand_color: updated.brandColor || '#6253F8',
         watermark_enabled: updated.watermarkEnabled ?? true,
-        watermark_opacity: updated.watermarkOpacity || 0.08,
-        authorized_signatory_name: updated.authorizedSignatoryName || '',
-        authorized_signatory_designation: updated.authorizedSignatoryDesignation || '',
+        watermark_opacity: updated.watermarkOpacity || 0.22,
+        authorized_signatory_name: updated.authorizedSignatoryName || 'Anjali',
+        authorizedSignatoryDesignation: updated.authorizedSignatoryDesignation || 'COO',
         signature_url: updated.signatureUrl || '',
         is_onboarded: updated.isOnboarded ?? true,
         updated_at: new Date().toISOString(),

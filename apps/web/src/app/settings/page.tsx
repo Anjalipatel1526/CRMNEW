@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { getUserSession } from '@/lib/auth-context';
 import { api } from '@/lib/api-client';
 import { Branch } from '@crm/shared-types';
 import { StatusBadge } from '@/components/ui/StatusBadge';
@@ -82,6 +84,7 @@ import {
 } from 'lucide-react';
 
 export default function SettingsPage() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<
     'plugins' | 'employees' | 'testdrives' | 'branches' | 'roles' | 'subscription'
   >('plugins');
@@ -243,6 +246,11 @@ export default function SettingsPage() {
 
   // Initial load
   useEffect(() => {
+    const session = getUserSession();
+    if (session?.employeeId && !session?.isAdmin) {
+      router.replace('/empportal');
+      return;
+    }
     setModules(getModules());
     setEmployees(getEmployees());
     setTestDrives(getTestDrives());

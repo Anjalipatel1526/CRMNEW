@@ -19,6 +19,26 @@ export const supabase = createClient(
   }
 );
 
+const serviceKey =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.SUPABASE_SERVICE ||
+  supabaseAnonKey;
+
+/**
+ * Supabase Admin Client using Service Role Key (bypasses RLS)
+ * Safe for server-side API routes and backend syncing.
+ */
+export const supabaseAdmin = createClient(
+  supabaseUrl || 'https://placeholder.supabase.co',
+  serviceKey || 'placeholder-admin-key',
+  {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  }
+);
+
 /**
  * Checks whether valid Supabase environment credentials are configured
  */

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { WordFadeIn } from '@/components/ui/WordFadeIn';
 import { Modal } from '@/components/ui/Modal';
 import {
@@ -11,11 +12,15 @@ import {
   updateEmployeePassword,
   updateEmployeeAccessControl,
   addLeaveRecord,
+  updateLeaveRecordStatus,
   deleteEmployee,
+  initEmployeesRealtime,
   Employee,
   EmployeeAccessControl,
 } from '@/lib/employee-store';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { getUserSession } from '@/lib/auth-context';
 import {
   Users,
   Plus,
@@ -30,6 +35,7 @@ import {
   Phone,
   Mail,
   CheckCircle2,
+  XCircle,
   ChevronLeft,
   ChevronRight,
   ChevronDown,
@@ -52,6 +58,7 @@ import {
 } from 'lucide-react';
 
 export default function EmployeesPage() {
+  const router = useRouter();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [search, setSearch] = useState('');
   const [deptFilter, setDeptFilter] = useState('All');
@@ -120,6 +127,7 @@ export default function EmployeesPage() {
   };
 
   // Modals
+  const [isMounted, setIsMounted] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedForLeave, setSelectedForLeave] = useState<Employee | null>(null);
   const [selectedForAccess, setSelectedForAccess] = useState<Employee | null>(null);
@@ -296,14 +304,33 @@ export default function EmployeesPage() {
   });
 
   useEffect(() => {
+    const session = getUserSession();
+    if (session?.employeeId && !session?.isAdmin) {
+      router.replace('/empportal');
+      return;
+    }
+    setIsMounted(true);
     setEmployees(getEmployees());
     fetchEmployees().then((data) => {
       if (Array.isArray(data)) setEmployees([...data]);
     });
+    // Listen for Supabase Realtime changes so deletions in Supabase Table Editor delete live on the frontend
+    initEmployeesRealtime();
     const handleChanged = () => setEmployees(getEmployees());
     window.addEventListener('crm-employees-changed', handleChanged);
     return () => window.removeEventListener('crm-employees-changed', handleChanged);
   }, []);
+
+  useEffect(() => {
+    if (isAddModalOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'auto';
+    }
+    return () => {
+      document.body.style.overflow = 'auto';
+    };
+  }, [isAddModalOpen]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -317,7 +344,7 @@ export default function EmployeesPage() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const handleCreateEmployee = (e: React.FormEvent) => {
+  const handleCreateEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newEmpForm.fullName.trim()) {
       showToast('Please enter the employee full name.');
@@ -375,6 +402,11 @@ export default function EmployeesPage() {
     setEmployees(getEmployees());
     setCreatedCredentialsModal({ isOpen: true, employee: created });
     showToast(`Employee ${created.fullName} (${created.employeeCode}) onboarded successfully!`);
+
+    // Refetch in background to ensure Supabase state synchronization
+    fetchEmployees().then((fresh) => {
+      if (Array.isArray(fresh)) setEmployees([...fresh]);
+    });
   };
 
   const handleApplyLeave = (e: React.FormEvent) => {
@@ -394,6 +426,25 @@ export default function EmployeesPage() {
     const updated = getEmployees().find((e) => e.id === selectedForLeave.id);
     setSelectedForLeave(updated || null);
     showToast(`Leave recorded for ${selectedForLeave.fullName}!`);
+  };
+
+  const handleApproveLeave = (recordId: string, approved: boolean) => {
+    if (!selectedForLeave) return;
+    const newStatus = approved ? 'approved' : 'rejected';
+    const success = updateLeaveRecordStatus(selectedForLeave.id, recordId, newStatus, 'Tenant Admin');
+    if (success) {
+      const all = getEmployees();
+      setEmployees(all);
+      const updated = all.find((e) => e.id === selectedForLeave.id);
+      setSelectedForLeave(updated || null);
+      showToast(
+        approved
+          ? `Leave request approved for ${selectedForLeave.fullName}! Balance updated.`
+          : `Leave request rejected for ${selectedForLeave.fullName}.`
+      );
+    } else {
+      showToast('Failed to update leave record status.');
+    }
   };
 
   const handleToggleAccess = (key: keyof EmployeeAccessControl) => {
@@ -472,29 +523,6 @@ export default function EmployeesPage() {
         </div>
 
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-          <Link
-            href="/emplogin"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '9px 16px',
-              borderRadius: '12px',
-              border: '1.5px solid #C7D2FE',
-              backgroundColor: '#EEF2FF',
-              color: '#4F46E5',
-              fontWeight: 700,
-              fontSize: '0.84rem',
-              textDecoration: 'none',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-              transition: 'all 0.15s ease',
-            }}
-          >
-            <Shield size={15} />
-            <span>Employee Login Portal</span>
-            <ExternalLink size={13} />
-          </Link>
-
           <button
             type="button"
             className="unique-lead-submit-btn"
@@ -761,46 +789,52 @@ export default function EmployeesPage() {
 
                 {/* Right: Action Buttons */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                  <Link
-                    href={`/emplogin?emp=${emp.employeeCode}`}
-                    style={{
-                      padding: '6px 12px',
-                      borderRadius: '8px',
-                      border: '1px solid #C7D2FE',
-                      background: '#EEF2FF',
-                      color: '#4F46E5',
-                      fontSize: '0.78rem',
-                      fontWeight: 700,
-                      textDecoration: 'none',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
-                    }}
-                  >
-                    <KeyRound size={13} />
-                    <span>Staff Login</span>
-                  </Link>
+                  {(() => {
+                    const casualRem = (emp.leaveBalance?.casual.total || 12) - (emp.leaveBalance?.casual.used || 0);
+                    const sickRem = (emp.leaveBalance?.sick.total || 7) - (emp.leaveBalance?.sick.used || 0);
+                    const paidRem = (emp.leaveBalance?.paid.total || 18) - (emp.leaveBalance?.paid.used || 0);
+                    const totalAvailLeave = Math.max(0, casualRem + sickRem + paidRem);
+                    const pendingCount = (emp.leaveHistory || []).filter((lh) => lh.status === 'pending').length;
 
-                  <button
-                    type="button"
-                    onClick={() => setSelectedForLeave(emp)}
-                    style={{
-                      padding: '6px 12px',
-                      borderRadius: '8px',
-                      border: '1px solid #CBD5E1',
-                      background: '#FFFFFF',
-                      fontSize: '0.78rem',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                    }}
-                  >
-                    <Calendar size={13} style={{ color: '#2563EB' }} />
-                    <span>Leave ({emp.leaveHistory.length})</span>
-                  </button>
+                    return (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedForLeave(emp)}
+                        title="View Leave Balance and Pending Leave Requests"
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: '8px',
+                          border: pendingCount > 0 ? '1.5px solid #F59E0B' : '1px solid #CBD5E1',
+                          background: pendingCount > 0 ? '#FFFBEB' : '#FFFFFF',
+                          fontSize: '0.78rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          color: pendingCount > 0 ? '#B45309' : '#1E293B',
+                          boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+                        }}
+                      >
+                        <Calendar size={13} style={{ color: pendingCount > 0 ? '#D97706' : '#2563EB' }} />
+                        <span>Leave Balance: {totalAvailLeave} Days</span>
+                        {pendingCount > 0 && (
+                          <span
+                            style={{
+                              padding: '1px 6px',
+                              borderRadius: '999px',
+                              backgroundColor: '#EF4444',
+                              color: '#FFFFFF',
+                              fontSize: '0.68rem',
+                              fontWeight: 800,
+                            }}
+                          >
+                            {pendingCount} Pending
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })()}
 
                   <button
                     type="button"
@@ -830,15 +864,17 @@ export default function EmployeesPage() {
       )}
       </div>
 
-      {/* Add Employee Modal - Recreated to match user screenshot */}
-      {isAddModalOpen && (
+      {/* Add Employee Modal - Portaled to document.body to cover full screen including top bar */}
+      {isAddModalOpen && isMounted && createPortal(
         <div
+          className="modal-overlay"
           style={{
             position: 'fixed',
             inset: 0,
-            backgroundColor: 'rgba(15, 23, 42, 0.55)',
-            backdropFilter: 'blur(4px)',
-            zIndex: 9999,
+            backgroundColor: 'rgba(15, 23, 42, 0.60)',
+            backdropFilter: 'blur(6px)',
+            WebkitBackdropFilter: 'blur(6px)',
+            zIndex: 99999,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -919,6 +955,114 @@ export default function EmployeesPage() {
             {/* Modal Body Form */}
             <form onSubmit={handleCreateEmployee} style={{ padding: '24px 28px', maxHeight: 'calc(90vh - 140px)', overflowY: 'auto' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                {/* Profile Photo Upload */}
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '16px',
+                    padding: '14px 18px',
+                    backgroundColor: '#F8FAFC',
+                    border: '1.5px dashed #CBD5E1',
+                    borderRadius: '14px',
+                  }}
+                >
+                  {/* Photo Avatar Preview */}
+                  <div
+                    style={{
+                      width: '64px',
+                      height: '64px',
+                      borderRadius: '16px',
+                      backgroundColor: newEmpForm.avatarUrl ? '#FFFFFF' : '#EEF2FF',
+                      border: '2px solid #E0E7FF',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      overflow: 'hidden',
+                      position: 'relative',
+                      flexShrink: 0,
+                      boxShadow: '0 2px 8px rgba(79, 70, 229, 0.08)',
+                    }}
+                  >
+                    {newEmpForm.avatarUrl ? (
+                      <img
+                        src={newEmpForm.avatarUrl}
+                        alt="Employee Avatar Preview"
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
+                    ) : (
+                      <User size={30} style={{ color: '#6366F1' }} />
+                    )}
+                  </div>
+
+                  {/* Upload Controls */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px' }}>
+                      <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0F172A' }}>
+                        Profile Photo
+                      </span>
+                      <span style={{ fontSize: '0.72rem', color: '#64748B', fontWeight: 500 }}>
+                        (PNG, JPG or WEBP up to 3MB)
+                      </span>
+                    </div>
+                    <p style={{ fontSize: '0.75rem', color: '#64748B', margin: '0 0 10px 0', lineHeight: 1.4 }}>
+                      Upload staff portrait for identity badge, customer test-drive assignments and directory.
+                    </p>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <label
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '7px 14px',
+                          borderRadius: '10px',
+                          backgroundColor: '#4F46E5',
+                          color: '#FFFFFF',
+                          fontSize: '0.78rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          boxShadow: '0 2px 6px rgba(79, 70, 229, 0.25)',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        <Camera size={13} />
+                        <span>{newEmpForm.avatarUrl ? 'Change Photo' : 'Upload Photo'}</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => handleImageFileChange(e, 'add')}
+                          style={{ display: 'none' }}
+                        />
+                      </label>
+
+                      {newEmpForm.avatarUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setNewEmpForm((prev) => ({ ...prev, avatarUrl: '' }))}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            padding: '7px 12px',
+                            borderRadius: '10px',
+                            border: '1px solid #FCA5A5',
+                            backgroundColor: '#FEF2F2',
+                            color: '#DC2626',
+                            fontSize: '0.78rem',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease',
+                          }}
+                        >
+                          <Trash2 size={13} />
+                          <span>Remove</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
                 {/* Row 1: Full Name & Designation / Role */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
                   {/* Full Name */}
@@ -1526,7 +1670,8 @@ export default function EmployeesPage() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Pop-up Credentials Modal when employee is created */}
@@ -1745,98 +1890,337 @@ export default function EmployeesPage() {
         </Modal>
       )}
 
-      {/* Leave Modal */}
+      {/* Leave Balance & Approval Modal */}
       {selectedForLeave && (
         <Modal
           isOpen={!!selectedForLeave}
           onClose={() => setSelectedForLeave(null)}
-          title={`Leave Records — ${selectedForLeave.fullName}`}
-          maxWidth="760px"
+          title={`Leave Balance & Requests — ${selectedForLeave.fullName}`}
+          maxWidth="820px"
         >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <form onSubmit={handleApplyLeave} style={{ padding: '14px', backgroundColor: '#F8FAFC', borderRadius: '12px', border: '1.5px solid #E2E8F0' }}>
-              <div style={{ fontSize: '0.82rem', fontWeight: 800, marginBottom: '8px' }}>+ Record New Leave</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr auto', gap: '8px', alignItems: 'flex-end' }}>
-                <div>
-                  <label className="form-label" style={{ fontSize: '0.72rem' }}>Type</label>
-                  <select
-                    className="form-select"
-                    value={newLeaveForm.leaveType}
-                    onChange={(e) => setNewLeaveForm({ ...newLeaveForm, leaveType: e.target.value as any })}
-                    style={{ height: '34px', fontSize: '0.78rem' }}
-                  >
-                    <option value="casual">Casual</option>
-                    <option value="sick">Sick</option>
-                    <option value="paid">Paid</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="form-label" style={{ fontSize: '0.72rem' }}>Start</label>
-                  <input
-                    type="date"
-                    className="form-input"
-                    value={newLeaveForm.startDate}
-                    onChange={(e) => setNewLeaveForm({ ...newLeaveForm, startDate: e.target.value })}
-                    style={{ height: '34px', fontSize: '0.78rem' }}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="form-label" style={{ fontSize: '0.72rem' }}>End</label>
-                  <input
-                    type="date"
-                    className="form-input"
-                    value={newLeaveForm.endDate}
-                    onChange={(e) => setNewLeaveForm({ ...newLeaveForm, endDate: e.target.value })}
-                    style={{ height: '34px', fontSize: '0.78rem' }}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="form-label" style={{ fontSize: '0.72rem' }}>Reason</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    value={newLeaveForm.reason}
-                    onChange={(e) => setNewLeaveForm({ ...newLeaveForm, reason: e.target.value })}
-                    placeholder="Reason..."
-                    style={{ height: '34px', fontSize: '0.78rem' }}
-                    required
-                  />
-                </div>
-                <button type="submit" className="unique-lead-submit-btn" style={{ height: '34px', padding: '0 12px' }}>
-                  <span className="btn-text">Apply</span>
-                </button>
-              </div>
-            </form>
+          {(() => {
+            const casualTotal = selectedForLeave.leaveBalance?.casual.total || 12;
+            const casualUsed = selectedForLeave.leaveBalance?.casual.used || 0;
+            const casualRem = Math.max(0, casualTotal - casualUsed);
 
-            <div style={{ border: '1px solid #E2E8F0', borderRadius: '10px', overflow: 'hidden' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
-                <thead>
-                  <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0', color: '#64748B' }}>
-                    <th style={{ padding: '8px 12px', textAlign: 'left' }}>Type</th>
-                    <th style={{ padding: '8px 12px', textAlign: 'left' }}>Period</th>
-                    <th style={{ padding: '8px 12px', textAlign: 'left' }}>Reason</th>
-                    <th style={{ padding: '8px 12px', textAlign: 'left' }}>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {selectedForLeave.leaveHistory.map((lh) => (
-                    <tr key={lh.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
-                      <td style={{ padding: '8px 12px', fontWeight: 700, textTransform: 'uppercase' }}>{lh.leaveType}</td>
-                      <td style={{ padding: '8px 12px' }}>{lh.startDate} to {lh.endDate} ({lh.days}d)</td>
-                      <td style={{ padding: '8px 12px' }}>{lh.reason}</td>
-                      <td style={{ padding: '8px 12px' }}>
-                        <span style={{ fontSize: '0.72rem', fontWeight: 800, padding: '2px 8px', borderRadius: '4px', background: '#E6F4EF', color: '#16A34A' }}>
-                          {lh.status.toUpperCase()}
+            const sickTotal = selectedForLeave.leaveBalance?.sick.total || 7;
+            const sickUsed = selectedForLeave.leaveBalance?.sick.used || 0;
+            const sickRem = Math.max(0, sickTotal - sickUsed);
+
+            const paidTotal = selectedForLeave.leaveBalance?.paid.total || 18;
+            const paidUsed = selectedForLeave.leaveBalance?.paid.used || 0;
+            const paidRem = Math.max(0, paidTotal - paidUsed);
+
+            const totalRem = casualRem + sickRem + paidRem;
+            const pendingRequests = (selectedForLeave.leaveHistory || []).filter((lh) => lh.status === 'pending');
+
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
+                {/* Leave Balance Overview Cards */}
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                    <div>
+                      <div style={{ fontSize: '0.94rem', fontWeight: 800, color: '#0F172A' }}>
+                        Staff Leave Balance
+                      </div>
+                      <div style={{ fontSize: '0.76rem', color: '#64748B' }}>
+                        Annual allocated time-off balance for {selectedForLeave.fullName}
+                      </div>
+                    </div>
+                    <span
+                      style={{
+                        padding: '4px 12px',
+                        borderRadius: '999px',
+                        backgroundColor: '#EEF2FF',
+                        color: '#4F46E5',
+                        fontSize: '0.78rem',
+                        fontWeight: 800,
+                        border: '1px solid #C7D2FE',
+                      }}
+                    >
+                      Total Balance: {totalRem} Days Remaining
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+                    {/* Casual */}
+                    <div
+                      style={{
+                        padding: '16px 18px',
+                        borderRadius: '14px',
+                        backgroundColor: '#F8FAFC',
+                        border: '1.5px solid #E2E8F0',
+                      }}
+                    >
+                      <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>
+                        Casual Leave
+                      </div>
+                      <div style={{ fontSize: '1.45rem', fontWeight: 800, color: '#0F172A', marginTop: '3px' }}>
+                        {casualRem}{' '}
+                        <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#64748B' }}>
+                          / {casualTotal} days
                         </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                      </div>
+                      <div style={{ fontSize: '0.74rem', color: '#64748B', marginTop: '3px' }}>
+                        Used: {casualUsed} days
+                      </div>
+                    </div>
+
+                    {/* Sick */}
+                    <div
+                      style={{
+                        padding: '16px 18px',
+                        borderRadius: '14px',
+                        backgroundColor: '#F8FAFC',
+                        border: '1.5px solid #E2E8F0',
+                      }}
+                    >
+                      <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>
+                        Sick Leave
+                      </div>
+                      <div style={{ fontSize: '1.45rem', fontWeight: 800, color: '#0F172A', marginTop: '3px' }}>
+                        {sickRem}{' '}
+                        <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#64748B' }}>
+                          / {sickTotal} days
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '0.74rem', color: '#64748B', marginTop: '3px' }}>
+                        Used: {sickUsed} days
+                      </div>
+                    </div>
+
+                    {/* Paid */}
+                    <div
+                      style={{
+                        padding: '16px 18px',
+                        borderRadius: '14px',
+                        backgroundColor: '#F8FAFC',
+                        border: '1.5px solid #E2E8F0',
+                      }}
+                    >
+                      <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>
+                        Paid Annual Leave
+                      </div>
+                      <div style={{ fontSize: '1.45rem', fontWeight: 800, color: '#0F172A', marginTop: '3px' }}>
+                        {paidRem}{' '}
+                        <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#64748B' }}>
+                          / {paidTotal} days
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '0.74rem', color: '#64748B', marginTop: '3px' }}>
+                        Used: {paidUsed} days
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Leave Requests & Approval Section */}
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '0.92rem', fontWeight: 800, color: '#0F172A' }}>
+                        Employee Leave Requests
+                      </span>
+                      {pendingRequests.length > 0 && (
+                        <span
+                          style={{
+                            padding: '2px 8px',
+                            borderRadius: '999px',
+                            backgroundColor: '#FEF3C7',
+                            color: '#D97706',
+                            fontSize: '0.72rem',
+                            fontWeight: 800,
+                            border: '1px solid #FDE68A',
+                          }}
+                        >
+                          {pendingRequests.length} Pending Approval
+                        </span>
+                      )}
+                    </div>
+                    <span style={{ fontSize: '0.76rem', color: '#64748B' }}>
+                      {selectedForLeave.leaveHistory.length} Total Submissions
+                    </span>
+                  </div>
+
+                  {(!selectedForLeave.leaveHistory || selectedForLeave.leaveHistory.length === 0) ? (
+                    <div
+                      style={{
+                        padding: '32px 20px',
+                        borderRadius: '12px',
+                        border: '1.5px dashed #CBD5E1',
+                        textAlign: 'center',
+                        color: '#64748B',
+                        fontSize: '0.84rem',
+                        backgroundColor: '#F8FAFC',
+                      }}
+                    >
+                      No leave requests submitted by {selectedForLeave.fullName} yet. When this employee requests time off from their Employee Portal, it will appear here with an approval option.
+                    </div>
+                  ) : (
+                    <div style={{ border: '1px solid #E2E8F0', borderRadius: '12px', overflow: 'hidden' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+                        <thead>
+                          <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0', color: '#475569' }}>
+                            <th style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 700 }}>Type</th>
+                            <th style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 700 }}>Dates & Duration</th>
+                            <th style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 700 }}>Reason</th>
+                            <th style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 700 }}>Status</th>
+                            <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 700 }}>Approval Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {selectedForLeave.leaveHistory.map((lh) => {
+                            const isPending = lh.status === 'pending';
+                            const isApproved = lh.status === 'approved';
+                            const isRejected = lh.status === 'rejected';
+
+                            return (
+                              <tr
+                                key={lh.id}
+                                style={{
+                                  borderBottom: '1px solid #F1F5F9',
+                                  backgroundColor: isPending ? 'rgba(245, 158, 11, 0.04)' : undefined,
+                                }}
+                              >
+                                <td style={{ padding: '12px 14px' }}>
+                                  <span
+                                    style={{
+                                      padding: '3px 8px',
+                                      borderRadius: '6px',
+                                      backgroundColor: '#EEF2FF',
+                                      color: '#4F46E5',
+                                      fontWeight: 800,
+                                      fontSize: '0.74rem',
+                                      textTransform: 'capitalize',
+                                    }}
+                                  >
+                                    {lh.leaveType}
+                                  </span>
+                                </td>
+                                <td style={{ padding: '12px 14px' }}>
+                                  <div style={{ fontWeight: 700, color: '#0F172A' }}>
+                                    {lh.startDate} to {lh.endDate}
+                                  </div>
+                                  <div style={{ fontSize: '0.74rem', color: '#64748B' }}>
+                                    {lh.days} {lh.days === 1 ? 'day' : 'days'}
+                                  </div>
+                                </td>
+                                <td style={{ padding: '12px 14px', color: '#334155' }}>
+                                  {lh.reason || 'Personal leave'}
+                                </td>
+                                <td style={{ padding: '12px 14px' }}>
+                                  {isPending && (
+                                    <span
+                                      style={{
+                                        fontSize: '0.72rem',
+                                        fontWeight: 800,
+                                        padding: '3px 9px',
+                                        borderRadius: '999px',
+                                        background: '#FEF3C7',
+                                        color: '#D97706',
+                                        border: '1px solid #FDE68A',
+                                      }}
+                                    >
+                                      PENDING
+                                    </span>
+                                  )}
+                                  {isApproved && (
+                                    <span
+                                      style={{
+                                        fontSize: '0.72rem',
+                                        fontWeight: 800,
+                                        padding: '3px 9px',
+                                        borderRadius: '999px',
+                                        background: '#ECFDF5',
+                                        color: '#059669',
+                                        border: '1px solid #A7F3D0',
+                                      }}
+                                    >
+                                      APPROVED
+                                    </span>
+                                  )}
+                                  {isRejected && (
+                                    <span
+                                      style={{
+                                        fontSize: '0.72rem',
+                                        fontWeight: 800,
+                                        padding: '3px 9px',
+                                        borderRadius: '999px',
+                                        background: '#FEF2F2',
+                                        color: '#DC2626',
+                                        border: '1px solid #FECACA',
+                                      }}
+                                    >
+                                      REJECTED
+                                    </span>
+                                  )}
+                                </td>
+                                <td style={{ padding: '12px 14px', textAlign: 'right' }}>
+                                  {isPending ? (
+                                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleApproveLeave(lh.id, true)}
+                                        style={{
+                                          padding: '6px 12px',
+                                          borderRadius: '8px',
+                                          backgroundColor: '#10B981',
+                                          color: '#FFFFFF',
+                                          fontSize: '0.76rem',
+                                          fontWeight: 800,
+                                          border: 'none',
+                                          cursor: 'pointer',
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: '4px',
+                                          boxShadow: '0 1px 3px rgba(16, 185, 129, 0.3)',
+                                        }}
+                                      >
+                                        <CheckCircle2 size={13} />
+                                        <span>Approve</span>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleApproveLeave(lh.id, false)}
+                                        style={{
+                                          padding: '6px 12px',
+                                          borderRadius: '8px',
+                                          backgroundColor: '#FFFFFF',
+                                          color: '#DC2626',
+                                          border: '1px solid #FECACA',
+                                          fontSize: '0.76rem',
+                                          fontWeight: 700,
+                                          cursor: 'pointer',
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: '4px',
+                                        }}
+                                      >
+                                        <XCircle size={13} />
+                                        <span>Reject</span>
+                                      </button>
+                                    </div>
+                                  ) : isApproved ? (
+                                    <span style={{ fontSize: '0.76rem', color: '#059669', fontWeight: 600 }}>
+                                      ✓ Approved by {lh.approvedBy || 'Admin'}
+                                    </span>
+                                  ) : (
+                                    <span style={{ fontSize: '0.76rem', color: '#94A3B8' }}>
+                                      ✕ Declined
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
         </Modal>
       )}
 

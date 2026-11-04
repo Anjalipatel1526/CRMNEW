@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
@@ -26,6 +26,7 @@ import {
   Package,
   Users,
   X,
+  LayoutDashboard,
 } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { getModules, DealershipModule } from '@/lib/modules-registry';
@@ -36,7 +37,8 @@ import {
   CompanyProfile,
   getUserCredentials,
 } from '@/lib/company-store';
-import { getUserSession } from '@/lib/auth-context';
+import { getUserSession, UserSession } from '@/lib/auth-context';
+import { getEmployees } from '@/lib/employee-store';
 
 export interface DealershipNotification {
   id: string;
@@ -113,7 +115,7 @@ const PRESET_PROFILE_AVATARS = [
 export function Shell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { userContext, activeRole, logout, updateUserProfile } = useAuth();
+  const { userContext, activeRole, logout, updateUserProfile, session: authSession } = useAuth();
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notifFilter, setNotifFilter] = useState<'all' | 'unread'>('all');
@@ -121,6 +123,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const [modules, setModules] = useState<DealershipModule[]>([]);
   const [company, setCompany] = useState<CompanyProfile>(DEFAULT_COMPANY_PROFILE);
   const [isMounted, setIsMounted] = useState(false);
+  const [sessionState, setSessionState] = useState<UserSession | null>(null);
 
   // Profile modal state
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
@@ -131,6 +134,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     setIsMounted(true);
+    setSessionState(getUserSession());
     // Initial load
     setModules(getModules());
     setCompany(getCompanyProfile());
@@ -146,10 +150,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
         localStorage.setItem('crm_dealership_notifications_v1', JSON.stringify(DEFAULT_NOTIFICATIONS));
       }
     } catch (e) {}
-    setCompany(getCompanyProfile());
-    fetchCompanyProfile().then((p) => {
-      if (p) setCompany(p);
-    });
 
     const handleModulesChanged = () => {
       setModules(getModules());
@@ -159,18 +159,27 @@ export function Shell({ children }: { children: React.ReactNode }) {
       setCompany(getCompanyProfile());
     };
 
+    const handleSessionChanged = () => {
+      setSessionState(getUserSession());
+    };
+
     const handleStorage = (e: StorageEvent) => {
       if (e.key === 'crm_dealership_company_profile_v1') {
         setCompany(getCompanyProfile());
+      }
+      if (e.key === 'crm_active_user_session_v1') {
+        setSessionState(getUserSession());
       }
     };
 
     window.addEventListener('crm-modules-changed', handleModulesChanged);
     window.addEventListener('crm-company-profile-changed', handleCompanyChanged);
+    window.addEventListener('crm-session-changed', handleSessionChanged);
     window.addEventListener('storage', handleStorage);
     return () => {
       window.removeEventListener('crm-modules-changed', handleModulesChanged);
       window.removeEventListener('crm-company-profile-changed', handleCompanyChanged);
+      window.removeEventListener('crm-session-changed', handleSessionChanged);
       window.removeEventListener('storage', handleStorage);
     };
   }, []);
@@ -184,38 +193,159 @@ export function Shell({ children }: { children: React.ReactNode }) {
     }
   }, [pathname]);
 
-  const activeSession = isMounted ? getUserSession() : null;
-  const isEmployeeAdmin = activeSession?.isAdmin ?? (activeSession?.role === 'tenant_admin' || activeSession?.role === 'platform_admin' || !activeSession?.employeeId);
-  const employeeAccess = activeSession?.accessControl;
+  const activeSession = authSession || sessionState || (isMounted ? getUserSession() : null);
+  const isStaffEmployee = Boolean(activeSession?.employeeId && !activeSession?.isAdmin);
+  const isEmployeeAdmin = !isStaffEmployee;
+
+  const employeeAccess = useMemo(() => {
+    if (activeSession?.accessControl) return activeSession.accessControl;
+    if (activeSession?.employeeId || activeSession?.employeeCode) {
+      const allEmps = getEmployees();
+      const found = allEmps.find(
+        (e) =>
+          e.id === activeSession.employeeId ||
+          (activeSession.employeeCode && e.employeeCode.toLowerCase() === activeSession.employeeCode.toLowerCase())
+      );
+      if (found) return found.accessControl;
+    }
+    return undefined;
+  }, [activeSession]);
+
+  // Protect employee workflow: prevent staff from accessing admin-only pages
+  useEffect(() => {
+    if (!isMounted) return;
+    if (isStaffEmployee) {
+      if (
+        pathname === '/employees' ||
+        pathname === '/settings' ||
+        pathname === '/dashboard' ||
+        pathname === '/onboarding'
+      ) {
+        router.replace('/empportal');
+      }
+    }
+  }, [pathname, isMounted, isStaffEmployee, router]);
 
   // Only display plugged-in (active) modules in the top navigation bar, respecting employee access control if not admin
-  const activeNavTabs = modules.filter((m) => {
-    if (!m.isPluggedIn) return false;
-    if (isEmployeeAdmin || !employeeAccess) return true;
+  const activeNavTabs = useMemo(() => {
+    // If logged in as staff employee (non-admin)
+    if (isStaffEmployee) {
+      const allowed: { id: string; label: string; href: string; icon: string; description?: string }[] = [
+        {
+          id: 'mod-empportal',
+          label: 'Overview',
+          href: '/empportal',
+          icon: 'LayoutDashboard',
+          description: 'Personal staff workflow & assigned tasks',
+        },
+      ];
 
-    // Check module permission against employeeAccess
-    if (m.id === 'crm' || m.href.startsWith('/crm')) return employeeAccess.pipeline || employeeAccess.customers;
-    if (m.id === 'vehicles' || m.href.startsWith('/vehicles')) return employeeAccess.inventory;
-    if (m.id === 'sales' || m.href.startsWith('/sales')) return employeeAccess.deals;
-    if (m.id === 'test-drives' || m.href.startsWith('/test-drives')) return employeeAccess.testDrives;
-    if (m.id === 'finance' || m.href.startsWith('/finance')) return employeeAccess.finance;
-    if (m.id === 'documents' || m.href.startsWith('/documents')) return employeeAccess.documents;
-    if (m.id === 'reports' || m.href.startsWith('/reports')) return employeeAccess.reports;
-    if (m.id === 'settings' || m.href.startsWith('/settings')) return employeeAccess.settings;
-    if (m.id === 'employees' || m.href.startsWith('/employees')) return isEmployeeAdmin || employeeAccess.settings;
-    return true;
-  });
+      if (employeeAccess?.pipeline) {
+        allowed.push({
+          id: 'crm-pipeline',
+          label: 'Pipeline',
+          href: '/crm/leads',
+          icon: 'Filter',
+          description: 'Lead enquiries & pipeline stages',
+        });
+      }
+      if (employeeAccess?.customers) {
+        allowed.push({
+          id: 'crm-customers',
+          label: 'Customers',
+          href: '/crm/customers',
+          icon: 'Users',
+          description: 'Customer profiles & contact directory',
+        });
+      }
+      if (employeeAccess?.testDrives) {
+        allowed.push({
+          id: 'mod-test-drives',
+          label: 'Test Drives',
+          href: '/test-drives',
+          icon: 'Gauge',
+          description: 'Vehicle test drive bookings & logs',
+        });
+      }
+      if (employeeAccess?.inventory) {
+        allowed.push({
+          id: 'mod-inventory',
+          label: 'Inventory',
+          href: '/vehicles',
+          icon: 'Car',
+          description: 'Showroom vehicle stock',
+        });
+      }
+      if (employeeAccess?.procurement) {
+        allowed.push({
+          id: 'mod-procurement',
+          label: 'Procurement',
+          href: '/vehicles/procurement',
+          icon: 'Layers',
+          description: 'Vehicle intake & procurement',
+        });
+      }
+      if (employeeAccess?.deals) {
+        allowed.push({
+          id: 'mod-deals',
+          label: 'Deals',
+          href: '/sales/deals',
+          icon: 'BadgePercent',
+          description: 'Commercial deal negotiations',
+        });
+      }
+      if (employeeAccess?.finance) {
+        allowed.push({
+          id: 'mod-finance',
+          label: 'Finance',
+          href: '/finance',
+          icon: 'CreditCard',
+          description: 'Receipts & settlement vouchers',
+        });
+      }
+      if (employeeAccess?.documents) {
+        allowed.push({
+          id: 'mod-documents',
+          label: 'Documents',
+          href: '/documents',
+          icon: 'FileText',
+          description: 'Delivery gate & KYC documents',
+        });
+      }
+      if (employeeAccess?.reports) {
+        allowed.push({
+          id: 'mod-reports',
+          label: 'Reports',
+          href: '/reports',
+          icon: 'BarChart3',
+          description: 'Individual activity metrics',
+        });
+      }
+
+      return allowed;
+    }
+
+    // Default for Administrators: show all plugged-in modules
+    return modules.filter((m) => m.isPluggedIn);
+  }, [modules, isStaffEmployee, activeSession, employeeAccess]);
 
   // Active top tab resolution
   const activeTab = (() => {
+    if (pathname === '/empportal') return '/empportal';
     if (pathname === '/dashboard') return '/dashboard';
     let best = '';
     for (const tab of activeNavTabs) {
-      if (tab.href !== '/' && tab.href !== '/dashboard' && pathname.startsWith(tab.href) && tab.href.length > best.length) {
+      if (
+        tab.href !== '/' &&
+        tab.href !== '/dashboard' &&
+        tab.href !== '/empportal' &&
+        pathname.startsWith(tab.href) &&
+        tab.href.length > best.length
+      ) {
         best = tab.href;
       }
     }
-    return best || (pathname === '/dashboard' ? '/dashboard' : '');
+    return best || (pathname === '/empportal' ? '/empportal' : pathname === '/dashboard' ? '/dashboard' : '');
   })();
 
   const userDisplayName = isMounted
@@ -456,7 +586,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
         {/* Unified Top Navigation Bar (Single Sleek Row: Brand, Nav Tabs filling space, Bell, Settings, Profile Avatar) */}
         <header className="top-bar">
           {/* Left: Brand Title & Dynamic Logo */}
-          <Link href="/dashboard" className="brand-link" title={brandDisplayName}>
+          <Link
+            href={isStaffEmployee ? '/empportal' : '/dashboard'}
+            className="brand-link"
+            title={brandDisplayName}
+          >
             {isMounted && company.logoUrl ? (
               <img
                 src={company.logoUrl}
@@ -484,7 +618,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
           {/* Center: Horizontal Capsule Nav Tabs (Spans across to fill space with balanced alignment) */}
           <nav className="nav-pills" aria-label="Dealership Navigation">
-            {activeNavTabs.map((tab) => (
+            {activeNavTabs.map((tab: any) => (
               <Link
                 key={tab.id}
                 href={tab.href}
@@ -1019,8 +1153,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
                       <span>View Profile</span>
                     </button>
 
-                    {/* Company Onboarding: ONLY shown if NOT yet onboarded */}
-                    {isMounted && !company.isOnboarded && (
+                    {/* Company Onboarding: ONLY shown for Admins if NOT yet onboarded */}
+                    {isMounted && !company.isOnboarded && !isStaffEmployee && (
                       <Link
                         href="/onboarding"
                         onClick={() => setProfileDropdownOpen(false)}
@@ -1044,35 +1178,63 @@ export function Shell({ children }: { children: React.ReactNode }) {
                       </Link>
                     )}
 
-                    {/* Platform Settings Link */}
-                    <Link
-                      href="/settings"
-                      onClick={() => setProfileDropdownOpen(false)}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        padding: '7px 8px',
-                        borderRadius: '6px',
-                        fontSize: '0.82rem',
-                        fontWeight: 600,
-                        color: 'var(--text)',
-                        textDecoration: 'none',
-                        transition: 'background 0.15s ease',
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--float)')}
-                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-                    >
-                      <Settings size={14} style={{ color: 'var(--pearl-green)' }} />
-                      <span>Platform Settings</span>
-                    </Link>
+                    {/* Platform Settings Link: Only for Admins; Staff get My Staff Portal */}
+                    {!isStaffEmployee ? (
+                      <Link
+                        href="/settings"
+                        onClick={() => setProfileDropdownOpen(false)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          padding: '7px 8px',
+                          borderRadius: '6px',
+                          fontSize: '0.82rem',
+                          fontWeight: 600,
+                          color: 'var(--text)',
+                          textDecoration: 'none',
+                          transition: 'background 0.15s ease',
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--float)')}
+                        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                      >
+                        <Settings size={14} style={{ color: 'var(--pearl-green)' }} />
+                        <span>Platform Settings</span>
+                      </Link>
+                    ) : (
+                      <Link
+                        href="/empportal"
+                        onClick={() => setProfileDropdownOpen(false)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          padding: '7px 8px',
+                          borderRadius: '6px',
+                          fontSize: '0.82rem',
+                          fontWeight: 600,
+                          color: 'var(--text)',
+                          textDecoration: 'none',
+                          transition: 'background 0.15s ease',
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--float)')}
+                        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                      >
+                        <LayoutDashboard size={14} style={{ color: 'var(--pearl-green)' }} />
+                        <span>My Staff Portal</span>
+                      </Link>
+                    )}
 
                     {/* Sign Out Button */}
                     <button
                       type="button"
                       onClick={() => {
                         setProfileDropdownOpen(false);
+                        const wasStaff = isStaffEmployee;
                         logout();
+                        if (wasStaff && typeof window !== 'undefined') {
+                          window.location.href = '/emplogin';
+                        }
                       }}
                       style={{
                         width: '100%',

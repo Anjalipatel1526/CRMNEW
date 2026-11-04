@@ -2,6 +2,8 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { getUserSession } from '@/lib/auth-context';
 import { api } from '@/lib/api-client';
 import { Modal } from '@/components/ui/Modal';
 import { StatCard } from '@/components/ui/StatCard';
@@ -102,6 +104,7 @@ const REVENUE_DATA_6M = [
 const HOT_DEALS: HotDeal[] = [];
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [company, setCompany] = useState<CompanyProfile>(DEFAULT_COMPANY_PROFILE);
   const [isMounted, setIsMounted] = useState(false);
   const [vehicles] = useState(api.getVehicles());
@@ -120,6 +123,11 @@ export default function DashboardPage() {
   } | null>(null);
 
   useEffect(() => {
+    const session = getUserSession();
+    if (session?.employeeId && !session?.isAdmin) {
+      router.replace('/empportal');
+      return;
+    }
     setIsMounted(true);
     setCompany(getCompanyProfile());
     const handleCompany = () => setCompany(getCompanyProfile());

@@ -22,8 +22,8 @@ import {
   MapPin,
   CheckCircle2,
   Clock,
+  ChevronDown,
   Camera,
-  Image as ImageIcon,
   Upload,
   Trash2,
   Star,
@@ -36,7 +36,6 @@ export default function VehiclesPage() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
   const [editingVehicleId, setEditingVehicleId] = useState<string | null>(null);
-  const [urlInput, setUrlInput] = useState('');
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
 
   // Search and Filter states
@@ -57,15 +56,6 @@ export default function VehiclesPage() {
     window.addEventListener('crm-data-changed', handleDataChanged);
     return () => window.removeEventListener('crm-data-changed', handleDataChanged);
   }, []);
-
-  const CAR_PHOTO_PRESETS = [
-    { label: '+ Front Angle', url: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=600&q=80' },
-    { label: '+ Interior Cabin', url: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=600&q=80' },
-    { label: '+ Rear View', url: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=600&q=80' },
-    { label: '+ Dashboard Cockpit', url: 'https://images.unsplash.com/photo-1563720223185-11003d516935?auto=format&fit=crop&w=600&q=80' },
-    { label: '+ Side Profile', url: 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=600&q=80' },
-    { label: '+ Alloy Wheel', url: 'https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&w=600&q=80' },
-  ];
 
   const emptyFormData = {
     branchId: '',
@@ -89,19 +79,52 @@ export default function VehiclesPage() {
 
   const [formData, setFormData] = useState(emptyFormData);
 
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve) => {
+      if (!file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+        reader.readAsDataURL(file);
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const dataUrl = e.target?.result as string;
+        if (!dataUrl) return resolve('');
+        const img = new Image();
+        img.onload = () => {
+          const maxDim = 1000;
+          let width = img.width;
+          let height = img.height;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return resolve(dataUrl);
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', 0.75));
+        };
+        img.onerror = () => resolve(dataUrl);
+        img.src = dataUrl;
+      };
+      reader.onerror = () => resolve('');
+      reader.readAsDataURL(file);
+    });
+  };
+
   const appendFiles = (fileList: FileList | File[]) => {
     const files = Array.from(fileList);
     if (!files.length) return;
-    const promises = files.map((file) => {
-      return new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          if (typeof reader.result === 'string') resolve(reader.result);
-          else resolve('');
-        };
-        reader.readAsDataURL(file);
-      });
-    });
+    const promises = files.map((file) => compressImage(file));
     Promise.all(promises).then((dataUrls) => {
       const valid = dataUrls.filter(Boolean);
       if (valid.length === 0) return;
@@ -148,20 +171,6 @@ export default function VehiclesPage() {
     });
   };
 
-  const handleAddUrlPhoto = () => {
-    const trimmed = urlInput.trim();
-    if (!trimmed) return;
-    setFormData((prev) => {
-      const updated = [...prev.images, trimmed];
-      return {
-        ...prev,
-        images: updated,
-        imageUrl: prev.imageUrl || updated[0] || '',
-      };
-    });
-    setUrlInput('');
-  };
-
   const handleStartEdit = (v: Vehicle) => {
     const vImages: string[] = ((v as any).images && (v as any).images.length > 0)
       ? (v as any).images
@@ -190,7 +199,6 @@ export default function VehiclesPage() {
       images: vImages,
       status: v.status,
     });
-    setUrlInput('');
     setEditingVehicleId(v.id);
     setSelectedVehicle(null);
     setIsAddModalOpen(true);
@@ -225,6 +233,7 @@ export default function VehiclesPage() {
             createdAt: new Date().toISOString(),
           })),
         });
+        api.updateVehicle(existing.id, existing);
       }
       setEditingVehicleId(null);
     } else {
@@ -237,7 +246,14 @@ export default function VehiclesPage() {
     setVehicles([...api.getVehicles()]);
     setIsAddModalOpen(false);
     setFormData(emptyFormData);
-    setUrlInput('');
+  };
+
+  const handleUpdateStatus = (vehicleId: string, newStatus: VehicleStatus) => {
+    const updated = api.updateVehicle(vehicleId, { status: newStatus });
+    if (updated) {
+      setVehicles([...api.getVehicles()]);
+      setSelectedVehicle((prev) => (prev && prev.id === vehicleId ? { ...prev, status: newStatus } : prev));
+    }
   };
 
   const totalValue = vehicles.reduce((sum, v) => sum + v.askingPrice, 0);
@@ -290,7 +306,6 @@ export default function VehiclesPage() {
           onClick={() => {
             setEditingVehicleId(null);
             setFormData(emptyFormData);
-            setUrlInput('');
             setIsAddModalOpen(true);
           }}
           className="btn btn-primary btn-sm"
@@ -452,7 +467,7 @@ export default function VehiclesPage() {
         <div>
           <div
             className="app-table-header"
-            style={{ ['--grid-cols' as any]: '1.8fr 2.2fr 1.6fr 1.6fr 1.4fr 1.1fr 130px' }}
+            style={{ ['--grid-cols' as any]: '1.8fr 2.1fr 1.5fr 1.5fr 1.2fr 1.2fr 230px' }}
           >
             <div>Stock & VIN</div>
             <div>Vehicle Model</div>
@@ -472,7 +487,7 @@ export default function VehiclesPage() {
                   key={v.id}
                   className="app-row-card"
                   style={{
-                    ['--grid-cols' as any]: '1.8fr 2.2fr 1.6fr 1.6fr 1.4fr 1.1fr 130px',
+                    ['--grid-cols' as any]: '1.8fr 2.1fr 1.5fr 1.5fr 1.2fr 1.2fr 230px',
                     ['--theme-accent' as any]: palette.accent,
                     ['--theme-border' as any]: palette.border,
                     ['--theme-glow' as any]: palette.glow,
@@ -583,13 +598,147 @@ export default function VehiclesPage() {
                     </div>
                   </div>
 
-                  {/* Status */}
+                  {/* Status Dropdown / Badge */}
                   <div>
-                    <StatusBadge status={v.status} />
+                    <div style={{ position: 'relative', display: 'inline-block' }}>
+                      <select
+                        value={v.status}
+                        onChange={(e) => handleUpdateStatus(v.id, e.target.value as VehicleStatus)}
+                        style={{
+                          cursor: 'pointer',
+                          padding: '4px 22px 4px 10px',
+                          borderRadius: '999px',
+                          fontSize: '0.74rem',
+                          fontWeight: 700,
+                          textTransform: 'capitalize',
+                          border: '1.5px solid',
+                          outline: 'none',
+                          appearance: 'none',
+                          backgroundColor:
+                            v.status === 'available'
+                              ? '#ECFDF5'
+                              : v.status === 'reserved'
+                              ? '#FEF3C7'
+                              : v.status === 'sold'
+                              ? '#EFF6FF'
+                              : '#F1F5F9',
+                          borderColor:
+                            v.status === 'available'
+                              ? '#10B981'
+                              : v.status === 'reserved'
+                              ? '#F59E0B'
+                              : v.status === 'sold'
+                              ? '#3B82F6'
+                              : '#CBD5E1',
+                          color:
+                            v.status === 'available'
+                              ? '#047857'
+                              : v.status === 'reserved'
+                              ? '#B45309'
+                              : v.status === 'sold'
+                              ? '#1D4ED8'
+                              : '#475569',
+                        }}
+                        title="Click to change vehicle position / status"
+                      >
+                        <option value="available">● Available</option>
+                        <option value="reserved">● Reserved</option>
+                        <option value="sold">● Sold Out</option>
+                      </select>
+                      <ChevronDown
+                        size={11}
+                        style={{
+                          position: 'absolute',
+                          right: '7px',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          pointerEvents: 'none',
+                          color:
+                            v.status === 'available'
+                              ? '#047857'
+                              : v.status === 'reserved'
+                              ? '#B45309'
+                              : v.status === 'sold'
+                              ? '#1D4ED8'
+                              : '#64748B',
+                        }}
+                      />
+                    </div>
                   </div>
 
-                  {/* Actions */}
-                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  {/* Actions & Position Switcher Buttons */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
+                    {v.status === 'available' && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateStatus(v.id, 'reserved')}
+                          title="Reserve this vehicle (Token advance)"
+                          style={{
+                            padding: '4px 8px',
+                            borderRadius: '6px',
+                            fontSize: '0.72rem',
+                            fontWeight: 600,
+                            backgroundColor: '#FEF3C7',
+                            color: '#92400E',
+                            border: '1px solid #FCD34D',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '3px',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          <Clock size={11} /> Reserve
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateStatus(v.id, 'sold')}
+                          title="Mark vehicle as Sold Out"
+                          style={{
+                            padding: '4px 8px',
+                            borderRadius: '6px',
+                            fontSize: '0.72rem',
+                            fontWeight: 600,
+                            backgroundColor: '#EFF6FF',
+                            color: '#1D4ED8',
+                            border: '1px solid #BFDBFE',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '3px',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          <CheckCircle2 size={11} /> Sold Out
+                        </button>
+                      </>
+                    )}
+
+                    {v.status === 'reserved' && (
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateStatus(v.id, 'sold')}
+                        title="Finalize sale & mark Sold Out"
+                        style={{
+                          padding: '4px 8px',
+                          borderRadius: '6px',
+                          fontSize: '0.72rem',
+                          fontWeight: 600,
+                          backgroundColor: '#EFF6FF',
+                          color: '#1D4ED8',
+                          border: '1px solid #BFDBFE',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '3px',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        <CheckCircle2 size={11} /> Sold Out
+                      </button>
+                    )}
+
                     <button
                       type="button"
                       className="app-action-btn"
@@ -711,7 +860,6 @@ export default function VehiclesPage() {
           setIsAddModalOpen(false);
           setEditingVehicleId(null);
           setFormData(emptyFormData);
-          setUrlInput('');
         }}
         title={editingVehicleId ? 'Edit Vehicle Stock Record' : 'Add New Inventory Stock'}
         maxWidth="740px"
@@ -780,7 +928,7 @@ export default function VehiclesPage() {
                   display: 'grid',
                   gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))',
                   gap: '10px',
-                  marginBottom: '12px',
+                  marginBottom: 0,
                 }}
               >
                 {formData.images.map((imgUrl, idx) => {
@@ -968,7 +1116,7 @@ export default function VehiclesPage() {
                   cursor: 'pointer',
                   transition: 'all 0.18s ease',
                   textAlign: 'center',
-                  marginBottom: '10px',
+                  marginBottom: 0,
                 }}
                 onDragOver={(e) => {
                   e.preventDefault();
@@ -1018,105 +1166,6 @@ export default function VehiclesPage() {
               onChange={handlePhotoUpload}
               style={{ display: 'none' }}
             />
-
-            {/* URL input bar & Quick Angle presets */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <div style={{ position: 'relative', flex: 1 }}>
-                  <input
-                    type="url"
-                    className="form-input"
-                    value={urlInput}
-                    onChange={(e) => setUrlInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleAddUrlPhoto();
-                      }
-                    }}
-                    placeholder="Or paste an image web URL (https://...)"
-                    style={{ fontSize: '0.78rem', paddingLeft: '32px' }}
-                  />
-                  <ImageIcon
-                    size={14}
-                    style={{
-                      position: 'absolute',
-                      left: '10px',
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      color: '#94A3B8',
-                    }}
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={handleAddUrlPhoto}
-                  disabled={!urlInput.trim()}
-                  style={{
-                    padding: '7px 14px',
-                    borderRadius: '8px',
-                    backgroundColor: urlInput.trim() ? '#2563EB' : '#E2E8F0',
-                    color: urlInput.trim() ? '#FFFFFF' : '#94A3B8',
-                    border: 'none',
-                    fontSize: '0.78rem',
-                    fontWeight: 600,
-                    cursor: urlInput.trim() ? 'pointer' : 'not-allowed',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  <Plus size={14} /> Add URL
-                </button>
-              </div>
-
-              {/* Angle presets */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '0.74rem', fontWeight: 600, color: '#64748B' }}>Quick Angle Presets:</span>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                  {CAR_PHOTO_PRESETS.map((p) => {
-                    const isAdded = formData.images.includes(p.url);
-                    return (
-                      <button
-                        key={p.label}
-                        type="button"
-                        onClick={() => {
-                          if (!isAdded) {
-                            setFormData((prev) => {
-                              const newImages = [...prev.images, p.url];
-                              return {
-                                ...prev,
-                                images: newImages,
-                                imageUrl: prev.imageUrl || newImages[0] || '',
-                              };
-                            });
-                          }
-                        }}
-                        style={{
-                          padding: '3px 9px',
-                          borderRadius: '6px',
-                          border: '1px solid',
-                          borderColor: isAdded ? '#10B981' : '#CBD5E1',
-                          backgroundColor: isAdded ? '#ECFDF5' : '#FFFFFF',
-                          color: isAdded ? '#047857' : '#475569',
-                          fontSize: '0.72rem',
-                          fontWeight: 600,
-                          cursor: isAdded ? 'default' : 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          transition: 'all 0.15s ease',
-                        }}
-                      >
-                        {isAdded && <CheckCircle2 size={11} />}
-                        <span>{p.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
           </div>
 
           <div className="form-grid-3">
@@ -1274,6 +1323,19 @@ export default function VehiclesPage() {
             </div>
           </div>
 
+          <div className="form-group" style={{ marginBottom: '16px' }}>
+            <label className="form-label">Inventory Stock Status / Position</label>
+            <select
+              className="form-select"
+              value={formData.status}
+              onChange={(e) => setFormData({ ...formData, status: e.target.value as VehicleStatus })}
+            >
+              <option value="available">Available (Ready for sale / test drives)</option>
+              <option value="reserved">Reserved (Token advance / Allocated)</option>
+              <option value="sold">Sold Out (Delivered to customer)</option>
+            </select>
+          </div>
+
           {/* Modern Inspo Footer Bar */}
           <div className="unique-modal-footer-bar" style={{ marginTop: '12px', paddingTop: '16px', borderTop: '1px solid #E2E8F0' }}>
             <button
@@ -1283,7 +1345,6 @@ export default function VehiclesPage() {
                 setIsAddModalOpen(false);
                 setEditingVehicleId(null);
                 setFormData(emptyFormData);
-                setUrlInput('');
               }}
             >
               <ChevronLeft size={16} /> Cancel
@@ -1510,13 +1571,60 @@ export default function VehiclesPage() {
                 backgroundColor: '#F8FAFC',
                 borderRadius: '16px',
                 border: '1.5px solid #E2E8F0',
+                flexWrap: 'wrap',
+                gap: '12px',
               }}
             >
               <div>
                 <span style={{ fontSize: '0.74rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Stock Number</span>
                 <div style={{ fontWeight: 700, fontSize: '1.15rem', color: '#0284C7' }}>{selectedVehicle.stockNumber}</div>
               </div>
-              <StatusBadge status={selectedVehicle.status} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <StatusBadge status={selectedVehicle.status} />
+
+                {selectedVehicle.status !== 'reserved' && (
+                  <button
+                    type="button"
+                    onClick={() => handleUpdateStatus(selectedVehicle.id, 'reserved')}
+                    style={{
+                      padding: '5px 11px',
+                      borderRadius: '8px',
+                      fontSize: '0.75rem',
+                      fontWeight: 600,
+                      backgroundColor: '#FEF3C7',
+                      color: '#92400E',
+                      border: '1px solid #FCD34D',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                    }}
+                  >
+                    <Clock size={12} /> Mark as Reserved
+                  </button>
+                )}
+                {selectedVehicle.status !== 'sold' && (
+                  <button
+                    type="button"
+                    onClick={() => handleUpdateStatus(selectedVehicle.id, 'sold')}
+                    style={{
+                      padding: '5px 11px',
+                      borderRadius: '8px',
+                      fontSize: '0.75rem',
+                      fontWeight: 600,
+                      backgroundColor: '#EFF6FF',
+                      color: '#1D4ED8',
+                      border: '1px solid #BFDBFE',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                    }}
+                  >
+                    <CheckCircle2 size={12} /> Mark as Sold Out
+                  </button>
+                )}
+              </div>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', fontSize: '0.85rem' }}>

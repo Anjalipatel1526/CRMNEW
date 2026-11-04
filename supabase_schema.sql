@@ -936,10 +936,10 @@ DROP POLICY IF EXISTS "Job Cards Access Policy" ON job_cards;
 CREATE POLICY "Job Cards Access Policy" ON job_cards FOR ALL USING (true);
 
 DROP POLICY IF EXISTS "Documents Access Policy" ON documents;
-CREATE POLICY "Documents Access Policy" ON documents FOR ALL USING (true);
+CREATE POLICY "Documents Access Policy" ON documents FOR ALL USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Employees Access Policy" ON employees;
-CREATE POLICY "Employees Access Policy" ON employees FOR ALL USING (true);
+CREATE POLICY "Employees Access Policy" ON employees FOR ALL USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Test Drives Access Policy" ON test_drives;
 CREATE POLICY "Test Drives Access Policy" ON test_drives FOR ALL USING (true);
@@ -998,7 +998,16 @@ VALUES (
   'Asia/Kolkata'
 ) ON CONFLICT (id) DO NOTHING;
 
--- Branches configured dynamically via dealership settings
+-- Seed Default Primary Branch
+INSERT INTO branches (id, tenant_id, code, name, timezone, is_active)
+VALUES (
+  'b-dt-001',
+  't-apex-001',
+  'DT-01',
+  'Apex Downtown Flagship',
+  'Asia/Kolkata',
+  true
+) ON CONFLICT (id) DO NOTHING;
 
 -- Seed Default Admin User
 INSERT INTO app_users (id, email, full_name, phone, is_active)
@@ -1059,3 +1068,15 @@ VALUES
   ('mod-reports', 't-apex-001', 'Reports & Analytics', '/reports', 'BarChart3', true, 'Revenue velocity, yard margin audits & performance', 9),
   ('mod-settings', 't-apex-001', 'Platform Settings', '/settings', 'Settings', true, 'Dealership profile, branch nodes & security credentials', 10)
 ON CONFLICT (id) DO NOTHING;
+
+-- Enable Realtime publication so deleting in Supabase Table Editor instantly updates the frontend
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE employees, documents, test_drives;
+  END IF;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN undefined_table THEN NULL;
+  WHEN OTHERS THEN NULL;
+END $$;

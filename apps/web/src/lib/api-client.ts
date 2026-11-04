@@ -146,10 +146,65 @@ class DataService {
     }
   }
 
+  private sanitizeForStorage(data: DataStore): DataStore {
+    try {
+      return {
+        ...data,
+        vehicles: (data.vehicles || []).map((v) => {
+          const isLarge = (s?: string) => typeof s === 'string' && s.startsWith('data:') && s.length > 100000;
+          const cleanImageUrl = isLarge(v.imageUrl) ? '' : v.imageUrl;
+          const cleanImages = (v.images || []).map((img) => (isLarge(img) ? '' : img)).filter(Boolean);
+          const cleanPhotos = (v.photos || []).map((p) => ({
+            ...p,
+            url: isLarge(p.url) ? '' : p.url,
+          }));
+
+          return {
+            ...v,
+            imageUrl: cleanImageUrl || cleanImages[0] || '',
+            images: cleanImages,
+            photos: cleanPhotos,
+          };
+        }),
+      };
+    } catch {
+      return data;
+    }
+  }
+
   private persist() {
-    if (typeof window !== 'undefined') {
+    if (typeof window === 'undefined') return;
+
+    try {
       localStorage.setItem('crm_store_clean_v2', JSON.stringify(this.data));
+    } catch (err) {
+      console.warn('[API] localStorage quota exceeded, applying asset optimization...', err);
+      try {
+        const sanitized = this.sanitizeForStorage(this.data);
+        localStorage.setItem('crm_store_clean_v2', JSON.stringify(sanitized));
+      } catch (retryErr) {
+        console.warn('[API] Storage still exceeding quota, stripping cached photos from local backup...', retryErr);
+        try {
+          const minimal: DataStore = {
+            ...this.data,
+            vehicles: (this.data.vehicles || []).map((v) => ({
+              ...v,
+              imageUrl: v.imageUrl?.startsWith('data:') ? '' : v.imageUrl,
+              images: (v.images || []).filter((u) => !u.startsWith('data:')),
+              photos: (v.photos || []).filter((p) => !p.url?.startsWith('data:')),
+            })),
+          };
+          localStorage.setItem('crm_store_clean_v2', JSON.stringify(minimal));
+        } catch (finalErr) {
+          console.error('[API] Unable to persist to localStorage, keeping in-memory state active:', finalErr);
+        }
+      }
+    }
+
+    try {
       window.dispatchEvent(new CustomEvent('crm-data-changed'));
+    } catch {
+      // ignore
     }
   }
 

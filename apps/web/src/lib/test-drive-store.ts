@@ -103,13 +103,10 @@ export async function fetchTestDrives(): Promise<TestDrive[]> {
           };
         });
 
-        const remoteIds = new Set(remoteList.map((td) => td.id));
-        const unsyncedLocal = localList.filter((td) => !remoteIds.has(td.id));
-        const merged = [...unsyncedLocal, ...remoteList];
-
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
-        window.dispatchEvent(new Event('crm-testdrives-changed'));
-        return merged;
+        // Supabase is the source of truth!
+        // If a test drive was deleted in Supabase, it will not be in remoteList and is deleted from the frontend.
+        saveTestDrives(remoteList);
+        return remoteList;
       }
     } catch (err) {
       console.error('[TestDriveStore] Failed to fetch test drives from Supabase:', err);
@@ -117,6 +114,39 @@ export async function fetchTestDrives(): Promise<TestDrive[]> {
   }
 
   return getTestDrives();
+}
+
+let isTestDriveRealtimeActive = false;
+
+export function initTestDrivesRealtime(): void {
+  if (typeof window === 'undefined' || isTestDriveRealtimeActive || !isSupabaseConfigured()) return;
+  isTestDriveRealtimeActive = true;
+
+  try {
+    supabase
+      .channel('public-test-drives-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'test_drives' },
+        (payload) => {
+          if (payload.eventType === 'DELETE') {
+            const deletedId = (payload.old as any)?.id;
+            if (deletedId) {
+              const current = getTestDrives();
+              const updated = current.filter((td) => td.id !== deletedId);
+              saveTestDrives(updated);
+            } else {
+              fetchTestDrives();
+            }
+          } else if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            fetchTestDrives();
+          }
+        }
+      )
+      .subscribe();
+  } catch (err) {
+    console.warn('[TestDriveStore] Realtime subscription error:', err);
+  }
 }
 
 export function addTestDrive(driveData: Partial<TestDrive>): TestDrive {

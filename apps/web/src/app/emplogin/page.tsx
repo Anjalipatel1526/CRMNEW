@@ -155,7 +155,7 @@ export default function EmployeeLoginPage() {
     setLoading(false);
 
     setTimeout(() => {
-      router.push('/employees');
+      router.push('/empportal');
     }, 1200);
   };
 

@@ -26,7 +26,8 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { WordFadeIn } from '@/components/ui/WordFadeIn';
-import { InvoiceDocumentGenerator } from '@/components/invoices/InvoiceDocumentGenerator';
+import { InvoiceDocumentGenerator, ExecutiveSignatureSvg, getInvoiceColorSystem } from '@/components/invoices/InvoiceDocumentGenerator';
+import { getCompanyProfile } from '@/lib/company-store';
 
 export default function FinancePage() {
   const [payments, setPayments] = useState<Payment[]>(api.getPayments());
@@ -618,95 +619,317 @@ export default function FinancePage() {
               </div>
             </div>
 
-            {/* Watermarked A4 Sheet */}
-            <div
-              className="print-invoice-sheet"
-              style={{
-                position: 'relative',
-                backgroundColor: '#FFFFFF',
-                borderRadius: '14px',
-                border: '1.5px solid #CBD5E1',
-                padding: '28px',
-                boxShadow: '0 4px 18px rgba(0,0,0,0.06)',
-                overflow: 'hidden',
-              }}
-            >
-              {/* DIAGONAL WATERMARK */}
-              <div
-                style={{
-                  position: 'absolute',
-                  top: '50%',
-                  left: '50%',
-                  transform: 'translate(-50%, -50%) rotate(-32deg)',
-                  fontSize: '4.2rem',
-                  fontWeight: 900,
-                  color: 'rgba(98, 83, 248, 0.06)',
-                  letterSpacing: '0.25em',
-                  textTransform: 'uppercase',
-                  pointerEvents: 'none',
-                  userSelect: 'none',
-                  whiteSpace: 'nowrap',
-                  zIndex: 0,
-                  fontFamily: 'serif',
-                }}
-              >
-                APEX MOTORS
-              </div>
+            {/* Watermarked A4 Sheet Matching Reference Template */}
+            {(() => {
+              const comp = getCompanyProfile();
+              const { graphicAccent, textAccent } = getInvoiceColorSystem(comp.brandColor);
 
-              <div style={{ position: 'relative', zIndex: 1 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #6253F8', paddingBottom: '12px', marginBottom: '16px' }}>
-                  <div>
-                    <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 900, color: '#6253F8' }}>APEX MOTORS</h3>
-                    <div style={{ fontSize: '0.74rem', color: '#64748B' }}>Plot 42, Western Express Highway, Mumbai, MH 400069</div>
-                    <div style={{ fontSize: '0.72rem', color: '#64748B' }}>GSTIN: 27AABCA1234F1ZP</div>
+              return (
+                <div
+                  className="print-invoice-sheet"
+                  style={{
+                    position: 'relative',
+                    backgroundColor: '#FFFFFF',
+                    borderRadius: '16px',
+                    border: '1.5px solid #CBD5E1',
+                    padding: '24px 28px',
+                    boxShadow: '0 6px 24px rgba(0,0,0,0.06)',
+                    overflow: 'hidden',
+                    minHeight: 'auto',
+                    fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                  }}
+                >
+                  {/* STRAIGHT HORIZONTAL WATERMARK WITH AUTHENTIC LOGO COLOR */}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: '50%',
+                      left: '50%',
+                      transform: 'translate(-50%, -50%)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      pointerEvents: 'none',
+                      userSelect: 'none',
+                      zIndex: 1,
+                      opacity: Math.max(comp.watermarkOpacity || 0, 0.22),
+                    }}
+                  >
+                    {comp.logoUrl ? (
+                      <img
+                        src={comp.logoUrl}
+                        alt="Watermark"
+                        style={{
+                          maxWidth: '380px',
+                          maxHeight: '380px',
+                          objectFit: 'contain',
+                        }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          fontSize: '3.8rem',
+                          fontWeight: 900,
+                          letterSpacing: '0.12em',
+                          textTransform: 'uppercase',
+                          color: textAccent,
+                          textAlign: 'center',
+                        }}
+                      >
+                        {comp.tradeName || comp.legalName || 'APEX MOTORS'}
+                      </div>
+                    )}
                   </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#6253F8' }}>TAX INVOICE</div>
-                    <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0F172A' }}>{selectedInvoice.invoiceNumber}</div>
-                    <div style={{ fontSize: '0.74rem', color: '#64748B' }}>Due: {selectedInvoice.dueDate}</div>
-                  </div>
-                </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
-                  <div style={{ backgroundColor: '#F8FAFC', padding: '10px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
-                    <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#64748B' }}>BILLED TO:</div>
-                    <div style={{ fontSize: '0.92rem', fontWeight: 800, color: '#0F172A' }}>{selectedInvoice.customerName}</div>
-                    <div style={{ fontSize: '0.75rem', color: '#64748B' }}>Showroom Delivery • Valid KYC Completed</div>
-                  </div>
-                  <div style={{ backgroundColor: '#F8FAFC', padding: '10px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
-                    <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#64748B' }}>PAYMENT METHOD:</div>
-                    <div style={{ fontSize: '0.85rem', fontWeight: 700, textTransform: 'uppercase', color: '#16A34A' }}>
-                      {selectedInvoice.method || 'BANK TRANSFER'}
+                  <div style={{ position: 'relative', zIndex: 2 }}>
+                    {/* Header */}
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'flex-start',
+                        marginBottom: '16px',
+                      }}
+                    >
+                      <div>
+                        <h1
+                          style={{
+                            fontSize: '2.1rem',
+                            fontWeight: 900,
+                            color: '#0F172A',
+                            margin: 0,
+                            letterSpacing: '-0.02em',
+                            lineHeight: 1,
+                          }}
+                        >
+                          INVOICE
+                        </h1>
+                        <div style={{ fontSize: '0.86rem', color: '#334155', marginTop: '6px', fontWeight: 600 }}>
+                          Invoice no : <span style={{ fontWeight: 800, color: '#0F172A' }}>{selectedInvoice.invoiceNumber}</span>
+                        </div>
+                        <div style={{ fontSize: '0.74rem', color: '#64748B', marginTop: '2px' }}>
+                          Due Date : {selectedInvoice.dueDate}
+                        </div>
+                      </div>
+
+                      <div style={{ textAlign: 'right' }}>
+                        {comp.logoUrl ? (
+                          <img
+                            src={comp.logoUrl}
+                            alt="Logo"
+                            style={{
+                              maxHeight: '42px',
+                              maxWidth: '150px',
+                              objectFit: 'contain',
+                              marginBottom: '6px',
+                              display: 'inline-block',
+                            }}
+                          />
+                        ) : (
+                          <div
+                            style={{
+                              fontSize: '1.3rem',
+                              fontWeight: 900,
+                              color: textAccent,
+                              letterSpacing: '-0.02em',
+                              marginBottom: '4px',
+                            }}
+                          >
+                            {comp.tradeName || 'YourLogo'}
+                          </div>
+                        )}
+                        <div style={{ fontSize: '0.76rem', color: '#1E293B', lineHeight: 1.5, fontWeight: 600 }}>
+                          {comp.phone && (
+                            <div>
+                              <span style={{ color: textAccent, fontWeight: 700 }}>Tel: </span>
+                              {comp.phone}
+                            </div>
+                          )}
+                          {comp.email && (
+                            <div>
+                              <span style={{ color: textAccent, fontWeight: 700 }}>Mail: </span>
+                              {comp.email}
+                            </div>
+                          )}
+                          <div>{comp.city ? `${comp.city}, ${comp.state || ''}` : 'Walsh, Somerfield - US'}</div>
+                        </div>
+                      </div>
                     </div>
-                    <div style={{ fontSize: '0.74rem', fontFamily: 'monospace', color: '#475569' }}>
-                      Ref: {selectedInvoice.referenceNumber || 'UTR-CONFIRMED'}
+
+                    {/* Billed To */}
+                    <div style={{ marginBottom: '16px' }}>
+                      <div style={{ fontSize: '0.76rem', fontWeight: 800, color: textAccent, marginBottom: '3px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        Invoice to:
+                      </div>
+                      <div style={{ fontSize: '1.1rem', fontWeight: 900, color: '#0F172A' }}>
+                        {selectedInvoice.customerName}
+                      </div>
+                      <div style={{ fontSize: '0.76rem', color: '#475569', marginTop: '2px' }}>
+                        Showroom Delivery • Valid KYC Completed
+                      </div>
+                    </div>
+
+                    {/* Table */}
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', marginBottom: '16px' }}>
+                      <thead>
+                        <tr style={{ borderBottom: '2px solid #E2E8F0' }}>
+                          <th style={{ padding: '8px 6px', textAlign: 'left', fontWeight: 800, color: '#0F172A', width: '45px' }}>No.</th>
+                          <th style={{ padding: '8px 6px', textAlign: 'left', fontWeight: 800, color: '#0F172A' }}>Product Deskription</th>
+                          <th style={{ padding: '8px 6px', textAlign: 'right', fontWeight: 800, color: '#0F172A', width: '100px' }}>Price</th>
+                          <th style={{ padding: '8px 6px', textAlign: 'center', fontWeight: 800, color: '#0F172A', width: '60px' }}>QTY</th>
+                          <th style={{ padding: '8px 6px', textAlign: 'right', fontWeight: 800, color: '#0F172A', width: '110px' }}>Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr style={{ borderBottom: '1px solid #F1F5F9' }}>
+                          <td style={{ padding: '8px 6px', color: '#64748B', fontWeight: 600 }}>01</td>
+                          <td style={{ padding: '8px 6px', fontWeight: 600, color: '#0F172A' }}>{selectedInvoice.vehicleDetails}</td>
+                          <td style={{ padding: '8px 6px', textAlign: 'right', color: '#0F172A', fontWeight: 600 }}>
+                            ₹{selectedInvoice.amount.toLocaleString('en-IN')}
+                          </td>
+                          <td style={{ padding: '8px 6px', textAlign: 'center', color: '#334155', fontWeight: 600 }}>01</td>
+                          <td style={{ padding: '8px 6px', textAlign: 'right', fontWeight: 700, color: '#0F172A' }}>
+                            ₹{selectedInvoice.amount.toLocaleString('en-IN')}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+
+                    {/* Payment Method & Total */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: '20px', marginBottom: '16px' }}>
+                      <div>
+                        <div style={{ fontSize: '0.82rem', fontWeight: 800, color: '#0F172A', marginBottom: '3px' }}>
+                          Payment Method
+                        </div>
+                        <div style={{ fontSize: '0.74rem', color: '#334155', lineHeight: 1.5, fontWeight: 600 }}>
+                          <div>Method: <span style={{ color: '#0F172A', fontWeight: 700 }}>{selectedInvoice.method || 'Bank Transfer'}</span></div>
+                          <div>Reference / UTR: <span style={{ color: textAccent, fontWeight: 800 }}>{selectedInvoice.referenceNumber || 'SETTLED & VERIFIED'}</span></div>
+                        </div>
+                      </div>
+
+                      <div style={{ textAlign: 'right', fontSize: '0.82rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', color: '#475569', fontWeight: 600 }}>
+                          <span>Sub Total</span>
+                          <span style={{ color: '#0F172A', fontWeight: 700 }}>₹{selectedInvoice.amount.toLocaleString('en-IN')}</span>
+                        </div>
+                        <div
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            padding: '6px 0',
+                            borderTop: '2px solid #0F172A',
+                            marginTop: '6px',
+                            fontSize: '1.2rem',
+                            fontWeight: 900,
+                            color: '#0F172A',
+                          }}
+                        >
+                          <span>Total</span>
+                          <span>₹{selectedInvoice.amount.toLocaleString('en-IN')}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Bottom Section: Contact Info (Left), Thank You Note (Center), Signature (Right) */}
+                    <div
+                      style={{
+                        position: 'relative',
+                        zIndex: 2,
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'flex-end',
+                        paddingTop: '12px',
+                        borderTop: '1px solid #F1F5F9',
+                      }}
+                    >
+                      {/* Left Contact */}
+                      <div style={{ fontSize: '0.72rem', color: '#475569', lineHeight: 1.45, fontWeight: 600 }}>
+                        <div><span style={{ color: textAccent, fontWeight: 800 }}>P :</span> {comp.phone || '+00 123 345 445'}</div>
+                        <div><span style={{ color: textAccent, fontWeight: 800 }}>E :</span> {comp.email || 'youremail@dealership.com'}</div>
+                        <div>{comp.city ? `${comp.city}, ${comp.state || ''}` : 'Walsh, Somerfield - US'}</div>
+                      </div>
+
+                      {/* Center Friendly Note */}
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          marginBottom: '6px',
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontSize: '0.96rem',
+                            fontWeight: 900,
+                            color: '#0F172A',
+                            letterSpacing: '-0.01em',
+                          }}
+                        >
+                          Thank you for your Business!
+                        </span>
+                      </div>
+
+                      {/* Right Signature Area - Centered & Bold Dark Visible */}
+                      <div
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          justifyContent: 'flex-end',
+                          width: '165px',
+                          textAlign: 'center',
+                        }}
+                      >
+                        <div
+                          style={{
+                            minHeight: '52px',
+                            width: '100%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            marginBottom: '4px',
+                          }}
+                        >
+                          {comp.signatureUrl ? (
+                            <img
+                              src={comp.signatureUrl}
+                              alt="Authorized Signature"
+                              style={{
+                                maxHeight: '54px',
+                                maxWidth: '150px',
+                                objectFit: 'contain',
+                                mixBlendMode: 'multiply',
+                                display: 'block',
+                                margin: '0 auto',
+                              }}
+                            />
+                          ) : (
+                            <ExecutiveSignatureSvg color="#0F172A" width={140} height={46} />
+                          )}
+                        </div>
+
+                        <div
+                          style={{
+                            borderTop: '2px solid #0F172A',
+                            paddingTop: '4px',
+                            width: '100%',
+                            textAlign: 'center',
+                          }}
+                        >
+                          <div style={{ fontSize: '0.92rem', fontWeight: 900, color: '#0F172A', lineHeight: 1.2 }}>
+                            {comp.authorizedSignatoryName || 'Anjali'}
+                          </div>
+                          <div style={{ fontSize: '0.74rem', color: '#1E293B', fontWeight: 700, marginTop: '2px' }}>
+                            {comp.authorizedSignatoryDesignation || 'COO'}
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
-
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', marginBottom: '16px' }}>
-                  <thead>
-                    <tr style={{ backgroundColor: '#6253F8', color: '#FFFFFF' }}>
-                      <th style={{ padding: '8px', textAlign: 'left' }}>Item & Particulars</th>
-                      <th style={{ padding: '8px', textAlign: 'center' }}>Qty</th>
-                      <th style={{ padding: '8px', textAlign: 'right' }}>Total</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr style={{ borderBottom: '1px solid #E2E8F0' }}>
-                      <td style={{ padding: '10px', fontWeight: 600 }}>{selectedInvoice.vehicleDetails}</td>
-                      <td style={{ padding: '10px', textAlign: 'center' }}>1</td>
-                      <td style={{ padding: '10px', textAlign: 'right', fontWeight: 700 }}>₹{selectedInvoice.amount.toLocaleString('en-IN')}</td>
-                    </tr>
-                  </tbody>
-                </table>
-
-                <div style={{ padding: '12px', backgroundColor: '#F0FDF4', border: '1.5px solid #86EFAC', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontWeight: 700, color: '#166534', fontSize: '0.88rem' }}>Grand Total Settled:</span>
-                  <span style={{ fontSize: '1.3rem', fontWeight: 900, color: '#15803D' }}>₹{selectedInvoice.amount.toLocaleString('en-IN')}</span>
-                </div>
-              </div>
-            </div>
+              );
+            })()}
           </div>
         </Modal>
       )}
@@ -755,16 +978,16 @@ export default function FinancePage() {
                 overflow: 'hidden',
               }}
             >
-              {/* WATERMARK */}
+              {/* STRAIGHT HORIZONTAL WATERMARK */}
               <div
                 style={{
                   position: 'absolute',
                   top: '50%',
                   left: '50%',
-                  transform: 'translate(-50%, -50%) rotate(-30deg)',
+                  transform: 'translate(-50%, -50%)',
                   fontSize: '3.6rem',
                   fontWeight: 900,
-                  color: 'rgba(98, 83, 248, 0.06)',
+                  color: 'rgba(98, 83, 248, 0.18)',
                   letterSpacing: '0.25em',
                   textTransform: 'uppercase',
                   pointerEvents: 'none',

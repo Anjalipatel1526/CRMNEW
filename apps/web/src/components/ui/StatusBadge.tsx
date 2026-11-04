@@ -51,6 +51,7 @@ export function StatusBadge({ status, className = '' }: StatusBadgeProps) {
     case 'contacted':
     case 'confirmed':
     case 'showroom_visit':
+    case 'sold':
       colorClass = 'badge-blue';
       break;
 

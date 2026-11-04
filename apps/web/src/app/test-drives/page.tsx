@@ -9,6 +9,7 @@ import {
   addTestDrive,
   updateTestDrive,
   deleteTestDrive,
+  initTestDrivesRealtime,
   TestDrive,
 } from '@/lib/test-drive-store';
 import {
@@ -60,6 +61,7 @@ export default function TestDrivesPage() {
     fetchTestDrives().then((data) => {
       if (Array.isArray(data)) setTestDrives([...data]);
     });
+    initTestDrivesRealtime();
     const handleChanged = () => setTestDrives(getTestDrives());
     window.addEventListener('crm-testdrives-changed', handleChanged);
     return () => window.removeEventListener('crm-testdrives-changed', handleChanged);
