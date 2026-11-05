@@ -222,6 +222,7 @@ class DataService {
         this.fetchVehicles(),
         this.fetchDeals(),
       ]);
+      this.ensureCustomerLeads();
     } finally {
       this.isSyncing = false;
     }
@@ -412,6 +413,55 @@ class DataService {
     }
 
     this.data.customers.unshift(newCust);
+
+    // Automatically create a corresponding lead in the pipeline under "new" (New Enquiries)
+    const rawCar = (customerData as any).preferredVehicle ? String((customerData as any).preferredVehicle).trim() : '';
+    const rawBudget = (customerData as any).budget ? String((customerData as any).budget).trim() : '';
+    let bMin = 1500000;
+    let bMax = 2500000;
+    if (rawBudget) {
+      const nums = rawBudget.match(/[\d.]+/g);
+      if (nums && nums.length >= 2) {
+        bMin = Math.round(parseFloat(nums[0]) * (parseFloat(nums[0]) < 100 ? 100000 : 1));
+        bMax = Math.round(parseFloat(nums[1]) * (parseFloat(nums[1]) < 100 ? 100000 : 1));
+      } else if (nums && nums.length === 1) {
+        bMin = Math.round(parseFloat(nums[0]) * (parseFloat(nums[0]) < 100 ? 100000 : 1));
+        bMax = Math.round(bMin * 1.25);
+      }
+    }
+    const parts = rawCar ? rawCar.split(' ') : [];
+    const prefMake = parts[0] || 'Enquiry';
+    const prefModel = parts.slice(1).join(' ') || (rawCar ? rawCar : 'Vehicle Enquiry');
+
+    const customerLead: Lead = {
+      id: 'lead-' + Date.now(),
+      tenantId: newCust.tenantId || 't-apex-001',
+      branchId: newCust.branchId || 'b-dt-001',
+      customerId: newCust.id,
+      source: 'Direct Registration',
+      status: 'new', // Shows in New Enquiries
+      assignedTo: 'u-sales-003',
+      budgetMin: bMin,
+      budgetMax: bMax,
+      preferredMake: prefMake,
+      preferredModel: prefModel,
+      preferredFuelType: (customerData as any).fuelType || 'Petrol',
+      score: 85,
+      notes: rawCar ? `Customer expressed preference for ${rawCar}.` : 'New customer registered in CRM.',
+      nextActionAt: new Date(Date.now() + 86400000 * 2).toISOString(),
+      version: 1,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      customerName: `${newCust.firstName} ${newCust.lastName}`.trim(),
+      customer: newCust,
+      assigneeName: 'Rajesh Patil',
+      branchName: 'Main Showroom',
+    };
+    if (newCust.phone) (customerLead as any).customerPhone = newCust.phone;
+    if (newCust.email) (customerLead as any).customerEmail = newCust.email;
+
+    if (!this.data.leads) this.data.leads = [];
+    this.data.leads.unshift(customerLead);
     this.persist();
 
     // Persist to Supabase backend
@@ -441,6 +491,27 @@ class DataService {
           } else {
             console.log('[API] Successfully saved customer to Supabase database:', newCust.firstName, newCust.lastName);
           }
+        });
+
+      supabase
+        .from('leads')
+        .insert({
+          id: customerLead.id,
+          tenant_id: customerLead.tenantId,
+          branch_id: customerLead.branchId,
+          customer_id: customerLead.customerId,
+          source: customerLead.source,
+          status: customerLead.status,
+          budget_min: customerLead.budgetMin,
+          budget_max: customerLead.budgetMax,
+          preferred_make: customerLead.preferredMake,
+          preferred_model: customerLead.preferredModel,
+          preferred_fuel_type: customerLead.preferredFuelType,
+          score: customerLead.score,
+          notes: customerLead.notes,
+        })
+        .then(({ error }) => {
+          if (error) console.error('[API] Auto lead insert error:', error.message);
         });
     }
 
@@ -491,6 +562,9 @@ class DataService {
 
   deleteCustomer(id: string): Customer[] {
     this.data.customers = this.data.customers.filter((c) => c.id !== id);
+    if (this.data.leads) {
+      this.data.leads = this.data.leads.filter((l) => l.customerId !== id);
+    }
     this.persist();
 
     if (isSupabaseConfigured()) {
@@ -502,15 +576,109 @@ class DataService {
           if (error) console.error('[API] Supabase deleteCustomer error:', error.message);
           else console.log('[API] Deleted customer from Supabase:', id);
         });
+
+      supabase
+        .from('leads')
+        .delete()
+        .eq('customer_id', id)
+        .then(() => {});
     }
 
     return this.data.customers;
+  }
+
+  // Auto-backfill & ensure every registered customer has an active enquiry lead in "new" (New Enquiries)
+  ensureCustomerLeads(): Lead[] {
+    if (!this.data.customers) return this.data.leads || [];
+    if (!this.data.leads) this.data.leads = [];
+
+    const existingCustLeadIds = new Set(this.data.leads.map((l) => l.customerId).filter(Boolean));
+    const existingCustNames = new Set(this.data.leads.map((l) => (l.customerName || '').toLowerCase().trim()));
+
+    let changed = false;
+    for (const cust of this.data.customers) {
+      const fullName = `${cust.firstName} ${cust.lastName}`.toLowerCase().trim();
+      if (!existingCustLeadIds.has(cust.id) && !existingCustNames.has(fullName)) {
+        const rawCar = (cust as any).preferredVehicle ? String((cust as any).preferredVehicle).trim() : '';
+        const rawBudget = (cust as any).budget ? String((cust as any).budget).trim() : '';
+        let bMin = 1500000;
+        let bMax = 2500000;
+        if (rawBudget) {
+          const nums = rawBudget.match(/[\d.]+/g);
+          if (nums && nums.length >= 2) {
+            bMin = Math.round(parseFloat(nums[0]) * (parseFloat(nums[0]) < 100 ? 100000 : 1));
+            bMax = Math.round(parseFloat(nums[1]) * (parseFloat(nums[1]) < 100 ? 100000 : 1));
+          } else if (nums && nums.length === 1) {
+            bMin = Math.round(parseFloat(nums[0]) * (parseFloat(nums[0]) < 100 ? 100000 : 1));
+            bMax = Math.round(bMin * 1.25);
+          }
+        }
+        const parts = rawCar ? rawCar.split(' ') : [];
+        const prefMake = parts[0] || 'Enquiry';
+        const prefModel = parts.slice(1).join(' ') || (rawCar ? rawCar : 'Vehicle Enquiry');
+
+        const autoLead: Lead = {
+          id: 'lead-cust-' + cust.id,
+          tenantId: cust.tenantId || 't-apex-001',
+          branchId: cust.branchId || 'b-dt-001',
+          customerId: cust.id,
+          source: 'Customer Registration',
+          status: 'new', // Shows in New Enquiries
+          assignedTo: 'u-sales-003',
+          budgetMin: bMin,
+          budgetMax: bMax,
+          preferredMake: prefMake,
+          preferredModel: prefModel,
+          preferredFuelType: (cust as any).fuelType || 'Petrol',
+          score: 80,
+          notes: rawCar ? `Customer expressed preference for ${rawCar}.` : 'New customer enquiry in CRM pipeline.',
+          nextActionAt: new Date(Date.now() + 86400000 * 2).toISOString(),
+          version: 1,
+          createdAt: cust.createdAt || new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          customerName: `${cust.firstName} ${cust.lastName}`.trim(),
+          customer: cust,
+          assigneeName: 'Rajesh Patil',
+          branchName: 'Main Showroom',
+        };
+        if (cust.phone) (autoLead as any).customerPhone = cust.phone;
+        if (cust.email) (autoLead as any).customerEmail = cust.email;
+
+        this.data.leads.unshift(autoLead);
+        changed = true;
+        existingCustLeadIds.add(cust.id);
+        existingCustNames.add(fullName);
+
+        if (isSupabaseConfigured()) {
+          supabase.from('leads').upsert({
+            id: autoLead.id,
+            tenant_id: autoLead.tenantId,
+            branch_id: autoLead.branchId,
+            customer_id: autoLead.customerId,
+            source: autoLead.source,
+            status: autoLead.status,
+            budget_min: autoLead.budgetMin,
+            budget_max: autoLead.budgetMax,
+            preferred_make: autoLead.preferredMake,
+            preferred_model: autoLead.preferredModel,
+            preferred_fuel_type: autoLead.preferredFuelType,
+            score: autoLead.score,
+            notes: autoLead.notes,
+          }).then(() => {});
+        }
+      }
+    }
+    if (changed) {
+      this.persist();
+    }
+    return this.data.leads;
   }
 
   // ==========================================
   // Leads
   // ==========================================
   getLeads(): Lead[] {
+    this.ensureCustomerLeads();
     return this.data.leads;
   }
 
@@ -564,6 +732,7 @@ class DataService {
           const remoteIds = new Set(remoteLeads.map((l) => l.id));
           const unsyncedLocal = this.data.leads.filter((l) => !remoteIds.has(l.id));
           this.data.leads = [...unsyncedLocal, ...remoteLeads];
+          this.ensureCustomerLeads();
           this.persist();
           return this.data.leads;
         }
@@ -571,6 +740,7 @@ class DataService {
         console.error('[API] Failed to fetch leads from Supabase:', err);
       }
     }
+    this.ensureCustomerLeads();
     return this.data.leads;
   }
 

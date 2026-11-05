@@ -573,6 +573,80 @@ export default function OnboardingPage() {
         }}
       />
 
+      {/* Top Header Navigation Bar with Back Button */}
+      <div
+        style={{
+          position: 'relative',
+          zIndex: 2,
+          maxWidth: '1040px',
+          margin: '0 auto 18px auto',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => {
+            if (activeStep > 1) {
+              setActiveStep((activeStep - 1) as any);
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            } else {
+              router.push('/');
+            }
+          }}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '8px 18px',
+            borderRadius: '999px',
+            backgroundColor: '#FFFFFF',
+            color: '#475569',
+            border: '1.5px solid #E2E8F0',
+            fontSize: '0.84rem',
+            fontWeight: 700,
+            cursor: 'pointer',
+            boxShadow: '0 2px 6px -1px rgba(0, 0, 0, 0.05)',
+            transition: 'all 0.15s ease',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = '#F8FAFC';
+            e.currentTarget.style.borderColor = '#CBD5E1';
+            e.currentTarget.style.color = '#0F172A';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = '#FFFFFF';
+            e.currentTarget.style.borderColor = '#E2E8F0';
+            e.currentTarget.style.color = '#475569';
+          }}
+          title={activeStep > 1 ? 'Go to previous step' : 'Back to Home'}
+        >
+          <ArrowLeft size={16} />
+          <span>{activeStep > 1 ? 'Back to Previous Step' : 'Back to Home'}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => router.push('/login')}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '8px 16px',
+            borderRadius: '999px',
+            backgroundColor: 'transparent',
+            color: '#6253F8',
+            border: 'none',
+            fontSize: '0.82rem',
+            fontWeight: 700,
+            cursor: 'pointer',
+          }}
+        >
+          <span>Already registered? Sign In</span>
+        </button>
+      </div>
+
       {/* Hero Header without the pill badge */}
       <div style={{ position: 'relative', zIndex: 1, marginBottom: '28px', textAlign: 'center' }}>
         <h1 className="onboarding-title">
@@ -1342,7 +1416,28 @@ export default function OnboardingPage() {
           </div>
 
           {/* Navigation Action */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '20px', borderTop: '1px solid rgba(98, 83, 248, 0.1)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '20px', borderTop: '1px solid rgba(98, 83, 248, 0.1)' }}>
+            <button
+              type="button"
+              onClick={() => router.push('/')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '11px 22px',
+                borderRadius: '999px',
+                background: 'rgba(98, 83, 248, 0.07)',
+                color: '#6253F8',
+                fontSize: '0.84rem',
+                fontWeight: 800,
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              <ArrowLeft size={16} />
+              <span>Back</span>
+            </button>
+
             <button
               type="button"
               onClick={handleNextFromStep1}

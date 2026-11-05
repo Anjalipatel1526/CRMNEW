@@ -24,6 +24,7 @@ import {
   ShieldCheck,
   Edit3,
   X,
+  MessageSquare,
 } from 'lucide-react';
 import { WordFadeIn } from '@/components/ui/WordFadeIn';
 
@@ -46,8 +47,8 @@ interface StageQuestionConfig {
 const STAGE_QUESTION_MAP: Partial<Record<LeadStatus, StageQuestionConfig>> = {
   new: {
     stageKey: 'new',
-    stageTitle: 'New Inquiries Intake Checklist',
-    stageSubtitle: 'Capture inbound inquiry details, purchase timeline, and customer question.',
+    stageTitle: 'New Enquiries Intake Checklist',
+    stageSubtitle: 'Capture inbound enquiry details, purchase timeline, and customer question.',
     questions: [
       {
         id: 'timeline',
@@ -75,9 +76,9 @@ const STAGE_QUESTION_MAP: Partial<Record<LeadStatus, StageQuestionConfig>> = {
       },
       {
         id: 'inquiryQuestion',
-        label: 'Customer Initial Question & Vehicle Requirement',
+        label: 'Customer Initial Enquiry & Vehicle Requirement',
         type: 'textarea',
-        placeholder: 'e.g. Inquiring about AX7L diesel AWD ready stock, delivery timeline, and warranty...',
+        placeholder: 'e.g. Enquiring about AX7L diesel AWD ready stock, delivery timeline, and warranty...',
         required: true,
       },
     ],
@@ -325,9 +326,9 @@ const STAGE_QUESTION_MAP: Partial<Record<LeadStatus, StageQuestionConfig>> = {
 
 export default function LeadsPage() {
   const [mounted, setMounted] = useState(false);
-  const [leads, setLeads] = useState<Lead[]>(api.getLeads());
-  const [customers, setCustomers] = useState<Customer[]>(api.getCustomers());
-  const [branches] = useState(api.getBranches());
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [branches, setBranches] = useState<any[]>([]);
   const [isNewLeadModalOpen, setIsNewLeadModalOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
 
@@ -338,16 +339,24 @@ export default function LeadsPage() {
 
   React.useEffect(() => {
     setMounted(true);
+    setLeads([...api.getLeads()]);
+    setCustomers([...api.getCustomers()]);
+    setBranches([...api.getBranches()]);
+
     api.fetchLeads().then((data) => {
       if (Array.isArray(data)) setLeads([...data]);
     });
     api.fetchCustomers().then((data) => {
       if (Array.isArray(data)) setCustomers([...data]);
     });
+    api.fetchBranches().then((data) => {
+      if (Array.isArray(data)) setBranches([...data]);
+    });
 
     const handleDataChanged = () => {
       setLeads([...api.getLeads()]);
       setCustomers([...api.getCustomers()]);
+      setBranches([...api.getBranches()]);
     };
     window.addEventListener('crm-data-changed', handleDataChanged);
     return () => window.removeEventListener('crm-data-changed', handleDataChanged);
@@ -463,7 +472,7 @@ export default function LeadsPage() {
   }[] = [
     {
       key: 'new',
-      label: 'New Inquiries',
+      label: 'New Enquiries',
       accent: '#0284C7',
       lightBg: '#F0F9FF',
       border: 'rgba(2, 132, 199, 0.25)',
@@ -626,6 +635,7 @@ export default function LeadsPage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <span
                       className="kanban-col-badge"
+                      suppressHydrationWarning
                       style={{
                         backgroundColor: stage.badgeBg,
                         color: stage.badgeText,
@@ -712,6 +722,314 @@ export default function LeadsPage() {
                           <span className="kanban-assignee-pill">
                             {lead.assigneeName?.split(' ')[0]}
                           </span>
+                        </div>
+
+                        {/* Workflow Progression & Quick Action Options */}
+                        <div
+                          className="kanban-card-actions"
+                          style={{
+                            marginTop: '9px',
+                            paddingTop: '8px',
+                            borderTop: '1px dashed rgba(15, 23, 42, 0.09)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '5px',
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {lead.status === 'new' && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                              <button
+                                type="button"
+                                onClick={() => handleStageTransition(lead.id, 'contacted')}
+                                style={{
+                                  flex: 1,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  gap: '5px',
+                                  padding: '5px 10px',
+                                  borderRadius: '8px',
+                                  backgroundColor: '#EEF2FF',
+                                  color: '#4338CA',
+                                  border: '1px solid rgba(79, 70, 229, 0.3)',
+                                  fontSize: '0.73rem',
+                                  fontWeight: 700,
+                                  cursor: 'pointer',
+                                  transition: 'all 0.15s ease',
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.backgroundColor = '#4F46E5';
+                                  e.currentTarget.style.color = '#FFFFFF';
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.backgroundColor = '#EEF2FF';
+                                  e.currentTarget.style.color = '#4338CA';
+                                }}
+                                title="Customer has been contacted - advance to Contacted"
+                              >
+                                <Phone size={11} />
+                                <span>Mark Contacted →</span>
+                              </button>
+                              {((lead as any).customerPhone || lead.customer?.phone) && (
+                                <a
+                                  href={`tel:${(lead as any).customerPhone || lead.customer?.phone}`}
+                                  onClick={(e) => e.stopPropagation()}
+                                  title={`Call ${(lead as any).customerPhone || lead.customer?.phone}`}
+                                  style={{
+                                    padding: '5px 7px',
+                                    borderRadius: '8px',
+                                    backgroundColor: '#F8FAFC',
+                                    color: '#475569',
+                                    border: '1px solid #CBD5E1',
+                                    fontSize: '0.72rem',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    textDecoration: 'none',
+                                  }}
+                                >
+                                  <Phone size={11} />
+                                </a>
+                              )}
+                            </div>
+                          )}
+
+                          {lead.status === 'contacted' && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.67rem', color: '#64748B', fontWeight: 600 }}>
+                                <span>Contacted Options:</span>
+                                {((lead as any).customerPhone || lead.customer?.phone) && (
+                                  <a
+                                    href={`https://wa.me/${String((lead as any).customerPhone || lead.customer?.phone).replace(/[^0-9]/g, '')}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    style={{ color: '#16A34A', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '2px', fontSize: '0.67rem' }}
+                                    title="Open WhatsApp chat"
+                                  >
+                                    <MessageSquare size={10} /> WhatsApp
+                                  </a>
+                                )}
+                              </div>
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => handleStageTransition(lead.id, 'qualified')}
+                                  style={{
+                                    padding: '4px 6px',
+                                    borderRadius: '6px',
+                                    backgroundColor: '#F5F3FF',
+                                    color: '#6D28D9',
+                                    border: '1px solid rgba(124, 58, 237, 0.25)',
+                                    fontSize: '0.7rem',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '3px',
+                                    transition: 'all 0.15s ease',
+                                  }}
+                                  title="Requirement & budget qualified"
+                                >
+                                  <CheckCircle2 size={10} />
+                                  <span>Qualify</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleStageTransition(lead.id, 'appointment_set')}
+                                  style={{
+                                    padding: '4px 6px',
+                                    borderRadius: '6px',
+                                    backgroundColor: '#FFFBEB',
+                                    color: '#B45309',
+                                    border: '1px solid rgba(217, 119, 6, 0.25)',
+                                    fontSize: '0.7rem',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '3px',
+                                    transition: 'all 0.15s ease',
+                                  }}
+                                  title="Schedule showroom appointment"
+                                >
+                                  <Calendar size={10} />
+                                  <span>Appt</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleStageTransition(lead.id, 'test_drive')}
+                                  style={{
+                                    padding: '4px 6px',
+                                    borderRadius: '6px',
+                                    backgroundColor: '#F0FDFA',
+                                    color: '#0F766E',
+                                    border: '1px solid rgba(13, 148, 136, 0.25)',
+                                    fontSize: '0.7rem',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '3px',
+                                    transition: 'all 0.15s ease',
+                                  }}
+                                  title="Book test drive demo"
+                                >
+                                  <Car size={10} />
+                                  <span>Drive</span>
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
+                          {lead.status === 'qualified' && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <button
+                                type="button"
+                                onClick={() => handleStageTransition(lead.id, 'appointment_set')}
+                                style={{
+                                  flex: 1,
+                                  padding: '4px 7px',
+                                  borderRadius: '6px',
+                                  backgroundColor: '#FFFBEB',
+                                  color: '#B45309',
+                                  border: '1px solid rgba(217, 119, 6, 0.25)',
+                                  fontSize: '0.7rem',
+                                  fontWeight: 600,
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  gap: '3px',
+                                }}
+                              >
+                                <Calendar size={10} />
+                                <span>Set Appointment →</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleStageTransition(lead.id, 'test_drive')}
+                                style={{
+                                  padding: '4px 7px',
+                                  borderRadius: '6px',
+                                  backgroundColor: '#F0FDFA',
+                                  color: '#0F766E',
+                                  border: '1px solid rgba(13, 148, 136, 0.25)',
+                                  fontSize: '0.7rem',
+                                  fontWeight: 600,
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                Test Drive
+                              </button>
+                            </div>
+                          )}
+
+                          {lead.status === 'appointment_set' && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <button
+                                type="button"
+                                onClick={() => handleStageTransition(lead.id, 'test_drive')}
+                                style={{
+                                  flex: 1,
+                                  padding: '4px 7px',
+                                  borderRadius: '6px',
+                                  backgroundColor: '#F0FDFA',
+                                  color: '#0F766E',
+                                  border: '1px solid rgba(13, 148, 136, 0.25)',
+                                  fontSize: '0.7rem',
+                                  fontWeight: 600,
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  gap: '3px',
+                                }}
+                              >
+                                <Car size={10} />
+                                <span>Start Test Drive →</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleStageTransition(lead.id, 'negotiation')}
+                                style={{
+                                  padding: '4px 7px',
+                                  borderRadius: '6px',
+                                  backgroundColor: '#FFF1F2',
+                                  color: '#BE123C',
+                                  border: '1px solid rgba(225, 29, 72, 0.25)',
+                                  fontSize: '0.7rem',
+                                  fontWeight: 600,
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                Negotiate
+                              </button>
+                            </div>
+                          )}
+
+                          {lead.status === 'test_drive' && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <button
+                                type="button"
+                                onClick={() => handleStageTransition(lead.id, 'negotiation')}
+                                style={{
+                                  flex: 1,
+                                  padding: '4px 7px',
+                                  borderRadius: '6px',
+                                  backgroundColor: '#FFF1F2',
+                                  color: '#BE123C',
+                                  border: '1px solid rgba(225, 29, 72, 0.25)',
+                                  fontSize: '0.7rem',
+                                  fontWeight: 600,
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  gap: '3px',
+                                }}
+                              >
+                                <span>Commercial Negotiation →</span>
+                              </button>
+                            </div>
+                          )}
+
+                          {lead.status === 'negotiation' && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <button
+                                type="button"
+                                onClick={() => handleStageTransition(lead.id, 'converted')}
+                                style={{
+                                  flex: 1,
+                                  padding: '4px 7px',
+                                  borderRadius: '6px',
+                                  backgroundColor: '#F0FDF4',
+                                  color: '#15803D',
+                                  border: '1px solid rgba(22, 163, 74, 0.25)',
+                                  fontSize: '0.7rem',
+                                  fontWeight: 700,
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  gap: '3px',
+                                }}
+                              >
+                                <Sparkles size={10} />
+                                <span>Win & Convert Deal 🎉</span>
+                              </button>
+                            </div>
+                          )}
+
+                          {lead.status === 'converted' && (
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#15803D', fontSize: '0.7rem', fontWeight: 700, padding: '2px 0' }}>
+                              <CheckCircle2 size={12} />
+                              <span>Deal Converted / Won</span>
+                            </div>
+                          )}
                         </div>
                       </div>
                     );
@@ -1070,6 +1388,67 @@ export default function LeadsPage() {
           }
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            {/* Quick Contact & Communication Bar */}
+            {((selectedLead as any).customerPhone || selectedLead.customer?.phone) && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '10px 14px',
+                  backgroundColor: '#F8FAFC',
+                  borderRadius: '12px',
+                  border: '1px solid #E2E8F0',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '0.84rem', fontWeight: 600, color: '#0F172A' }}>
+                    Phone: {(selectedLead as any).customerPhone || selectedLead.customer?.phone}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <a
+                    href={`tel:${(selectedLead as any).customerPhone || selectedLead.customer?.phone}`}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      padding: '5px 12px',
+                      borderRadius: '8px',
+                      backgroundColor: '#EFF6FF',
+                      color: '#1D4ED8',
+                      border: '1px solid #BFDBFE',
+                      fontSize: '0.78rem',
+                      fontWeight: 600,
+                      textDecoration: 'none',
+                    }}
+                  >
+                    <Phone size={12} /> Call Customer
+                  </a>
+                  <a
+                    href={`https://wa.me/${String((selectedLead as any).customerPhone || selectedLead.customer?.phone).replace(/[^0-9]/g, '')}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      padding: '5px 12px',
+                      borderRadius: '8px',
+                      backgroundColor: '#F0FDF4',
+                      color: '#15803D',
+                      border: '1px solid #BBF7D0',
+                      fontSize: '0.78rem',
+                      fontWeight: 600,
+                      textDecoration: 'none',
+                    }}
+                  >
+                    <MessageSquare size={12} /> WhatsApp
+                  </a>
+                </div>
+              </div>
+            )}
+
             {/* Stage Progress Bar */}
             <div>
               <div style={{ fontSize: '0.8125rem', fontWeight: 600, marginBottom: '0.5rem', color: 'var(--color-text-secondary)' }}>

@@ -60,7 +60,7 @@ export default function MarketingPage() {
         <StatCard
           title="Top Lead Channel"
           value="Direct & Digital"
-          sub="Lead inquiry attribution channel"
+          sub="Lead enquiry attribution channel"
           icon={<Target size={18} />}
           accentColor="blue"
         />
@@ -215,7 +215,7 @@ export default function MarketingPage() {
               <label className="form-label">Audience Segment</label>
               <select className="form-select">
                 <option value="">Select Target Segment...</option>
-                <option value="leads">Unconverted Inquiries (Last 60 Days)</option>
+                <option value="leads">Unconverted Enquiries (Last 60 Days)</option>
                 <option value="owners">Existing Owners 3+ Years Old (Upgrade)</option>
                 <option value="all">Entire Dealership Database</option>
               </select>

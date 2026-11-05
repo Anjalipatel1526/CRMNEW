@@ -67,12 +67,12 @@ export default function AiIntelligencePage() {
         <StatCard
           title="AI Scoring Engine"
           value={leads.length > 0 ? "Active" : "Standby"}
-          sub={leads.length > 0 ? `${leads.length} leads analyzed` : "Awaiting inbound inquiries"}
+          sub={leads.length > 0 ? `${leads.length} leads analyzed` : "Awaiting inbound enquiries"}
           icon={<BrainCircuit size={18} />}
           accentColor="violet"
         />
         <StatCard
-          title="High-Intent Inquiries"
+          title="High-Intent Enquiries"
           value={`${highIntentLeads.length} Leads (>80 Score)`}
           sub={highIntentLeads.length > 0 ? "Immediate closing potential" : "No high-intent leads flagged"}
           icon={<Sparkles size={18} />}
@@ -229,7 +229,7 @@ export default function AiIntelligencePage() {
                     <span className="badge badge-green">Score: {lead.score || 85}/100</span>
                   </div>
                   <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', marginBottom: '0.75rem' }}>
-                    Active inquiry in {lead.status.replace('_', ' ')} stage. Customer interested in {lead.preferredFuelType || 'Petrol'} powertrain.
+                    Active enquiry in {lead.status.replace('_', ' ')} stage. Customer interested in {lead.preferredFuelType || 'Petrol'} powertrain.
                   </p>
                   <div style={{ backgroundColor: 'var(--color-white)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', padding: '0.75rem', fontSize: '0.8125rem', fontStyle: 'italic', marginBottom: '0.75rem' }}>
                     "Hi {lead.customerName?.split(' ')[0] || 'there'}, following up regarding your interest in the {lead.preferredMake} {lead.preferredModel}. We have exciting financing options and priority delivery slots available this week. Would you like me to share a personalized quotation?"
@@ -260,7 +260,7 @@ export default function AiIntelligencePage() {
                   No Active Lead Follow-Ups
                 </div>
                 <div style={{ fontSize: '0.82rem', maxWidth: '340px', margin: '0 auto' }}>
-                  When customer inquiries are added to the CRM, AI Copilot will automatically analyze their preferences and craft personalized WhatsApp follow-ups here.
+                  When customer enquiries are added to the CRM, AI Copilot will automatically analyze their preferences and craft personalized WhatsApp follow-ups here.
                 </div>
               </div>
             )}

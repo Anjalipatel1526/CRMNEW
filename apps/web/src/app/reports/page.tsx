@@ -238,7 +238,7 @@ export default function ReportsPage() {
     ];
   }, [vehicles]);
 
-  // Inquiry Acquisition Channel Breakdown (Computed dynamically from real leads)
+  // Enquiry Acquisition Channel Breakdown (Computed dynamically from real leads)
   const channelBreakdown = useMemo(() => {
     if (dateRangeFilteredLeads.length === 0) return [];
 
@@ -302,8 +302,8 @@ export default function ReportsPage() {
     csv += `\n`;
 
     // 4. Acquisition Channels
-    csv += `"=== 4. INQUIRY ACQUISITION CHANNELS ==="\n`;
-    csv += `"Channel","Total Inquiries","Converted Deals","Conversion Rate"\n`;
+    csv += `"=== 4. ENQUIRY ACQUISITION CHANNELS ==="\n`;
+    csv += `"Channel","Total Enquiries","Converted Deals","Conversion Rate"\n`;
     if (channelBreakdown.length === 0) {
       csv += `"No acquisition channel activity recorded",,,\n`;
     } else {
@@ -364,12 +364,12 @@ export default function ReportsPage() {
     });
 
     lines.push(`--------------------------------------------------------------------------`);
-    lines.push(`INQUIRY ACQUISITION CHANNELS:`);
+    lines.push(`ENQUIRY ACQUISITION CHANNELS:`);
     if (channelBreakdown.length === 0) {
-      lines.push(`  (No acquisition channel inquiries recorded in this period)`);
+      lines.push(`  (No acquisition channel enquiries recorded in this period)`);
     } else {
       channelBreakdown.forEach((ch) => {
-        lines.push(`  * ${ch.name}: ${ch.total} Inquiries (${ch.rate}% Conversion)`);
+        lines.push(`  * ${ch.name}: ${ch.total} Enquiries (${ch.rate}% Conversion)`);
       });
     }
 
@@ -895,7 +895,7 @@ export default function ReportsPage() {
         <StatCard
           title="Overall Conversion"
           value={`${overallConversion}%`}
-          sub="Lead inquiry to deal closure"
+          sub="Lead enquiry to deal closure"
           icon={<TrendingUp size={18} />}
           accentColor="green"
         />
@@ -1113,7 +1113,7 @@ export default function ReportsPage() {
         <div className="card" style={{ borderRadius: '16px', border: '1.5px solid #E2E8F0' }}>
           <div className="card-header" style={{ borderBottom: '1px solid #F1F5F9' }}>
             <h3 className="card-title" style={{ fontSize: '1rem', fontWeight: 700 }}>
-              Inquiry Acquisition Channel Breakdown
+              Enquiry Acquisition Channel Breakdown
             </h3>
           </div>
           <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', padding: '1.25rem' }}>
@@ -1121,10 +1121,10 @@ export default function ReportsPage() {
               <div style={{ textAlign: 'center', padding: '36px 16px', color: 'var(--muted)' }}>
                 <TrendingUp size={32} style={{ color: '#94A3B8', margin: '0 auto 8px auto' }} />
                 <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text)' }}>
-                  No Inquiry Acquisition Records
+                  No Enquiry Acquisition Records
                 </div>
                 <div style={{ fontSize: '0.76rem', color: 'var(--muted)', marginTop: '4px' }}>
-                  Lead acquisition channels and conversion rates will appear here as customer inquiries are received in the CRM.
+                  Lead acquisition channels and conversion rates will appear here as customer enquiries are received in the CRM.
                 </div>
               </div>
             ) : (
@@ -1142,7 +1142,7 @@ export default function ReportsPage() {
                   <div>
                     <strong style={{ fontSize: '0.86rem', color: '#0F172A' }}>{ch.name}</strong>
                     <div style={{ fontSize: '0.74rem', color: '#64748B' }}>
-                      {ch.total} inquiries recorded ({ch.converted} converted)
+                      {ch.total} enquiries recorded ({ch.converted} converted)
                     </div>
                   </div>
                   <span className={`badge ${ch.rate >= 40 ? 'badge-green' : ch.rate >= 20 ? 'badge-blue' : 'badge-neutral'}`}>

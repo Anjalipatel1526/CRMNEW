@@ -544,7 +544,7 @@ export default function DashboardPage() {
         <div className="card">
           <div className="card-header">
             <div>
-              <h2 className="card-title">Live Inquiries & CRM Pipeline</h2>
+              <h2 className="card-title">Live Enquiries & CRM Pipeline</h2>
               <div style={{ fontSize: '0.8rem', color: 'var(--muted)', marginTop: '2px' }}>
                 Active prospects, vehicle interests & pipeline stages
               </div>

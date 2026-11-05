@@ -55,7 +55,7 @@ const DEFAULT_NOTIFICATIONS: DealershipNotification[] = [
   {
     id: 'notif-1',
     title: 'New Online Lead Assigned',
-    message: 'Vikram Malhotra submitted a quote inquiry for Hyundai Creta SX (Petrol MT).',
+    message: 'Vikram Malhotra submitted a quote enquiry for Hyundai Creta SX (Petrol MT).',
     category: 'lead',
     timestamp: '10m ago',
     isRead: false,

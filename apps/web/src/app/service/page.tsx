@@ -223,7 +223,7 @@ export default function ServicePage() {
               <CheckCircle size={36} style={{ color: 'var(--muted)', margin: '0 auto 12px' }} />
               <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text)', marginBottom: '6px' }}>No Service Complaints</h3>
               <p style={{ fontSize: '0.82rem', color: 'var(--muted)', maxWidth: '400px', margin: '0 auto' }}>
-                Customer quality tickets, workshop escalations, and warranty inquiries will appear here.
+                Customer quality tickets, workshop escalations, and warranty enquiries will appear here.
               </p>
             </div>
           ) : (

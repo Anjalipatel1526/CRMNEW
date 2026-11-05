@@ -100,14 +100,18 @@ const CUSTOMER_CARD_PALETTES = [
 type FilterCategory = 'all' | 'individual' | 'business' | 'kyc_verified' | 'kyc_pending';
 
 export default function CustomersPage() {
-  const [customers, setCustomers] = useState<Customer[]>(api.getCustomers());
-  const [leads, setLeads] = useState(api.getLeads());
-  const [deals, setDeals] = useState(api.getDeals());
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [leads, setLeads] = useState<any[]>([]);
+  const [deals, setDeals] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [customerToDelete, setCustomerToDelete] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
+    setCustomers([...api.getCustomers()]);
+    setLeads([...api.getLeads()]);
+    setDeals([...api.getDeals()]);
+
     // Fetch directly from Supabase backend on mount
     api.fetchCustomers().then((data) => {
       if (Array.isArray(data)) setCustomers([...data]);
