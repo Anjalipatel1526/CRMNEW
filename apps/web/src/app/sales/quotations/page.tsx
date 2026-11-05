@@ -153,8 +153,7 @@ export default function QuotationsPage() {
             <tbody>
               {quotations.length === 0 ? (
                 <tr>
-                  <td colSpan={9} style={{ textAlign: 'center', padding: '60px 20px', color: '#64748B' }}>
-                    <div style={{ fontSize: '2rem', marginBottom: '8px' }}>📑</div>
+                  <td colSpan={9} style={{ textAlign: 'center', padding: '48px 20px', color: '#64748B' }}>
                     <div style={{ fontWeight: 700, color: '#0F172A', marginBottom: '4px' }}>
                       No Quotations Generated Yet
                     </div>

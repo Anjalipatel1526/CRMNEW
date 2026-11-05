@@ -255,7 +255,6 @@ export default function AiIntelligencePage() {
                   color: '#64748B',
                 }}
               >
-                <div style={{ fontSize: '1.8rem', marginBottom: '8px' }}>💬</div>
                 <div style={{ fontWeight: 700, color: '#0F172A', marginBottom: '4px' }}>
                   No Active Lead Follow-Ups
                 </div>
@@ -314,7 +313,6 @@ export default function AiIntelligencePage() {
                 color: '#64748B',
               }}
             >
-              <div style={{ fontSize: '1.8rem', marginBottom: '8px' }}>📊</div>
               <div style={{ fontWeight: 700, color: '#0F172A', marginBottom: '4px' }}>
                 Inventory Turnover Engine Ready
               </div>

@@ -220,29 +220,13 @@ export default function TestDrivesPage() {
         {filtered.length === 0 ? (
           <div
             style={{
-              padding: '60px 24px',
+              padding: '48px 24px',
               textAlign: 'center',
               backgroundColor: '#FFFFFF',
               borderRadius: '16px',
               border: '1.5px dashed #CBD5E1',
             }}
           >
-            <div
-              style={{
-                width: '56px',
-                height: '56px',
-                borderRadius: '50%',
-                backgroundColor: 'rgba(30,68,59,0.08)',
-                color: '#6253F8',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '1.6rem',
-                margin: '0 auto 16px',
-              }}
-            >
-              🚗
-            </div>
             <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0F172A', marginBottom: '6px' }}>
               No Test Drives Scheduled Yet
             </h3>

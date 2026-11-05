@@ -334,21 +334,6 @@ export default function AppointmentsPage() {
         >
           {appointments.length === 0 ? (
             <>
-              <div
-                style={{
-                  width: '56px',
-                  height: '56px',
-                  borderRadius: '18px',
-                  background: 'rgba(98, 83, 248, 0.08)',
-                  border: '1px solid rgba(98, 83, 248, 0.18)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#6253F8',
-                }}
-              >
-                <CalendarIcon size={26} />
-              </div>
               <h3 style={{ margin: 0, fontSize: '1.08rem', fontWeight: 800, color: '#0F172A' }}>
                 No Appointments Scheduled Yet
               </h3>
@@ -377,20 +362,6 @@ export default function AppointmentsPage() {
             </>
           ) : (
             <>
-              <div
-                style={{
-                  width: '52px',
-                  height: '52px',
-                  borderRadius: '16px',
-                  backgroundColor: '#F1F5F9',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#64748B',
-                }}
-              >
-                <CalendarIcon size={24} />
-              </div>
               <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: '#0F172A' }}>
                 No matching appointments found
               </h3>

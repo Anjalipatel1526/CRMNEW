@@ -722,21 +722,6 @@ export default function CustomersPage() {
         >
           {customers.length === 0 ? (
             <>
-              <div
-                style={{
-                  width: '54px',
-                  height: '54px',
-                  borderRadius: '50%',
-                  background: 'rgba(30,68,59,0.08)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#6253F8',
-                  fontSize: '1.5rem',
-                }}
-              >
-                👥
-              </div>
               <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#0F172A' }}>
                 No Customers Added Yet
               </h3>
@@ -764,20 +749,6 @@ export default function CustomersPage() {
             </>
           ) : (
             <>
-              <div
-                style={{
-                  width: '54px',
-                  height: '54px',
-                  borderRadius: '50%',
-                  background: '#F1F5F9',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#64748B',
-                }}
-              >
-                <Search size={24} />
-              </div>
               <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#0F172A' }}>
                 No matching customers found
               </h3>

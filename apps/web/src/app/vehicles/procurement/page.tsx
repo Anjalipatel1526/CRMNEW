@@ -229,7 +229,6 @@ export default function ProcurementPage() {
                   gap: '8px',
                 }}
               >
-                <Truck size={36} style={{ color: '#94A3B8' }} />
                 <div style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A' }}>No Purchase Orders</div>
                 <div style={{ fontSize: '0.82rem', color: '#64748B', maxWidth: '400px' }}>
                   Supplier vehicle stock orders and incoming shipments will appear here.
@@ -323,7 +322,6 @@ export default function ProcurementPage() {
                   gap: '8px',
                 }}
               >
-                <RefreshCw size={36} style={{ color: '#94A3B8' }} />
                 <div style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A' }}>No Trade-In Appraisals</div>
                 <div style={{ fontSize: '0.82rem', color: '#64748B', maxWidth: '400px' }}>
                   Customer vehicle exchange valuations and appraisals will appear here.
@@ -420,7 +418,6 @@ export default function ProcurementPage() {
                   gap: '8px',
                 }}
               >
-                <ClipboardCheck size={36} style={{ color: '#94A3B8' }} />
                 <div style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A' }}>No Intake Inspections</div>
                 <div style={{ fontSize: '0.82rem', color: '#64748B', maxWidth: '400px' }}>
                   140-point technical intake checks and showroom grading reports will be cataloged here.

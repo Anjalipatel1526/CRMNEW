@@ -907,7 +907,6 @@ export default function EmployeePortalPage() {
               color: '#64748B',
             }}
           >
-            <ShieldCheck size={36} style={{ color: '#94A3B8', margin: '0 auto 12px' }} />
             <h4 style={{ fontSize: '1rem', fontWeight: 700, color: '#1E293B', margin: '0 0 4px 0' }}>
               No Custom Modules Assigned Yet
             </h4>

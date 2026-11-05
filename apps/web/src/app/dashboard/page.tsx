@@ -443,7 +443,6 @@ export default function DashboardPage() {
                   gap: '10px',
                 }}
               >
-                <Flame size={32} style={{ color: 'var(--tomato)', opacity: 0.7 }} />
                 <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text)' }}>
                   No Hot Deals Active
                 </div>

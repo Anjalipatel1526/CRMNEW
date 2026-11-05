@@ -319,21 +319,6 @@ export default function DealsPage() {
         >
           {deals.length === 0 ? (
             <>
-              <div
-                style={{
-                  width: '52px',
-                  height: '52px',
-                  borderRadius: '16px',
-                  backgroundColor: 'rgba(30,68,59,0.08)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#6253F8',
-                  fontSize: '1.5rem',
-                }}
-              >
-                💼
-              </div>
               <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: '#0F172A' }}>
                 No Active Sales Deals Yet
               </h3>
@@ -343,20 +328,6 @@ export default function DealsPage() {
             </>
           ) : (
             <>
-              <div
-                style={{
-                  width: '52px',
-                  height: '52px',
-                  borderRadius: '16px',
-                  backgroundColor: '#F1F5F9',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#64748B',
-                }}
-              >
-                <Briefcase size={24} />
-              </div>
               <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: '#0F172A' }}>
                 No matching sales deals found
               </h3>

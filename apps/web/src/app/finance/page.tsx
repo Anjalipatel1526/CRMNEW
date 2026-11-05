@@ -240,7 +240,6 @@ export default function FinancePage() {
                   gap: '8px',
                 }}
               >
-                <Receipt size={36} style={{ color: '#94A3B8' }} />
                 <div style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A' }}>No Payments or Receipts Recorded</div>
                 <div style={{ fontSize: '0.82rem', color: '#64748B', maxWidth: '400px' }}>
                   Customer booking advances, tokens, and bank settlements will be listed here.
@@ -345,7 +344,6 @@ export default function FinancePage() {
                   gap: '8px',
                 }}
               >
-                <FileText size={36} style={{ color: '#94A3B8' }} />
                 <div style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A' }}>No GST Invoices Created</div>
                 <div style={{ fontSize: '0.82rem', color: '#64748B', maxWidth: '400px' }}>
                   Generate vehicle delivery tax invoices and accounts receivable documents using &ldquo;Create Document / Invoice&rdquo;.
@@ -440,7 +438,6 @@ export default function FinancePage() {
                   gap: '8px',
                 }}
               >
-                <CreditCard size={36} style={{ color: '#94A3B8' }} />
                 <div style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A' }}>No Dealership Expenses Recorded</div>
                 <div style={{ fontSize: '0.82rem', color: '#64748B', maxWidth: '400px' }}>
                   Detailing, transportation, and workshop vendor invoices will appear here.

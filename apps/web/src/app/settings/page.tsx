@@ -1545,21 +1545,6 @@ export default function SettingsPage() {
                 justifyContent: 'center',
               }}
             >
-              <div
-                style={{
-                  width: '56px',
-                  height: '56px',
-                  borderRadius: '50%',
-                  backgroundColor: '#EFF6FF',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginBottom: '14px',
-                  color: '#2563EB',
-                }}
-              >
-                <Building2 size={28} />
-              </div>
               <h3 style={{ margin: '0 0 6px 0', fontSize: '1.1rem', fontWeight: 800, color: '#0F172A' }}>
                 No Dealership Branches Configured
               </h3>

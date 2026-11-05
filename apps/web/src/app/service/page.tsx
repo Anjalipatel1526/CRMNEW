@@ -96,7 +96,6 @@ export default function ServicePage() {
         <div className="card">
           {jobCards.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '48px 24px' }}>
-              <Wrench size={36} style={{ color: 'var(--muted)', margin: '0 auto 12px' }} />
               <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text)', marginBottom: '6px' }}>No Active Workshop Job Cards</h3>
               <p style={{ fontSize: '0.82rem', color: 'var(--muted)', maxWidth: '400px', margin: '0 auto 16px' }}>
                 Vehicle service intakes, maintenance checklists, and repair job cards will appear here.
@@ -168,7 +167,6 @@ export default function ServicePage() {
         <div className="card">
           {parts.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '48px 24px' }}>
-              <Package size={36} style={{ color: 'var(--muted)', margin: '0 auto 12px' }} />
               <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text)', marginBottom: '6px' }}>No Spare Parts Cataloged</h3>
               <p style={{ fontSize: '0.82rem', color: 'var(--muted)', maxWidth: '400px', margin: '0 auto' }}>
                 Workshop inventory parts, lubricants, filters, and brake assemblies will be listed here.
@@ -220,7 +218,6 @@ export default function ServicePage() {
         <div className="card">
           {complaints.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '48px 24px' }}>
-              <CheckCircle size={36} style={{ color: 'var(--muted)', margin: '0 auto 12px' }} />
               <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text)', marginBottom: '6px' }}>No Service Complaints</h3>
               <p style={{ fontSize: '0.82rem', color: 'var(--muted)', maxWidth: '400px', margin: '0 auto' }}>
                 Customer quality tickets, workshop escalations, and warranty enquiries will appear here.

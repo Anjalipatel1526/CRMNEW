@@ -1053,7 +1053,6 @@ export default function LeadsPage() {
 
                   {stageLeads.length === 0 && !isOver && (
                     <div className="kanban-empty-col">
-                      <span style={{ fontSize: '1.2rem', opacity: 0.55 }}>📥</span>
                       <span>No leads in stage</span>
                       <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>Drag leads here</span>
                     </div>

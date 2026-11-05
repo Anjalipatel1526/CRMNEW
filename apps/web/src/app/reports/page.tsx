@@ -1004,7 +1004,6 @@ export default function ReportsPage() {
                 gap: '8px',
               }}
             >
-              <Users size={36} style={{ color: '#94A3B8' }} />
               <div style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A' }}>
                 No Team Performance Records
               </div>
@@ -1119,7 +1118,6 @@ export default function ReportsPage() {
           <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', padding: '1.25rem' }}>
             {channelBreakdown.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '36px 16px', color: 'var(--muted)' }}>
-                <TrendingUp size={32} style={{ color: '#94A3B8', margin: '0 auto 8px auto' }} />
                 <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text)' }}>
                   No Enquiry Acquisition Records
                 </div>

@@ -522,20 +522,6 @@ export default function DocumentsPage() {
             gap: '12px',
           }}
         >
-          <div
-            style={{
-              width: '52px',
-              height: '52px',
-              borderRadius: '16px',
-              backgroundColor: '#F1F5F9',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#64748B',
-            }}
-          >
-            <FileText size={24} />
-          </div>
           <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: '#0F172A' }}>
             {documents.length === 0 ? 'No compliance documents in vault' : 'No matching compliance documents found'}
           </h3>

@@ -73,7 +73,6 @@ export default function MarketingPage() {
         </div>
         {campaigns.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '48px 24px' }}>
-            <MessageSquare size={36} style={{ color: 'var(--muted)', margin: '0 auto 12px' }} />
             <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text)', marginBottom: '6px' }}>No Active Marketing Campaigns</h3>
             <p style={{ fontSize: '0.82rem', color: 'var(--muted)', maxWidth: '400px', margin: '0 auto 16px' }}>
               WhatsApp broadcast sequences and promotional campaigns will be managed here.
@@ -133,7 +132,6 @@ export default function MarketingPage() {
         </div>
         {referrals.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '48px 24px' }}>
-            <Share2 size={36} style={{ color: 'var(--muted)', margin: '0 auto 12px' }} />
             <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text)', marginBottom: '6px' }}>No Customer Referrals Yet</h3>
             <p style={{ fontSize: '0.82rem', color: 'var(--muted)', maxWidth: '400px', margin: '0 auto' }}>
               Customer referral vouchers, advocate rewards, and lead conversions will be logged here.
