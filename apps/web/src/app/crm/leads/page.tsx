@@ -601,7 +601,15 @@ export default function LeadsPage() {
             setIsNewLeadModalOpen(true);
           }}
           className="btn btn-primary btn-sm"
-          style={{ borderRadius: '999px', padding: '0.45rem 1.15rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          style={{
+            borderRadius: '999px',
+            padding: '0.45rem 1.15rem',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            whiteSpace: 'nowrap',
+            flexShrink: 0,
+          }}
         >
           <Plus size={16} /> New Lead
         </button>

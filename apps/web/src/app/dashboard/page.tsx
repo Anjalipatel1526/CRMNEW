@@ -226,7 +226,9 @@ export default function DashboardPage() {
               <div className="hero-stat-value">
                 ₹{(totalDealValue / 100000).toFixed(2)} Lakh
               </div>
-              <div className="hero-stat-label">Open pipeline ({deals.length} deals)</div>
+              <div className="hero-stat-label">
+                Open pipeline<span className="hero-stat-desktop-sub"> ({deals.length} deals)</span>
+              </div>
             </div>
           </div>
 
@@ -239,7 +241,9 @@ export default function DashboardPage() {
               <div className="hero-stat-value">
                 {deals.length > 0 ? `${Math.round((deals.filter((d) => d.stage === 'delivered').length / deals.length) * 100)}%` : '0%'}
               </div>
-              <div className="hero-stat-label">Win rate, closed deals</div>
+              <div className="hero-stat-label">
+                Win rate<span className="hero-stat-desktop-sub">, closed deals</span>
+              </div>
             </div>
           </div>
         </div>

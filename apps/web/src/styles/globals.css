@@ -261,6 +261,17 @@ html, body {
   flex-shrink: 0;
 }
 
+.brand-logo-img {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  object-fit: contain;
+  background-color: #FFFFFF;
+  border: 1px solid rgba(98, 83, 248, 0.18);
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
 .brand-badge {
   width: 32px;
   height: 32px;
@@ -851,6 +862,8 @@ html, body {
   transition: var(--transition-fast);
   text-decoration: none;
   box-sizing: border-box;
+  white-space: nowrap !important;
+  flex-shrink: 0;
 }
 
 .btn-primary {
@@ -984,6 +997,23 @@ html, body {
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 24px;
+}
+
+.page-title {
+  font-size: 1.65rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+  color: var(--text);
+  margin: 0;
+}
+
+.page-desc {
+  font-size: 0.88rem;
+  color: var(--muted);
+  font-weight: 500;
+  line-height: 1.4;
+  margin: 4px 0 0 0;
 }
 
 /* Section Wrapper: Smooth pure fade-in on section mount */
@@ -3969,34 +3999,194 @@ input.no-spinner {
 }
 
 @media (max-width: 768px) {
+  /* Ensure clean, uniform 14px container margins from the mobile screen edge */
+  .app-main {
+    padding: 12px 14px 40px 14px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
   /* Hide the horizontal nav-pills from top bar on mobile */
   .top-bar .nav-pills {
     display: none !important;
   }
 
+  /* Top bar aligns flush with the 14px edge boundary */
   .top-bar {
-    padding: 10px 14px;
-    gap: 10px;
+    padding: 4px 0 10px 0 !important;
+    gap: 12px !important;
+    margin-bottom: 8px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .brand-link {
+    gap: 10px !important;
+  }
+
+  .brand-logo-img {
+    width: 42px !important;
+    height: 42px !important;
+    border-radius: 12px !important;
+  }
+
+  .brand-badge {
+    width: 42px !important;
+    height: 42px !important;
+    border-radius: 12px !important;
+    font-size: 1.25rem !important;
+    font-weight: 800 !important;
   }
 
   .brand-title {
-    font-size: 1.05rem;
+    font-size: 1.25rem !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.025em !important;
   }
 
-  /* Show the Mobile Quick Access Card on mobile Overview page */
+  .top-bar__right {
+    gap: 10px !important;
+  }
+
+  .icon-circle-btn {
+    width: 40px !important;
+    height: 40px !important;
+  }
+
+  .icon-circle-btn svg {
+    width: 19px !important;
+    height: 19px !important;
+  }
+
+  .avatar-circle {
+    width: 40px !important;
+    height: 40px !important;
+    font-size: 0.95rem !important;
+    font-weight: 800 !important;
+  }
+
+  /* Sales Overview Hero Header: Sized down cleanly with proper padding */
+  .hero-header {
+    margin-bottom: 12px !important;
+    gap: 8px !important;
+    padding: 0 !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .hero-title-wrap {
+    gap: 2px !important;
+    width: 100% !important;
+  }
+
+  .hero-title {
+    font-size: 1.35rem !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.025em !important;
+    line-height: 1.15 !important;
+    margin: 0 !important;
+  }
+
+  .hero-subtitle {
+    font-size: 0.72rem !important;
+    color: #64748B !important;
+    line-height: 1.35 !important;
+    font-weight: 500 !important;
+    margin: 0 !important;
+  }
+
+  /* Single-Line Row for Won This Month, Pipeline, and Win Rate */
+  .hero-stats-row {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    margin-top: 4px !important;
+    padding: 0 !important;
+  }
+
+  .hero-stat-badge {
+    background: #FFFFFF !important;
+    border: 1px solid rgba(98, 83, 248, 0.12) !important;
+    border-radius: 16px !important;
+    padding: 10px 6px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    text-align: center !important;
+    box-shadow: 0 2px 8px -2px rgba(15, 23, 42, 0.04) !important;
+    box-sizing: border-box !important;
+    min-width: 0 !important;
+    gap: 3px !important;
+    width: 100% !important;
+  }
+
+  .hero-stat-icon {
+    display: none !important;
+  }
+
+  .hero-stat-content {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    text-align: center !important;
+  }
+
+  .hero-stat-value {
+    font-size: 1.05rem !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.025em !important;
+    color: #0F172A !important;
+    line-height: 1.15 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    max-width: 100% !important;
+    justify-content: center !important;
+    margin: 0 !important;
+  }
+
+  .hero-stat-tag {
+    display: none !important;
+  }
+
+  .hero-stat-label {
+    font-size: 0.66rem !important;
+    font-weight: 600 !important;
+    color: #64748B !important;
+    line-height: 1.25 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    max-width: 100% !important;
+    margin-top: 2px !important;
+  }
+
+  .hero-stat-desktop-sub {
+    display: none !important;
+  }
+
+  /* Show the Mobile Quick Access Card on mobile Overview page - Flush with other cards */
   .mobile-quick-access-wrap {
     display: block !important;
-    padding: 12px 14px 6px 14px;
-    width: 100%;
-    box-sizing: border-box;
+    padding: 0 0 14px 0 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
   }
 
   .mobile-quick-access-card {
     background: linear-gradient(180deg, #FFFFFF 0%, #FAFAFF 100%);
-    border-radius: 22px;
+    border-radius: 20px;
     border: 1.2px solid rgba(98, 83, 248, 0.12);
-    box-shadow: 0 10px 28px -8px rgba(98, 83, 248, 0.08), 0 1px 3px rgba(0, 0, 0, 0.02);
-    padding: 15px 14px 14px 14px;
+    box-shadow: 0 8px 24px -6px rgba(98, 83, 248, 0.08), 0 1px 3px rgba(0, 0, 0, 0.02);
+    padding: 14px 10px 14px 10px;
     transition: all 0.2s ease;
     box-sizing: border-box;
     width: 100%;
@@ -4006,7 +4196,7 @@ input.no-spinner {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 14px;
+    margin-bottom: 12px;
     padding-bottom: 10px;
     border-bottom: 1px solid rgba(98, 83, 248, 0.08);
   }
@@ -4068,7 +4258,7 @@ input.no-spinner {
   .mobile-quick-access-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 14px 4px;
+    gap: 12px 4px;
     width: 100%;
     box-sizing: border-box;
   }
@@ -4138,7 +4328,7 @@ input.no-spinner {
   /* Show the Mobile Back Button bar on other pages (subpages) on mobile */
   .mobile-subpage-back-wrap {
     display: block !important;
-    padding: 10px 14px 4px 14px;
+    padding: 0 0 12px 0 !important;
     width: 100%;
     box-sizing: border-box;
   }
@@ -4208,6 +4398,110 @@ input.no-spinner {
     font-size: 0.70rem;
     font-weight: 600;
     color: #475569;
+  }
+
+  /* Clean, non-clumsy, single-line Page Headers across the entire CRM */
+  .page-header {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 10px !important;
+    margin-top: 4px !important;
+    margin-bottom: 12px !important;
+    padding: 0 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    flex-wrap: nowrap !important;
+  }
+
+  .page-header > div:first-child {
+    min-width: 0 !important;
+    flex: 1 1 auto !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 2px !important;
+  }
+
+  .page-header > div:not(:first-child) {
+    flex-shrink: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    flex-wrap: nowrap !important;
+    white-space: nowrap !important;
+  }
+
+  .page-title,
+  .page-header h1,
+  .page-header .page-title {
+    font-size: clamp(1rem, 3.8vw, 1.15rem) !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.025em !important;
+    line-height: 1.25 !important;
+    color: #0F172A !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    margin: 0 !important;
+  }
+
+  .page-header .fade-words-container {
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    display: inline-block !important;
+    max-width: 100% !important;
+  }
+
+  .page-desc,
+  .page-header p,
+  .page-header .page-desc {
+    font-size: 0.69rem !important;
+    color: #64748B !important;
+    line-height: 1.35 !important;
+    font-weight: 500 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+  }
+
+  /* Single-line Action Buttons across all sections: "+ New Lead", "+ Add Customer", "+ Add Vehicle", etc. */
+  .page-header button,
+  .page-header .btn,
+  .page-header a.btn,
+  .page-header .unique-lead-submit-btn {
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 5px !important;
+    padding: 6px 14px !important;
+    font-size: 0.78rem !important;
+    font-weight: 700 !important;
+    border-radius: 999px !important;
+    height: 34px !important;
+    line-height: 1 !important;
+    box-sizing: border-box !important;
+  }
+
+  .page-header button *,
+  .page-header .btn *,
+  .page-header a.btn *,
+  .page-header .unique-lead-submit-btn * {
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+  }
+
+  .page-header button svg,
+  .page-header .btn svg,
+  .page-header .unique-lead-submit-btn svg {
+    flex-shrink: 0 !important;
+    width: 15px !important;
+    height: 15px !important;
   }
 }
 

@@ -156,6 +156,7 @@ export default function TestDrivesPage() {
           type="button"
           className="unique-lead-submit-btn"
           onClick={() => setIsAddModalOpen(true)}
+          style={{ whiteSpace: 'nowrap', flexShrink: 0 }}
         >
           <Plus size={15} />
           <span className="btn-text">Schedule Test Drive</span>

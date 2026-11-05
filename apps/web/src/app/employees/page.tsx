@@ -522,11 +522,12 @@ export default function EmployeesPage() {
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexShrink: 0, whiteSpace: 'nowrap' }}>
           <button
             type="button"
             className="unique-lead-submit-btn"
             onClick={handleOpenAddModal}
+            style={{ whiteSpace: 'nowrap', flexShrink: 0 }}
           >
             <Plus size={15} />
             <span className="btn-text">Add Employee</span>

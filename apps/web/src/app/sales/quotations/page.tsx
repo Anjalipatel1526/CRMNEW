@@ -124,6 +124,7 @@ export default function QuotationsPage() {
             setIsBuilderOpen(true);
           }}
           className="btn btn-primary btn-sm"
+          style={{ whiteSpace: 'nowrap', flexShrink: 0, borderRadius: '999px', padding: '0.45rem 1.25rem' }}
         >
           <Plus size={16} /> New Quotation Builder
         </button>

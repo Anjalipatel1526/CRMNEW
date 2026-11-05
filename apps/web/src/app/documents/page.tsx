@@ -282,7 +282,7 @@ export default function DocumentsPage() {
             />
           </p>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0, whiteSpace: 'nowrap' }}>
           <button
             type="button"
             onClick={() => {
@@ -300,6 +300,8 @@ export default function DocumentsPage() {
               display: 'inline-flex',
               alignItems: 'center',
               gap: '6px',
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
             }}
             title="Fetch latest data from Supabase backend"
           >
@@ -315,6 +317,8 @@ export default function DocumentsPage() {
               display: 'inline-flex',
               alignItems: 'center',
               gap: '6px',
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
             }}
           >
             <UploadCloud size={16} /> Upload New Document

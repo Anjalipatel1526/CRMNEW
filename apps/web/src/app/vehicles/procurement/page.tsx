@@ -79,7 +79,7 @@ export default function ProcurementPage() {
             />
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'nowrap', flexShrink: 0, whiteSpace: 'nowrap' }}>
           <button
             onClick={() => setIsTradeInModalOpen(true)}
             className="btn btn-secondary btn-sm"
@@ -89,6 +89,8 @@ export default function ProcurementPage() {
               display: 'inline-flex',
               alignItems: 'center',
               gap: '6px',
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
             }}
           >
             <RefreshCw size={15} /> New Trade-In Appraisal
@@ -102,6 +104,8 @@ export default function ProcurementPage() {
               display: 'inline-flex',
               alignItems: 'center',
               gap: '6px',
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
             }}
           >
             <Plus size={16} /> Create Purchase Order

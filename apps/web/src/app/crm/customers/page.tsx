@@ -441,6 +441,8 @@ export default function CustomersPage() {
             display: 'inline-flex',
             alignItems: 'center',
             gap: '6px',
+            whiteSpace: 'nowrap',
+            flexShrink: 0,
           }}
         >
           <Plus size={16} /> Add Customer

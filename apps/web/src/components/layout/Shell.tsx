@@ -769,16 +769,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
               <img
                 src={company.logoUrl}
                 alt={brandDisplayName}
-                style={{
-                  width: '34px',
-                  height: '34px',
-                  borderRadius: '8px',
-                  objectFit: 'contain',
-                  backgroundColor: '#FFFFFF',
-                  border: '1px solid rgba(98,83,248,0.18)',
-                  flexShrink: 0,
-                  boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
-                }}
+                className="brand-logo-img"
               />
             ) : (
               <div className="brand-badge" suppressHydrationWarning>
