@@ -38,7 +38,7 @@ import {
   Edit3,
   Flame,
 } from 'lucide-react';
-import { Customer, Lead } from '@crm/shared-types';
+import { Customer, Lead, Vehicle, Deal, Appointment, JobCard } from '@crm/shared-types';
 
 import { WordFadeIn } from '@/components/ui/WordFadeIn';
 import { getCompanyProfile, DEFAULT_COMPANY_PROFILE, CompanyProfile } from '@/lib/company-store';
@@ -107,12 +107,12 @@ export default function DashboardPage() {
   const router = useRouter();
   const [company, setCompany] = useState<CompanyProfile>(DEFAULT_COMPANY_PROFILE);
   const [isMounted, setIsMounted] = useState(false);
-  const [vehicles] = useState(api.getVehicles());
-  const [leads] = useState(api.getLeads());
-  const [deals] = useState(api.getDeals());
-  const [appointments] = useState(api.getAppointments());
-  const [jobCards] = useState(api.getJobCards());
-  const [customers] = useState(api.getCustomers());
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [deals, setDeals] = useState<Deal[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [jobCards, setJobCards] = useState<JobCard[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedYear, setSelectedYear] = useState('2026');
   const [selectedMonth, setSelectedMonth] = useState('all');
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
@@ -129,11 +129,24 @@ export default function DashboardPage() {
       return;
     }
     setIsMounted(true);
+    const refreshData = () => {
+      setVehicles(api.getVehicles());
+      setLeads(api.getLeads());
+      setDeals(api.getDeals());
+      setAppointments(api.getAppointments());
+      setJobCards(api.getJobCards());
+      setCustomers(api.getCustomers());
+    };
+    refreshData();
     setCompany(getCompanyProfile());
     const handleCompany = () => setCompany(getCompanyProfile());
     window.addEventListener('crm-company-profile-changed', handleCompany);
-    return () => window.removeEventListener('crm-company-profile-changed', handleCompany);
-  }, []);
+    window.addEventListener('crm-data-changed', refreshData);
+    return () => {
+      window.removeEventListener('crm-company-profile-changed', handleCompany);
+      window.removeEventListener('crm-data-changed', refreshData);
+    };
+  }, [router]);
 
   const handleSelectLeadCustomer = (lead: Lead) => {
     const custName = (lead.customerName || '').toLowerCase().trim();
@@ -555,7 +568,7 @@ export default function DashboardPage() {
           </div>
 
           <div className="table-container">
-            <table className="data-table">
+            <table className="data-table" suppressHydrationWarning>
               <thead>
                 <tr>
                   <th>Customer</th>
@@ -564,7 +577,7 @@ export default function DashboardPage() {
                   <th>Action</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody suppressHydrationWarning>
                 {leads.length === 0 ? (
                   <tr>
                     <td colSpan={4} style={{ textAlign: 'center', padding: '36px 16px', color: 'var(--muted)', fontSize: '0.85rem' }}>

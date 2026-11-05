@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import {
+  LucideIcon,
   Settings,
   Bell,
   LogOut,
@@ -27,6 +28,17 @@ import {
   Users,
   X,
   LayoutDashboard,
+  Filter,
+  Calendar,
+  Layers,
+  BadgePercent,
+  CreditCard,
+  FileText,
+  BarChart3,
+  UserCheck,
+  Gauge,
+  ArrowLeft,
+  LayoutGrid,
 } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { getModules, DealershipModule } from '@/lib/modules-registry';
@@ -111,6 +123,134 @@ const PRESET_PROFILE_AVATARS = [
   'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80',
   'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
 ];
+
+const MODULE_THEMES: Record<
+  string,
+  {
+    bg: string;
+    border: string;
+    color: string;
+    gradient?: string;
+    IconComponent: LucideIcon;
+  }
+> = {
+  Overview: {
+    bg: '#EFF6FF',
+    border: '#BFDBFE',
+    color: '#2563EB',
+    gradient: 'linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%)',
+    IconComponent: LayoutDashboard,
+  },
+  Pipeline: {
+    bg: '#EEF2FF',
+    border: '#C7D2FE',
+    color: '#4F46E5',
+    gradient: 'linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%)',
+    IconComponent: Filter,
+  },
+  Customers: {
+    bg: '#F5F3FF',
+    border: '#DDD6FE',
+    color: '#7C3AED',
+    gradient: 'linear-gradient(135deg, #F5F3FF 0%, #EDE9FE 100%)',
+    IconComponent: Users,
+  },
+  Appointments: {
+    bg: '#FFFBEB',
+    border: '#FDE68A',
+    color: '#D97706',
+    gradient: 'linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%)',
+    IconComponent: Calendar,
+  },
+  Inventory: {
+    bg: '#F0FDF4',
+    border: '#BBF7D0',
+    color: '#16A34A',
+    gradient: 'linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 100%)',
+    IconComponent: Car,
+  },
+  Procurement: {
+    bg: '#FFF1F2',
+    border: '#FECDD3',
+    color: '#E11D48',
+    gradient: 'linear-gradient(135deg, #FFF1F2 0%, #FFE4E6 100%)',
+    IconComponent: Layers,
+  },
+  Deals: {
+    bg: '#FDF2F8',
+    border: '#FBCFE8',
+    color: '#DB2777',
+    gradient: 'linear-gradient(135deg, #FDF2F8 0%, #FCE7F3 100%)',
+    IconComponent: BadgePercent,
+  },
+  Finance: {
+    bg: '#F0F9FF',
+    border: '#BAE6FD',
+    color: '#0284C7',
+    gradient: 'linear-gradient(135deg, #F0F9FF 0%, #E0F2FE 100%)',
+    IconComponent: CreditCard,
+  },
+  Documents: {
+    bg: '#F8FAFC',
+    border: '#E2E8F0',
+    color: '#475569',
+    gradient: 'linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%)',
+    IconComponent: FileText,
+  },
+  Reports: {
+    bg: '#FAF5FF',
+    border: '#E9D5FF',
+    color: '#9333EA',
+    gradient: 'linear-gradient(135deg, #FAF5FF 0%, #F3E8FF 100%)',
+    IconComponent: BarChart3,
+  },
+  Employees: {
+    bg: '#ECFDF5',
+    border: '#A7F3D0',
+    color: '#059669',
+    gradient: 'linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%)',
+    IconComponent: UserCheck,
+  },
+  'Test Drives': {
+    bg: '#FFF7ED',
+    border: '#FED7AA',
+    color: '#EA580C',
+    gradient: 'linear-gradient(135deg, #FFF7ED 0%, #FFEDD5 100%)',
+    IconComponent: Gauge,
+  },
+  Settings: {
+    bg: '#F1F5F9',
+    border: '#CBD5E1',
+    color: '#334155',
+    gradient: 'linear-gradient(135deg, #F1F5F9 0%, #E2E8F0 100%)',
+    IconComponent: Settings,
+  },
+};
+
+function getModuleVisual(tab: { label: string; icon?: string }) {
+  if (MODULE_THEMES[tab.label]) return MODULE_THEMES[tab.label];
+  const lower = (tab.label || '').toLowerCase();
+  if (lower.includes('overview') || lower.includes('dash')) return MODULE_THEMES['Overview'];
+  if (lower.includes('pipe') || lower.includes('lead') || lower.includes('enquir')) return MODULE_THEMES['Pipeline'];
+  if (lower.includes('cust')) return MODULE_THEMES['Customers'];
+  if (lower.includes('appoint')) return MODULE_THEMES['Appointments'];
+  if (lower.includes('stock') || lower.includes('inven') || lower.includes('vehic')) return MODULE_THEMES['Inventory'];
+  if (lower.includes('procur')) return MODULE_THEMES['Procurement'];
+  if (lower.includes('deal')) return MODULE_THEMES['Deals'];
+  if (lower.includes('finan')) return MODULE_THEMES['Finance'];
+  if (lower.includes('doc')) return MODULE_THEMES['Documents'];
+  if (lower.includes('rep') || lower.includes('analyt')) return MODULE_THEMES['Reports'];
+  if (lower.includes('emp') || lower.includes('staff')) return MODULE_THEMES['Employees'];
+  if (lower.includes('test') || lower.includes('drive')) return MODULE_THEMES['Test Drives'];
+  if (lower.includes('sett')) return MODULE_THEMES['Settings'];
+  return {
+    bg: '#F1F5F9',
+    border: '#E2E8F0',
+    color: '#6253F8',
+    gradient: 'linear-gradient(135deg, #F8FAFC 0%, #EEF2FF 100%)',
+    IconComponent: LayoutDashboard,
+  };
+}
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -347,6 +487,40 @@ export function Shell({ children }: { children: React.ReactNode }) {
     }
     return best || (pathname === '/empportal' ? '/empportal' : pathname === '/dashboard' ? '/dashboard' : '');
   })();
+
+  // All tabs available on mobile quick access (excluding Overview since Quick Access is already displayed on Overview)
+  const allMobileTabs = useMemo(() => {
+    const tabs: any[] = activeNavTabs.filter(
+      (t: any) =>
+        t.href !== '/dashboard' &&
+        t.href !== '/empportal' &&
+        t.label?.toLowerCase() !== 'overview'
+    );
+    if (!isStaffEmployee && !tabs.some((t: any) => t.href === '/settings')) {
+      tabs.push({
+        id: 'mod-settings',
+        label: 'Settings',
+        href: '/settings',
+        icon: 'Settings',
+        description: 'System configurations and master controls',
+      });
+    }
+    return tabs;
+  }, [activeNavTabs, isStaffEmployee]);
+
+  const currentMobileTab =
+    allMobileTabs.find(
+      (t: any) => t.href === activeTab || (t.href !== '/' && pathname.startsWith(t.href))
+    ) ||
+    activeNavTabs.find(
+      (t: any) => t.href === activeTab || (t.href !== '/' && pathname.startsWith(t.href))
+    );
+  const currentTabLabel = currentMobileTab?.label || '';
+  const isOverviewPage =
+    pathname === '/dashboard' ||
+    pathname === '/empportal' ||
+    pathname === '/' ||
+    pathname === '';
 
   const userDisplayName = isMounted
     ? (userContext?.user?.fullName || getUserSession()?.fullName || getUserCredentials()?.fullName || 'Anjali')
@@ -607,11 +781,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
                 }}
               />
             ) : (
-              <div className="brand-badge">
+              <div className="brand-badge" suppressHydrationWarning>
                 {brandDisplayName.charAt(0).toUpperCase()}
               </div>
             )}
-            <span className="brand-title" style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <span className="brand-title" suppressHydrationWarning style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {brandDisplayName}
             </span>
           </Link>
@@ -1281,6 +1455,83 @@ export function Shell({ children }: { children: React.ReactNode }) {
               setNotificationsOpen(false);
             }}
           />
+        )}
+
+        {/* Mobile Quick Access Navigation Grid (Only shown on Overview / Dashboard on mobile <= 768px) */}
+        {isOverviewPage && (
+          <div className="mobile-quick-access-wrap">
+            <div className="mobile-quick-access-card">
+              <div className="mobile-quick-access-header">
+                <div className="mobile-qa-header-left">
+                  <div className="mobile-qa-header-icon">
+                    <LayoutGrid size={15} />
+                  </div>
+                  <div className="mobile-qa-title-group">
+                    <span className="mobile-qa-title">Quick Access</span>
+                    <span className="mobile-qa-subtitle">All Dealership Hubs</span>
+                  </div>
+                </div>
+                <div className="mobile-qa-header-right">
+                  <span className="mobile-qa-badge">{allMobileTabs.length} Modules</span>
+                </div>
+              </div>
+
+              <div className="mobile-quick-access-grid">
+                {allMobileTabs.map((tab: any) => {
+                  const isActive =
+                    tab.href === activeTab || (tab.href !== '/' && pathname.startsWith(tab.href));
+                  const visual = getModuleVisual(tab);
+                  const Icon = visual.IconComponent;
+
+                  return (
+                    <Link
+                      key={tab.id}
+                      href={tab.href}
+                      className={`mobile-qa-item ${isActive ? 'is-active' : ''}`}
+                      title={tab.description || tab.label}
+                    >
+                      <div
+                        className="mobile-qa-icon-badge"
+                        style={{
+                          background: visual.gradient || visual.bg,
+                          borderColor: visual.border,
+                          color: visual.color,
+                        }}
+                      >
+                        <Icon size={21} />
+                      </div>
+                      <span className="mobile-qa-label">{tab.label}</span>
+                      {isActive && <span className="mobile-qa-active-dot" />}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Mobile Back to Overview Bar (Shown on subpages on mobile <= 768px) */}
+        {!isOverviewPage && (
+          <div className="mobile-subpage-back-wrap">
+            <Link
+              href={isStaffEmployee ? '/empportal' : '/dashboard'}
+              className="mobile-back-action-bar"
+              title="Return to Overview"
+            >
+              <div className="mobile-back-action-left">
+                <div className="mobile-back-icon-circle">
+                  <ArrowLeft size={15} />
+                </div>
+                <span className="mobile-back-title">Back to Overview</span>
+              </div>
+              {currentTabLabel && (
+                <div className="mobile-back-current-pill">
+                  <span className="mobile-back-dot" />
+                  <span className="mobile-back-section-name">{currentTabLabel}</span>
+                </div>
+              )}
+            </Link>
+          </div>
         )}
 
         {/* Page Content with route key to trigger fade-in and content animations */}
