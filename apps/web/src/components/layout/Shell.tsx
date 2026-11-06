@@ -765,14 +765,19 @@ export function Shell({ children }: { children: React.ReactNode }) {
             title={brandDisplayName}
           >
             {isMounted && company.logoUrl ? (
-              <img
-                src={company.logoUrl}
-                alt={brandDisplayName}
-                className="brand-logo-img"
-                width={42}
-                height={42}
-                decoding="async"
-              />
+              <picture>
+                {company.logoUrl === '/unai-logo.png' && (
+                  <source srcSet="/unai-logo.webp" type="image/webp" />
+                )}
+                <img
+                  src={company.logoUrl}
+                  alt={brandDisplayName}
+                  className="brand-logo-img"
+                  width={42}
+                  height={42}
+                  decoding="async"
+                />
+              </picture>
             ) : (
               <div className="brand-badge" suppressHydrationWarning>
                 {brandDisplayName.charAt(0).toUpperCase()}

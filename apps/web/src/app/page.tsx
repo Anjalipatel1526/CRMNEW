@@ -56,20 +56,23 @@ export default function WelcomeLandingPage() {
       >
         {/* Official UNAI Logo (Marked above Welcome by user) */}
         <div style={{ marginBottom: '2.25rem', display: 'flex', justifyContent: 'center' }}>
-          <img
-            src="/unai-logo.png"
-            alt="UNAI Logo"
-            width={150}
-            height={52}
-            decoding="async"
-            style={{
-              height: '52px',
-              width: 'auto',
-              objectFit: 'contain',
-              display: 'block',
-              filter: 'drop-shadow(0 4px 12px rgba(98, 83, 248, 0.08))',
-            }}
-          />
+          <picture>
+            <source srcSet="/unai-logo.webp" type="image/webp" />
+            <img
+              src="/unai-logo.png"
+              alt="UNAI Logo"
+              width={150}
+              height={52}
+              decoding="async"
+              style={{
+                height: '52px',
+                width: 'auto',
+                objectFit: 'contain',
+                display: 'block',
+                filter: 'drop-shadow(0 4px 12px rgba(98, 83, 248, 0.08))',
+              }}
+            />
+          </picture>
         </div>
 
         {/* Hero Headline */}

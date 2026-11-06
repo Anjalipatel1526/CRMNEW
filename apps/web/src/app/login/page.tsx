@@ -167,19 +167,22 @@ export default function LoginPage() {
             marginBottom: '1.75rem',
           }}
         >
-          <img
-            src="/unai-logo.png"
-            alt="UNAI Logo"
-            width={110}
-            height={38}
-            decoding="async"
-            style={{
-              height: '38px',
-              width: 'auto',
-              objectFit: 'contain',
-              display: 'block',
-            }}
-          />
+          <picture>
+            <source srcSet="/unai-logo.webp" type="image/webp" />
+            <img
+              src="/unai-logo.png"
+              alt="UNAI Logo"
+              width={110}
+              height={38}
+              decoding="async"
+              style={{
+                height: '38px',
+                width: 'auto',
+                objectFit: 'contain',
+                display: 'block',
+              }}
+            />
+          </picture>
           <div style={{ textAlign: 'left', lineHeight: 1.15 }}>
             <div
               style={{
