@@ -40,7 +40,7 @@ import {
   LayoutGrid,
 } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
-import { getModules, DealershipModule } from '@/lib/modules-registry';
+import { getModules, DealershipModule, DEFAULT_MODULES } from '@/lib/modules-registry';
 import {
   getCompanyProfile,
   fetchCompanyProfile,
@@ -259,7 +259,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notifFilter, setNotifFilter] = useState<'all' | 'unread'>('all');
   const [notifications, setNotifications] = useState<DealershipNotification[]>(DEFAULT_NOTIFICATIONS);
-  const [modules, setModules] = useState<DealershipModule[]>([]);
+  const [modules, setModules] = useState<DealershipModule[]>(DEFAULT_MODULES);
   const [company, setCompany] = useState<CompanyProfile>(DEFAULT_COMPANY_PROFILE);
   const [isMounted, setIsMounted] = useState(false);
   const [sessionState, setSessionState] = useState<UserSession | null>(null);
@@ -764,7 +764,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             className="brand-link"
             title={brandDisplayName}
           >
-            {isMounted && company.logoUrl ? (
+            {company.logoUrl ? (
               <picture>
                 {company.logoUrl === '/unai-logo.png' && (
                   <source srcSet="/unai-logo.webp" type="image/webp" />
