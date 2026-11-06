@@ -16,16 +16,51 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        {/* Preconnect to Font Origins */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+
+        {/* Preload primary font file directly to eliminate chained network requests */}
         <link
-          href="https://fonts.googleapis.com/css2?family=Urbanist:ital,wght@0,300..900;1,300..900&display=swap"
-          rel="stylesheet"
+          rel="preload"
+          href="https://fonts.gstatic.com/s/urbanist/v15/L0xjDF02iPhg45P66jSgqdTbtPE.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
         />
-        {/* Critical CSS fallback to guarantee immediate styling on any browser or reload */}
+
+        {/* Non-render-blocking font stylesheet loading */}
+        <link
+          rel="preload"
+          as="style"
+          href="https://fonts.googleapis.com/css2?family=Urbanist:ital,wght@0,300..900;1,300..900&display=swap"
+        />
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Urbanist:ital,wght@0,300..900;1,300..900&display=swap"
+          media="print"
+          // @ts-ignore
+          onLoad="this.media='all'"
+        />
+        <noscript>
+          <link
+            rel="stylesheet"
+            href="https://fonts.googleapis.com/css2?family=Urbanist:ital,wght@0,300..900;1,300..900&display=swap"
+          />
+        </noscript>
+
+        {/* Critical CSS fallback with inlined @font-face to guarantee immediate render without blocking */}
         <style
           dangerouslySetInnerHTML={{
             __html: `
+              @font-face {
+                font-family: 'Urbanist';
+                font-style: normal;
+                font-weight: 300 900;
+                font-display: swap;
+                src: url('https://fonts.gstatic.com/s/urbanist/v15/L0xjDF02iPhg45P66jSgqdTbtPE.woff2') format('woff2');
+                unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+              }
               :root {
                 --font: 'Urbanist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
                 --bg: #FFFFFF;

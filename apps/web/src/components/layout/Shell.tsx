@@ -17,7 +17,6 @@ import {
   CheckCircle2,
   Shield,
   Phone,
-  Mail,
   MapPin,
   Building,
   CheckCheck,

@@ -6,37 +6,24 @@ import { useRouter } from 'next/navigation';
 import { getUserSession } from '@/lib/auth-context';
 import { api } from '@/lib/api-client';
 import { Modal } from '@/components/ui/Modal';
-import { StatCard } from '@/components/ui/StatCard';
 import { CalendarPicker } from '@/components/ui/CalendarPicker';
 import {
-  Trophy,
   BarChart3,
   Clock,
   Plus,
   ArrowUpRight,
-  MoreHorizontal,
-  Car,
   Users,
-  Briefcase,
-  Wrench,
   Sparkles,
-  CheckCircle,
-  FileText,
   Calendar,
   CreditCard,
   CheckCircle2,
   AlertCircle,
   X,
   ShieldCheck,
-  Receipt,
-  TrendingUp,
-  Tag,
-  Truck,
   Phone,
   Mail,
   MapPin,
   Edit3,
-  Flame,
 } from 'lucide-react';
 import { Customer, Lead, Vehicle, Deal, Appointment, JobCard } from '@crm/shared-types';
 
