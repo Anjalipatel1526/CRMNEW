@@ -59,6 +59,9 @@ export default function WelcomeLandingPage() {
           <img
             src="/unai-logo.png"
             alt="UNAI Logo"
+            width={150}
+            height={52}
+            decoding="async"
             style={{
               height: '52px',
               width: 'auto',

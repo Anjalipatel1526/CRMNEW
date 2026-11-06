@@ -769,6 +769,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
                 src={company.logoUrl}
                 alt={brandDisplayName}
                 className="brand-logo-img"
+                width={42}
+                height={42}
+                decoding="async"
               />
             ) : (
               <div className="brand-badge" suppressHydrationWarning>

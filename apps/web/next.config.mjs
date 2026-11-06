@@ -3,6 +3,9 @@ const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   compress: true,
+  images: {
+    formats: ['image/avif', 'image/webp'],
+  },
   transpilePackages: ['@crm/shared-types', '@crm/validators', '@crm/business-rules'],
   experimental: {
     optimizePackageImports: [

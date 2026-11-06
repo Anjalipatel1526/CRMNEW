@@ -170,6 +170,9 @@ export default function LoginPage() {
           <img
             src="/unai-logo.png"
             alt="UNAI Logo"
+            width={110}
+            height={38}
+            decoding="async"
             style={{
               height: '38px',
               width: 'auto',
