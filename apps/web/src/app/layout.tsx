@@ -101,28 +101,133 @@ export default function RootLayout({
                 box-sizing: border-box;
                 overflow-x: hidden;
               }
+              /* Top Bar Skeleton: Locks height and layout before external CSS loads to guarantee 0.000 CLS */
+              .top-bar {
+                display: flex !important;
+                align-items: center !important;
+                justify-content: space-between !important;
+                height: 52px !important;
+                min-height: 52px !important;
+                margin-bottom: 22px !important;
+                gap: 16px !important;
+                width: 100% !important;
+                box-sizing: border-box !important;
+                flex-wrap: nowrap !important;
+              }
+              .brand-link {
+                display: inline-flex !important;
+                align-items: center !important;
+                gap: 10px !important;
+                text-decoration: none !important;
+                flex-shrink: 0 !important;
+              }
+              .brand-logo-img {
+                width: 34px !important;
+                height: 34px !important;
+                border-radius: 9px !important;
+                object-fit: contain !important;
+                display: block !important;
+              }
+              .brand-title {
+                font-size: 1.15rem !important;
+                font-weight: 800 !important;
+                color: #17191A !important;
+                letter-spacing: -0.02em !important;
+                white-space: nowrap !important;
+              }
+              .nav-pills {
+                display: flex !important;
+                align-items: center !important;
+                gap: 2px !important;
+                flex: 1 1 auto !important;
+                white-space: nowrap !important;
+                overflow: hidden !important;
+                list-style: none !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                height: 42px !important;
+              }
+              .nav-pill {
+                display: inline-flex !important;
+                align-items: center !important;
+                white-space: nowrap !important;
+                text-decoration: none !important;
+                font-size: 0.82rem !important;
+                padding: 6px 11px !important;
+              }
+              .top-bar__right {
+                display: flex !important;
+                align-items: center !important;
+                gap: 8px !important;
+                flex-shrink: 0 !important;
+              }
               /* Eliminate Cumulative Layout Shift (CLS) on desktop & mobile before external stylesheet loads */
               .mobile-quick-access-wrap,
               .mobile-subpage-back-wrap {
                 display: none !important;
               }
-              .brand-logo-img {
-                width: 34px;
-                height: 34px;
-                border-radius: 9px;
-                object-fit: contain;
+              .page-transition-wrap {
+                width: 100% !important;
+                box-sizing: border-box !important;
               }
               @media (max-width: 768px) {
-                .mobile-quick-access-wrap {
-                  display: block !important;
+                .app-main {
+                  padding: 12px 14px 40px 14px !important;
                 }
-                .mobile-subpage-back-wrap {
-                  display: block !important;
+                .top-bar {
+                  height: auto !important;
+                  min-height: auto !important;
+                  padding: 4px 0 10px 0 !important;
+                  gap: 12px !important;
+                  margin-bottom: 8px !important;
+                }
+                /* Mobile CLS Prevention: Hide desktop nav-pills completely so top bar never collapses */
+                .top-bar .nav-pills {
+                  display: none !important;
                 }
                 .brand-logo-img {
                   width: 42px !important;
                   height: 42px !important;
                   border-radius: 12px !important;
+                }
+                .mobile-quick-access-wrap {
+                  display: block !important;
+                  padding: 0 0 14px 0 !important;
+                  width: 100% !important;
+                  box-sizing: border-box !important;
+                }
+                .mobile-quick-access-card {
+                  border-radius: 20px !important;
+                  padding: 14px 10px !important;
+                  width: 100% !important;
+                  box-sizing: border-box !important;
+                  background: linear-gradient(180deg, #FFFFFF 0%, #FAFAFF 100%) !important;
+                  border: 1.2px solid rgba(98, 83, 248, 0.12) !important;
+                }
+                .mobile-quick-access-grid {
+                  display: grid !important;
+                  grid-template-columns: repeat(4, 1fr) !important;
+                  gap: 12px 4px !important;
+                  width: 100% !important;
+                  box-sizing: border-box !important;
+                }
+                .mobile-qa-item {
+                  display: flex !important;
+                  flex-direction: column !important;
+                  align-items: center !important;
+                  justify-content: center !important;
+                  text-decoration: none !important;
+                }
+                .mobile-qa-icon-badge {
+                  width: 48px !important;
+                  height: 48px !important;
+                  border-radius: 16px !important;
+                  display: flex !important;
+                  align-items: center !important;
+                  justify-content: center !important;
+                }
+                .mobile-subpage-back-wrap {
+                  display: block !important;
                 }
               }
             `,
