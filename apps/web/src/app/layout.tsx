@@ -101,6 +101,30 @@ export default function RootLayout({
                 box-sizing: border-box;
                 overflow-x: hidden;
               }
+              /* Eliminate Cumulative Layout Shift (CLS) on desktop & mobile before external stylesheet loads */
+              .mobile-quick-access-wrap,
+              .mobile-subpage-back-wrap {
+                display: none !important;
+              }
+              .brand-logo-img {
+                width: 34px;
+                height: 34px;
+                border-radius: 9px;
+                object-fit: contain;
+              }
+              @media (max-width: 768px) {
+                .mobile-quick-access-wrap {
+                  display: block !important;
+                }
+                .mobile-subpage-back-wrap {
+                  display: block !important;
+                }
+                .brand-logo-img {
+                  width: 42px !important;
+                  height: 42px !important;
+                  border-radius: 12px !important;
+                }
+              }
             `,
           }}
         />
