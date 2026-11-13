@@ -1,10 +1,29 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Building2, Zap, Car, ShieldCheck, ArrowRight } from 'lucide-react';
 
 export default function WelcomeLandingPage() {
+  const router = useRouter();
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    // Detect if redirected back from OAuth with tokens or code in URL
+    if (window.location.hash.includes('access_token=') || window.location.search.includes('code=')) {
+      router.replace(`/auth/callback${window.location.search}${window.location.hash}`);
+      return;
+    }
+
+    // Detect if OAuth returned an error query parameter
+    if (window.location.search.includes('error=')) {
+      const params = new URLSearchParams(window.location.search);
+      const desc = params.get('error_description') || params.get('error') || 'Authentication interrupted';
+      router.replace(`/auth/google?error=${encodeURIComponent(desc)}`);
+    }
+  }, [router]);
   return (
     <div
       style={{
@@ -201,7 +220,7 @@ export default function WelcomeLandingPage() {
           }}
         >
           <Link
-            href="/onboarding"
+            href="/auth/google"
             id="begin-onboarding-btn"
             style={{
               display: 'inline-flex',

@@ -3988,9 +3988,11 @@ input.no-spinner {
    MOBILE QUICK ACCESS NAVIGATION (Unique Dealership Hub)
    ======================================================== */
 
-.mobile-quick-access-wrap,
-.mobile-subpage-back-wrap {
-  display: none;
+@media (min-width: 769px) {
+  .mobile-quick-access-wrap,
+  .mobile-subpage-back-wrap {
+    display: none !important;
+  }
 }
 
 @media (max-width: 768px) {

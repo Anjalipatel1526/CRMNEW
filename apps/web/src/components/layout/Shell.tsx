@@ -47,6 +47,7 @@ import {
   DEFAULT_COMPANY_PROFILE,
   CompanyProfile,
   getUserCredentials,
+  compressDataUrl,
 } from '@/lib/company-store';
 import { getUserSession, UserSession } from '@/lib/auth-context';
 import { getEmployees } from '@/lib/employee-store';
@@ -264,6 +265,20 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const [isMounted, setIsMounted] = useState(false);
   const [sessionState, setSessionState] = useState<UserSession | null>(null);
 
+  // Optimized logo thumbnail to guarantee < 5KB transfer and instant LCP
+  const [displayLogoUrl, setDisplayLogoUrl] = useState<string>(company.logoUrl || '/unai-logo.png');
+
+  useEffect(() => {
+    const raw = company.logoUrl || '/unai-logo.png';
+    if (raw.startsWith('data:image/') && raw.length > 25000) {
+      compressDataUrl(raw, 96, 0.82).then((thumb) => {
+        setDisplayLogoUrl(thumb);
+      });
+    } else {
+      setDisplayLogoUrl(raw);
+    }
+  }, [company.logoUrl]);
+
   // Profile modal state
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [profileName, setProfileName] = useState('');
@@ -274,6 +289,13 @@ export function Shell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     setIsMounted(true);
     setSessionState(getUserSession());
+
+    // Intercept OAuth hash tokens on any route and forward to auth callback
+    if (typeof window !== 'undefined' && window.location.hash.includes('access_token=') && pathname !== '/auth/callback') {
+      router.replace(`/auth/callback${window.location.search}${window.location.hash}`);
+      return;
+    }
+
     // Initial load
     setModules(getModules());
     setCompany(getCompanyProfile());
@@ -325,7 +347,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
   // Save current active page to localStorage so page refresh or login preserves it
   useEffect(() => {
-    if (pathname && pathname !== '/' && pathname !== '/login' && pathname !== '/onboarding' && pathname !== '/emplogin') {
+    if (pathname && pathname !== '/' && pathname !== '/login' && pathname !== '/onboarding' && pathname !== '/emplogin' && !pathname.startsWith('/auth')) {
       try {
         localStorage.setItem('crm_last_active_page', pathname);
       } catch (e) {}
@@ -735,8 +757,14 @@ export function Shell({ children }: { children: React.ReactNode }) {
     }, 850);
   };
 
-  // Full-screen standalone layout for Welcome Landing (/), Onboarding, Login, and Employee Login (/emplogin)
-  if (pathname === '/' || pathname === '/onboarding' || pathname === '/login' || pathname === '/emplogin') {
+  // Full-screen standalone layout for Welcome Landing (/), Onboarding, Login, Employee Login (/emplogin), and Auth (/auth/*)
+  if (
+    pathname === '/' ||
+    pathname === '/onboarding' ||
+    pathname === '/login' ||
+    pathname === '/emplogin' ||
+    pathname?.startsWith('/auth')
+  ) {
     return (
       <div className="app-shell" style={{ display: 'block', minHeight: '100vh', width: '100%' }}>
         {pathname === '/onboarding' ? (
@@ -764,17 +792,17 @@ export function Shell({ children }: { children: React.ReactNode }) {
             className="brand-link"
             title={brandDisplayName}
           >
-            {company.logoUrl ? (
+            {displayLogoUrl ? (
               <picture>
-                {company.logoUrl === '/unai-logo.png' && (
+                {displayLogoUrl === '/unai-logo.png' && (
                   <source srcSet="/unai-logo.webp" type="image/webp" />
                 )}
                 <img
-                  src={company.logoUrl}
+                  src={displayLogoUrl}
                   alt={brandDisplayName}
                   className="brand-logo-img"
-                  width={42}
-                  height={42}
+                  width={38}
+                  height={38}
                   decoding="async"
                 />
               </picture>

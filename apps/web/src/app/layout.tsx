@@ -19,26 +19,10 @@ export default function RootLayout({
         {/* Preconnect to Font Origins */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-
-        {/* Non-render-blocking font stylesheet loading */}
-        <link
-          rel="preload"
-          as="style"
-          href="https://fonts.googleapis.com/css2?family=Urbanist:ital,wght@0,300..900;1,300..900&display=swap"
-        />
         <link
           rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Urbanist:ital,wght@0,300..900;1,300..900&display=swap"
-          media="print"
-          // @ts-ignore
-          onLoad="this.media='all'"
+          href="https://fonts.googleapis.com/css2?family=Urbanist:wght@400;500;600;700;800&display=swap"
         />
-        <noscript>
-          <link
-            rel="stylesheet"
-            href="https://fonts.googleapis.com/css2?family=Urbanist:ital,wght@0,300..900;1,300..900&display=swap"
-          />
-        </noscript>
 
         {/* Critical CSS fallback to guarantee immediate render without blocking */}
         <style
@@ -161,15 +145,122 @@ export default function RootLayout({
                 gap: 8px !important;
                 flex-shrink: 0 !important;
               }
-              /* Eliminate Cumulative Layout Shift (CLS) on desktop & mobile before external stylesheet loads */
-              .mobile-quick-access-wrap,
+              /* Base Mobile-First Layout Rules (Eliminates CLS on mobile & desktop from initial paint) */
+              .mobile-quick-access-wrap {
+                display: block !important;
+                padding: 0 0 14px 0 !important;
+                width: 100% !important;
+                box-sizing: border-box !important;
+              }
+              .mobile-quick-access-card {
+                border-radius: 20px !important;
+                padding: 14px 10px !important;
+                width: 100% !important;
+                box-sizing: border-box !important;
+                background: linear-gradient(180deg, #FFFFFF 0%, #FAFAFF 100%) !important;
+                border: 1.2px solid rgba(98, 83, 248, 0.12) !important;
+              }
+              .mobile-quick-access-header {
+                display: flex !important;
+                align-items: center !important;
+                justify-content: space-between !important;
+                margin-bottom: 12px !important;
+                padding-bottom: 10px !important;
+                border-bottom: 1px solid rgba(98, 83, 248, 0.08) !important;
+              }
+              .mobile-qa-header-left {
+                display: flex !important;
+                align-items: center !important;
+                gap: 8px !important;
+              }
+              .mobile-qa-header-icon {
+                width: 28px !important;
+                height: 28px !important;
+                border-radius: 8px !important;
+                background: #EEF2FF !important;
+                color: #6253F8 !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+              }
+              .mobile-qa-title-group {
+                display: flex !important;
+                flex-direction: column !important;
+                line-height: 1.2 !important;
+              }
+              .mobile-qa-title {
+                font-size: 0.80rem !important;
+                font-weight: 800 !important;
+                color: #1E293B !important;
+                letter-spacing: 0.03em !important;
+                text-transform: uppercase !important;
+              }
+              .mobile-qa-subtitle {
+                font-size: 0.64rem !important;
+                color: #64748B !important;
+                font-weight: 500 !important;
+              }
+              .mobile-qa-badge {
+                font-size: 0.68rem !important;
+                font-weight: 700 !important;
+                color: #6253F8 !important;
+                background: #EEF2FF !important;
+                padding: 3px 9px !important;
+                border-radius: 999px !important;
+                border: 1px solid rgba(98, 83, 248, 0.15) !important;
+                white-space: nowrap !important;
+              }
+              .mobile-quick-access-grid {
+                display: grid !important;
+                grid-template-columns: repeat(4, 1fr) !important;
+                gap: 12px 4px !important;
+                width: 100% !important;
+                box-sizing: border-box !important;
+              }
+              .mobile-qa-item {
+                display: flex !important;
+                flex-direction: column !important;
+                align-items: center !important;
+                justify-content: center !important;
+                text-decoration: none !important;
+              }
+              .mobile-qa-icon-badge {
+                width: 48px !important;
+                height: 48px !important;
+                border-radius: 16px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+              }
+              .mobile-qa-label {
+                margin-top: 6px !important;
+                font-size: 0.69rem !important;
+                font-weight: 600 !important;
+                color: #334155 !important;
+                text-align: center !important;
+                white-space: nowrap !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
+                max-width: 72px !important;
+                line-height: 1.25 !important;
+              }
               .mobile-subpage-back-wrap {
-                display: none !important;
+                display: block !important;
               }
               .page-transition-wrap {
                 width: 100% !important;
                 box-sizing: border-box !important;
               }
+
+              /* Desktop Screens (>768px): Hide mobile elements and restore full top bar nav pills */
+              @media (min-width: 769px) {
+                .mobile-quick-access-wrap,
+                .mobile-subpage-back-wrap {
+                  display: none !important;
+                }
+              }
+
+              /* Mobile Screens (<=768px): Keep top bar & hero header flush and stable */
               @media (max-width: 768px) {
                 .app-main {
                   padding: 12px 14px 40px 14px !important;
@@ -181,53 +272,55 @@ export default function RootLayout({
                   gap: 12px !important;
                   margin-bottom: 8px !important;
                 }
-                /* Mobile CLS Prevention: Hide desktop nav-pills completely so top bar never collapses */
                 .top-bar .nav-pills {
                   display: none !important;
                 }
                 .brand-logo-img {
-                  width: 42px !important;
-                  height: 42px !important;
-                  border-radius: 12px !important;
+                  width: 38px !important;
+                  height: 38px !important;
+                  border-radius: 10px !important;
                 }
-                .mobile-quick-access-wrap {
-                  display: block !important;
-                  padding: 0 0 14px 0 !important;
-                  width: 100% !important;
-                  box-sizing: border-box !important;
-                }
-                .mobile-quick-access-card {
-                  border-radius: 20px !important;
-                  padding: 14px 10px !important;
-                  width: 100% !important;
-                  box-sizing: border-box !important;
-                  background: linear-gradient(180deg, #FFFFFF 0%, #FAFAFF 100%) !important;
-                  border: 1.2px solid rgba(98, 83, 248, 0.12) !important;
-                }
-                .mobile-quick-access-grid {
-                  display: grid !important;
-                  grid-template-columns: repeat(4, 1fr) !important;
-                  gap: 12px 4px !important;
-                  width: 100% !important;
-                  box-sizing: border-box !important;
-                }
-                .mobile-qa-item {
+                .hero-header {
                   display: flex !important;
                   flex-direction: column !important;
-                  align-items: center !important;
-                  justify-content: center !important;
-                  text-decoration: none !important;
+                  margin-bottom: 16px !important;
+                  gap: 12px !important;
                 }
-                .mobile-qa-icon-badge {
-                  width: 48px !important;
-                  height: 48px !important;
-                  border-radius: 16px !important;
+                .hero-title-wrap {
                   display: flex !important;
-                  align-items: center !important;
-                  justify-content: center !important;
+                  flex-direction: column !important;
+                  gap: 2px !important;
+                  width: 100% !important;
                 }
-                .mobile-subpage-back-wrap {
-                  display: block !important;
+                .hero-title {
+                  font-size: 1.35rem !important;
+                  font-weight: 800 !important;
+                  letter-spacing: -0.025em !important;
+                  line-height: 1.15 !important;
+                  margin: 0 !important;
+                }
+                .hero-subtitle {
+                  font-size: 0.72rem !important;
+                  color: #64748B !important;
+                  line-height: 1.35 !important;
+                  font-weight: 500 !important;
+                  margin: 0 !important;
+                }
+                .hero-stats-row {
+                  display: grid !important;
+                  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+                  gap: 8px !important;
+                  width: 100% !important;
+                  box-sizing: border-box !important;
+                  margin-top: 4px !important;
+                  padding: 0 !important;
+                }
+                .hero-stat-badge {
+                  background: #FFFFFF !important;
+                  border: 1px solid rgba(98, 83, 248, 0.12) !important;
+                  border-radius: 16px !important;
+                  padding: 10px 8px !important;
+                  box-sizing: border-box !important;
                 }
               }
             `,

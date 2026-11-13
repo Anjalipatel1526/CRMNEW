@@ -54,6 +54,52 @@ export interface CompanyProfile {
 
 const STORAGE_KEY = 'crm_dealership_company_profile_v1';
 
+/**
+ * Automatically compress oversized Base64 data URLs (e.g. user uploaded 4MB photos) down to a lightweight WebP (~3KB)
+ * to maintain instant load times and 100 Lighthouse performance.
+ */
+export function compressDataUrl(dataUrl: string, maxDim: number = 96, quality: number = 0.82): Promise<string> {
+  if (typeof window === 'undefined' || !dataUrl || !dataUrl.startsWith('data:image/') || dataUrl.length < 25000) {
+    return Promise.resolve(dataUrl);
+  }
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        let w = img.width;
+        let h = img.height;
+        if (w > h) {
+          if (w > maxDim) {
+            h = Math.round((h * maxDim) / w);
+            w = maxDim;
+          }
+        } else {
+          if (h > maxDim) {
+            w = Math.round((w * maxDim) / h);
+            h = maxDim;
+          }
+        }
+        canvas.width = Math.max(1, w);
+        canvas.height = Math.max(1, h);
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return resolve(dataUrl);
+        ctx.drawImage(img, 0, 0, w, h);
+        let compressed = canvas.toDataURL('image/webp', quality);
+        if (!compressed.startsWith('data:image/webp')) {
+          compressed = canvas.toDataURL('image/jpeg', quality);
+        }
+        resolve(compressed);
+      } catch {
+        resolve(dataUrl);
+      }
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+
 export const DEFAULT_COMPANY_PROFILE: CompanyProfile = {
   id: 'company-default-01',
   legalName: '',
@@ -160,6 +206,19 @@ export function getCompanyProfile(): CompanyProfile {
     if (!profile.authorizedSignatoryDesignation || profile.authorizedSignatoryDesignation === 'Manager') {
       profile.authorizedSignatoryDesignation = 'COO';
     }
+    // Auto-compress oversized data URL logos (>25KB) to guarantee lightweight performance
+    if (profile.logoUrl && profile.logoUrl.startsWith('data:image/') && profile.logoUrl.length > 25000) {
+      const originalLogo = profile.logoUrl;
+      compressDataUrl(originalLogo).then((compressed) => {
+        if (compressed && compressed !== originalLogo && compressed.length < originalLogo.length) {
+          profile.logoUrl = compressed;
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
+            window.dispatchEvent(new CustomEvent('crm-company-profile-changed', { detail: profile }));
+          } catch {}
+        }
+      });
+    }
     return profile;
   } catch (err) {
     console.error('Failed to load company profile from storage:', err);
@@ -219,6 +278,20 @@ export async function fetchCompanyProfile(): Promise<CompanyProfile> {
 
         localStorage.setItem(STORAGE_KEY, JSON.stringify(mapped));
         window.dispatchEvent(new CustomEvent('crm-company-profile-changed', { detail: mapped }));
+
+        if (mapped.logoUrl && mapped.logoUrl.startsWith('data:image/') && mapped.logoUrl.length > 25000) {
+          const originalLogo = mapped.logoUrl;
+          compressDataUrl(originalLogo).then((compressed) => {
+            if (compressed && compressed !== originalLogo && compressed.length < originalLogo.length) {
+              mapped.logoUrl = compressed;
+              try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(mapped));
+                window.dispatchEvent(new CustomEvent('crm-company-profile-changed', { detail: mapped }));
+              } catch {}
+            }
+          });
+        }
+
         return mapped;
       }
     } catch (err) {

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { WordFadeIn } from '@/components/ui/WordFadeIn';
+import { supabase } from '@/lib/supabase';
 import {
   getCompanyProfile,
   saveCompanyProfile,
@@ -86,6 +87,74 @@ export default function OnboardingPage() {
 
   // Success Modal
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
+
+  // Google Authentication Session Protection
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [isVerifyingAuth, setIsVerifyingAuth] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const verifyGoogleSession = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (!isMounted) return;
+
+        if (error || !session || !session.user) {
+          setIsAuthenticated(false);
+          setIsVerifyingAuth(false);
+          router.replace('/auth/google');
+          return;
+        }
+
+        setIsAuthenticated(true);
+        setIsVerifyingAuth(false);
+
+        // Pre-fill email and name from verified Google account if not already filled
+        const googleEmail = session.user.email;
+        const googleName =
+          session.user.user_metadata?.full_name ||
+          session.user.user_metadata?.name ||
+          '';
+
+        if (googleEmail) {
+          setFormData((prev) => ({
+            ...prev,
+            email: prev.email || googleEmail,
+          }));
+          setCredentials((prev) => ({
+            ...prev,
+            fullName: prev.fullName || googleName,
+            userId: prev.userId || googleEmail.split('@')[0],
+          }));
+        }
+      } catch {
+        if (!isMounted) return;
+        setIsAuthenticated(false);
+        setIsVerifyingAuth(false);
+        router.replace('/auth/google');
+      }
+    };
+
+    verifyGoogleSession();
+
+    // Listen for auth state changes (e.g. sign-out or session expiration)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!isMounted) return;
+      if (event === 'SIGNED_OUT' || !session) {
+        setIsAuthenticated(false);
+        router.replace('/auth/google');
+      } else if (session) {
+        setIsAuthenticated(true);
+        setIsVerifyingAuth(false);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      subscription?.unsubscribe();
+    };
+  }, [router]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -267,12 +336,16 @@ export default function OnboardingPage() {
           }
         }
 
-        canvas.width = width;
-        canvas.height = height;
+        canvas.width = Math.max(1, width);
+        canvas.height = Math.max(1, height);
         const ctx = canvas.getContext('2d');
         if (ctx) {
           ctx.drawImage(img, 0, 0, width, height);
-          onSuccess(canvas.toDataURL('image/png', 0.9));
+          let compressed = canvas.toDataURL('image/webp', 0.82);
+          if (!compressed.startsWith('data:image/webp')) {
+            compressed = canvas.toDataURL('image/jpeg', 0.82);
+          }
+          onSuccess(compressed);
         } else {
           onSuccess(e.target?.result as string);
         }
@@ -286,7 +359,7 @@ export default function OnboardingPage() {
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      handleOptimizedImage(file, 400, 400, (dataUrl) => {
+      handleOptimizedImage(file, 160, 160, (dataUrl) => {
         setFormData((prev) => ({ ...prev, logoUrl: dataUrl }));
         clearError('logoUrl');
       });
@@ -297,7 +370,7 @@ export default function OnboardingPage() {
   const handleSignatureUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      handleOptimizedImage(file, 500, 200, (dataUrl) => {
+      handleOptimizedImage(file, 320, 140, (dataUrl) => {
         setFormData((prev) => ({ ...prev, signatureUrl: dataUrl }));
         clearError('signatureUrl');
       });
@@ -555,6 +628,49 @@ export default function OnboardingPage() {
     { num: 4, label: 'Plugin Access Control', icon: Layers },
     { num: 5, label: 'Account Credentials', icon: Shield },
   ];
+
+  // If not authenticated or verifying session, do not display the onboarding form
+  if (isVerifyingAuth || !isAuthenticated) {
+    return (
+      <div
+        style={{
+          minHeight: '70vh',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '16px',
+          padding: '2rem 1.5rem',
+        }}
+      >
+        <div
+          style={{
+            width: '40px',
+            height: '40px',
+            border: '3px solid rgba(98, 83, 248, 0.15)',
+            borderTopColor: '#6253F8',
+            borderRadius: '50%',
+            animation: 'spin 0.8s linear infinite',
+          }}
+        />
+        <style jsx>{`
+          @keyframes spin {
+            to {
+              transform: rotate(360deg);
+            }
+          }
+        `}</style>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '1.02rem', fontWeight: 800, color: '#17191A' }}>
+            Verifying Authentication...
+          </div>
+          <div style={{ fontSize: '0.84rem', color: '#64748B', marginTop: '4px' }}>
+            Checking your Google account session before onboarding.
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ maxWidth: '1040px', margin: '0 auto', paddingBottom: '5rem', paddingTop: '0.75rem', width: '100%' }}>
