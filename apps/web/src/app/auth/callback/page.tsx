@@ -106,7 +106,7 @@ function AuthCallbackContent() {
       }
     };
 
-    const completeAuthentication = (session: any) => {
+    const completeAuthentication = async (session: any) => {
       const user = session.user;
       const fullName =
         user.user_metadata?.full_name ||
@@ -123,7 +123,21 @@ function AuthCallbackContent() {
         console.warn('[AuthCallback] Session sync info:', e);
       }
 
-      // Redirect authenticated user directly to the existing onboarding form route
+      // Check if this user's dealership has already completed onboarding
+      try {
+        const res = await fetch('/api/company-profile');
+        if (res.ok) {
+          const json = await res.json();
+          if (json?.profile && json.profile.is_onboarded) {
+            router.replace('/dashboard');
+            return;
+          }
+        }
+      } catch (checkErr) {
+        console.warn('[AuthCallback] Profile check note:', checkErr);
+      }
+
+      // If not yet onboarded, route to onboarding form
       router.replace('/onboarding');
     };
 

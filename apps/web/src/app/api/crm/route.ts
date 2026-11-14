@@ -6,7 +6,7 @@ async function ensureTenantAndBranch(tenantId: string) {
     {
       id: tenantId,
       name: 'Dealership Workspace',
-      slug: tenantId.replace(/^t_/, ''),
+      slug: (tenantId.replace(/^t_/, '').toLowerCase().replace(/[^a-z0-9_-]/g, '_') || 'dealership').slice(0, 48),
       status: 'active',
       dealer_model: 'mixed',
       primary_contact_name: 'Dealership Admin',

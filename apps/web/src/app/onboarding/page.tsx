@@ -44,6 +44,7 @@ import {
   User,
   Eye,
   EyeOff,
+  Loader2,
   Image as ImageIcon,
   CheckCircle2,
   MapPin,
@@ -87,6 +88,8 @@ export default function OnboardingPage() {
 
   // Success Modal
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // Google Authentication Session Protection
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
@@ -127,6 +130,23 @@ export default function OnboardingPage() {
             fullName: prev.fullName || googleName,
             userId: prev.userId || googleEmail.split('@')[0],
           }));
+        }
+
+        // Check if this dealership is already onboarded in the backend database
+        try {
+          const profileCheckRes = await fetch('/api/company-profile');
+          if (profileCheckRes.ok) {
+            const profileCheckJson = await profileCheckRes.json();
+            if (profileCheckJson?.profile && profileCheckJson.profile.is_onboarded) {
+              const urlParams = new URLSearchParams(window.location.search);
+              if (urlParams.get('edit') !== 'true' && urlParams.get('reset') !== 'true') {
+                router.replace('/dashboard');
+                return;
+              }
+            }
+          }
+        } catch (checkErr) {
+          console.warn('[Onboarding] Profile check note:', checkErr);
         }
       } catch {
         if (!isMounted) return;
@@ -590,9 +610,12 @@ export default function OnboardingPage() {
     e.preventDefault();
     if (!validateStep5()) return;
 
+    setIsSubmitting(true);
+    setSubmitError(null);
+
     // 1. Direct Server Sync to Supabase Backend API route (creates tenant, branch, company profile, modules, and admin user)
     try {
-      await fetch('/api/company-profile', {
+      const res = await fetch('/api/company-profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -609,8 +632,21 @@ export default function OnboardingPage() {
           },
         }),
       });
-    } catch (apiErr) {
-      console.warn('[Onboarding] Backend API sync note:', apiErr);
+
+      const resJson = await res.json().catch(() => ({}));
+
+      if (!res.ok || resJson.error) {
+        const errorMsg = resJson.error || 'Failed to persist dealership configuration to Supabase backend database.';
+        console.error('[Onboarding] Backend sync error:', errorMsg);
+        setSubmitError(errorMsg);
+        setIsSubmitting(false);
+        return;
+      }
+    } catch (apiErr: any) {
+      console.error('[Onboarding] Backend API error:', apiErr);
+      setSubmitError(apiErr?.message || 'Network error communicating with Supabase database. Please try again.');
+      setIsSubmitting(false);
+      return;
     }
 
     // 2. Save company profile with isOnboarded: true and logoUrl
@@ -637,6 +673,8 @@ export default function OnboardingPage() {
         ctx.tenant.name = updatedCompany.tradeName || updatedCompany.legalName;
       }
     } catch (err) {}
+
+    setIsSubmitting(false);
 
     // 6. Open success modal then redirect to login page
     setIsSuccessModalOpen(true);
@@ -2892,10 +2930,33 @@ export default function OnboardingPage() {
               </div>
             </div>
 
+            {/* Submit Error Notice */}
+            {submitError && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  padding: '12px 18px',
+                  borderRadius: '14px',
+                  backgroundColor: '#FEF2F2',
+                  border: '1.5px solid #FCA5A5',
+                  color: '#991B1B',
+                  fontSize: '0.84rem',
+                  fontWeight: 600,
+                  marginBottom: '20px',
+                }}
+              >
+                <AlertCircle size={18} style={{ flexShrink: 0 }} />
+                <span>{submitError}</span>
+              </div>
+            )}
+
             {/* Submission Footer */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '20px', borderTop: '1px solid rgba(98, 83, 248, 0.1)', flexWrap: 'wrap', gap: '14px' }}>
               <button
                 type="button"
+                disabled={isSubmitting}
                 onClick={() => setActiveStep(4)}
                 style={{
                   display: 'inline-flex',
@@ -2908,7 +2969,8 @@ export default function OnboardingPage() {
                   fontSize: '0.84rem',
                   fontWeight: 800,
                   border: 'none',
-                  cursor: 'pointer',
+                  cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                  opacity: isSubmitting ? 0.6 : 1,
                 }}
               >
                 <ArrowLeft size={16} />
@@ -2917,22 +2979,33 @@ export default function OnboardingPage() {
 
               <button
                 type="submit"
+                disabled={isSubmitting}
                 style={{
                   padding: '14px 36px',
                   fontSize: '0.94rem',
                   fontWeight: 800,
                   display: 'inline-flex',
                   alignItems: 'center',
+                  gap: '10px',
                   borderRadius: '999px',
                   border: 'none',
-                  background: 'linear-gradient(135deg, #7957F6 0%, #6253F8 50%, #4054F5 100%)',
+                  background: isSubmitting
+                    ? '#A5B4FC'
+                    : 'linear-gradient(135deg, #7957F6 0%, #6253F8 50%, #4054F5 100%)',
                   color: '#FFFFFF',
                   boxShadow: '0 8px 24px -6px rgba(98, 83, 248, 0.42)',
-                  cursor: 'pointer',
+                  cursor: isSubmitting ? 'not-allowed' : 'pointer',
                   transition: 'all 0.2s ease',
                 }}
               >
-                <span>Complete Onboarding & Create Account</span>
+                {isSubmitting ? (
+                  <>
+                    <Loader2 size={18} className="animate-spin" />
+                    <span>Saving Setup to Supabase...</span>
+                  </>
+                ) : (
+                  <span>Complete Onboarding & Create Account</span>
+                )}
               </button>
             </div>
           </div>

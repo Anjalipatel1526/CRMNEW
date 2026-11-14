@@ -15,14 +15,33 @@ async function ensureTenantAndBranch(
     contactName?: string;
   }
 ) {
+  // Map dealerModel to PostgreSQL check constraint values: 'new' | 'used' | 'mixed' | 'broker'
+  let safeDealerModel = 'mixed';
+  const rawModel = (details.dealerModel || '').toLowerCase();
+  if (
+    rawModel.includes('franchise') ||
+    rawModel.includes('new') ||
+    rawModel.includes('luxury') ||
+    rawModel.includes('electric')
+  ) {
+    safeDealerModel = 'new';
+  } else if (rawModel.includes('preowned') || rawModel.includes('used')) {
+    safeDealerModel = 'used';
+  } else if (['new', 'used', 'mixed', 'broker'].includes(rawModel)) {
+    safeDealerModel = rawModel;
+  }
+
+  const safeSlug =
+    (tenantId.replace(/^t_/, '').toLowerCase().replace(/[^a-z0-9_-]/g, '_') || 'dealership').slice(0, 48);
+
   // 1. Ensure tenant exists
-  await supabaseAdmin.from('tenants').upsert(
+  const { error: tenantErr } = await supabaseAdmin.from('tenants').upsert(
     {
       id: tenantId,
       name: details.name || 'Dealership Workspace',
-      slug: tenantId.replace(/^t_/, ''),
+      slug: safeSlug,
       status: 'active',
-      dealer_model: details.dealerModel || 'mixed',
+      dealer_model: safeDealerModel,
       primary_contact_name: details.contactName || 'Dealership Admin',
       primary_email: details.email || 'admin@dealership.com',
       primary_phone: details.phone || '+91 98000 00000',
@@ -33,9 +52,14 @@ async function ensureTenantAndBranch(
     { onConflict: 'id' }
   );
 
+  if (tenantErr) {
+    console.error('[API/company-profile] Tenant upsert error:', tenantErr.message);
+    throw new Error(`Failed to create or update tenant: ${tenantErr.message}`);
+  }
+
   // 2. Ensure primary branch exists for this tenant
   const primaryBranchId = `b_${tenantId}_main`;
-  await supabaseAdmin.from('branches').upsert(
+  const { error: branchErr } = await supabaseAdmin.from('branches').upsert(
     {
       id: primaryBranchId,
       tenant_id: tenantId,
@@ -54,6 +78,10 @@ async function ensureTenantAndBranch(
     { onConflict: 'id' }
   );
 
+  if (branchErr) {
+    console.warn('[API/company-profile] Branch upsert note:', branchErr.message);
+  }
+
   return { primaryBranchId };
 }
 
@@ -67,7 +95,7 @@ export async function GET(req: NextRequest) {
   const tenantId = searchParams.get('tenantId') || 't_default';
 
   try {
-    const { data, error } = await supabaseAdmin
+    let { data, error } = await supabaseAdmin
       .from('company_profiles')
       .select('*')
       .eq('tenant_id', tenantId)
@@ -75,7 +103,18 @@ export async function GET(req: NextRequest) {
       .limit(1)
       .maybeSingle();
 
-    if (error) {
+    // If no row found for this specific tenantId, fallback to the most recent company profile row
+    if (!data) {
+      const fallback = await supabaseAdmin
+        .from('company_profiles')
+        .select('*')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      data = fallback.data;
+    }
+
+    if (error && !data) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
@@ -99,7 +138,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing profile payload' }, { status: 400 });
     }
 
-    const tenantId = profile.tenantId || profile.tenant_id || 't_default';
+    let tenantId = profile.tenantId || profile.tenant_id;
+    if (!tenantId || tenantId === 't_default') {
+      const email = credentials?.email || profile.email;
+      if (email) {
+        tenantId = `t_${email.toLowerCase().trim().replace(/[^a-z0-9_-]/g, '_').slice(0, 36)}`;
+      } else {
+        tenantId = 't_default';
+      }
+    }
 
     // 1. Ensure tenant & branch exist so foreign key constraints never fail
     await ensureTenantAndBranch(tenantId, {
@@ -113,8 +160,17 @@ export async function POST(req: NextRequest) {
       contactName: profile.authorizedSignatoryName,
     });
 
+    // If tenantId is not t_default, also ensure t_default exists as fallback
+    if (tenantId !== 't_default') {
+      await ensureTenantAndBranch('t_default', {
+        name: profile.tradeName || profile.legalName,
+        email: profile.email,
+        phone: profile.phone,
+      }).catch(() => {});
+    }
+
     // 2. Upsert Company Profile into Supabase company_profiles
-    const profileId = profile.id && profile.id !== 'company-default-01' ? profile.id : `company_${tenantId}`;
+    const profileId = profile.id && profile.id !== 'company_profile' ? profile.id : `company_${tenantId}`;
     const profilePayload = {
       id: profileId,
       tenant_id: tenantId,
@@ -161,6 +217,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: profileErr.message }, { status: 400 });
     }
 
+    // Also update default row 'company-default-01' so any generic lookup resolves immediately
+    try {
+      await supabaseAdmin
+        .from('company_profiles')
+        .upsert({ ...profilePayload, id: 'company-default-01', tenant_id: tenantId }, { onConflict: 'id' });
+    } catch {}
+
     // 3. Upsert Modules into Supabase dealership_modules
     if (Array.isArray(modules) && modules.length > 0) {
       const moduleRows = modules.map((m: any, idx: number) => ({
@@ -168,14 +231,19 @@ export async function POST(req: NextRequest) {
         tenant_id: tenantId,
         label: m.label || m.name || '',
         href: m.href || '',
-        icon: m.icon || 'LayoutDashboard',
+        icon: typeof m.icon === 'string' ? m.icon : 'LayoutDashboard',
         is_plugged_in: Boolean(m.isPluggedIn ?? m.is_plugged_in ?? true),
         description: m.description || '',
         order_index: idx,
         updated_at: new Date().toISOString(),
       }));
 
-      await supabaseAdmin.from('dealership_modules').upsert(moduleRows, { onConflict: 'id' });
+      const { error: modErr } = await supabaseAdmin
+        .from('dealership_modules')
+        .upsert(moduleRows, { onConflict: 'id' });
+      if (modErr) {
+        console.warn('[API/company-profile] Modules upsert warning:', modErr.message);
+      }
     }
 
     // 4. Save User Credentials & App Users if provided
@@ -185,7 +253,7 @@ export async function POST(req: NextRequest) {
       const userId = credentials.userId || email.split('@')[0];
 
       // Save to user_credentials
-      await supabaseAdmin.from('user_credentials').upsert(
+      const { error: credErr } = await supabaseAdmin.from('user_credentials').upsert(
         {
           tenant_id: tenantId,
           user_id: userId,
@@ -196,9 +264,12 @@ export async function POST(req: NextRequest) {
         },
         { onConflict: 'user_id' }
       );
+      if (credErr) {
+        console.warn('[API/company-profile] User credentials upsert warning:', credErr.message);
+      }
 
       // Save to app_users
-      await supabaseAdmin.from('app_users').upsert(
+      const { error: userErr } = await supabaseAdmin.from('app_users').upsert(
         {
           id: `usr_${tenantId}_admin`,
           email: email,
@@ -209,6 +280,9 @@ export async function POST(req: NextRequest) {
         },
         { onConflict: 'email' }
       );
+      if (userErr) {
+        console.warn('[API/company-profile] App users upsert warning:', userErr.message);
+      }
     }
 
     return NextResponse.json({

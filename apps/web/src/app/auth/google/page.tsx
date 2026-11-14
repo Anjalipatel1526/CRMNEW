@@ -23,6 +23,19 @@ function GoogleAuthContent() {
         const { data: { session } } = await supabase.auth.getSession();
         if (isMounted) {
           if (session?.user) {
+            // Check if account has already completed onboarding
+            try {
+              const checkRes = await fetch('/api/company-profile');
+              if (checkRes.ok) {
+                const checkJson = await checkRes.json();
+                if (checkJson?.profile && checkJson.profile.is_onboarded) {
+                  router.replace('/dashboard');
+                  return;
+                }
+              }
+            } catch (checkErr) {
+              console.warn('[GoogleAuth] Onboarding check note:', checkErr);
+            }
             router.replace('/onboarding');
             return;
           }
