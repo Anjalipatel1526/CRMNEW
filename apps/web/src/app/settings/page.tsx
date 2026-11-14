@@ -1499,7 +1499,7 @@ export default function SettingsPage() {
 
                 {td.feedback && (
                   <div style={{ fontSize: '0.78rem', color: '#334155', fontStyle: 'italic', paddingLeft: '4px' }}>
-                    "{td.feedback}" {td.rating ? `• Rating: ${'★'.repeat(td.rating)}` : ''}
+                    &ldquo;{td.feedback}&rdquo; {td.rating ? `• Rating: ${'★'.repeat(td.rating)}` : ''}
                   </div>
                 )}
               </div>

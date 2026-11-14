@@ -1095,7 +1095,7 @@ export default function EmployeePortalPage() {
 
           {(!currentEmp.leaveHistory || currentEmp.leaveHistory.length === 0) ? (
             <div style={{ padding: '24px', textAlign: 'center', color: '#94A3B8', fontSize: '0.84rem' }}>
-              No leave applications submitted yet. Click "Request Time Off" above when you need time away.
+              No leave applications submitted yet. Click &quot;Request Time Off&quot; above when you need time away.
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>

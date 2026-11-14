@@ -232,7 +232,7 @@ export default function AiIntelligencePage() {
                     Active enquiry in {lead.status.replace('_', ' ')} stage. Customer interested in {lead.preferredFuelType || 'Petrol'} powertrain.
                   </p>
                   <div style={{ backgroundColor: 'var(--color-white)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', padding: '0.75rem', fontSize: '0.8125rem', fontStyle: 'italic', marginBottom: '0.75rem' }}>
-                    "Hi {lead.customerName?.split(' ')[0] || 'there'}, following up regarding your interest in the {lead.preferredMake} {lead.preferredModel}. We have exciting financing options and priority delivery slots available this week. Would you like me to share a personalized quotation?"
+                    &quot;Hi {lead.customerName?.split(' ')[0] || 'there'}, following up regarding your interest in the {lead.preferredMake} {lead.preferredModel}. We have exciting financing options and priority delivery slots available this week. Would you like me to share a personalized quotation?&quot;
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
                     <button

@@ -1590,7 +1590,9 @@ export function InvoiceDocumentGenerator({
                           </div>
                         )}
                         <div>
-                          {company.address ? `${company.address}${company.city ? `, ${company.city}` : ''}` : 'Walsh, Somerfield - US'}
+                          {[company.address, company.locality, company.city, company.state, company.pincode].filter(Boolean).join(', ') || (
+                            <span style={{ color: '#94A3B8', fontStyle: 'italic' }}>Address not configured</span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1653,7 +1655,7 @@ export function InvoiceDocumentGenerator({
                             No.
                           </th>
                           <th style={{ padding: '8px 6px', textAlign: 'left', fontWeight: 800, color: '#0F172A' }}>
-                            Product Deskription
+                            Product Description
                           </th>
                           <th style={{ padding: '8px 6px', textAlign: 'right', fontWeight: 800, color: '#0F172A', width: '110px' }}>
                             Price
@@ -1805,9 +1807,13 @@ export function InvoiceDocumentGenerator({
                 >
                   {/* Left Contact */}
                   <div style={{ fontSize: '0.72rem', color: '#475569', lineHeight: 1.45, fontWeight: 600 }}>
-                    <div><span style={{ color: textAccent, fontWeight: 800 }}>P :</span> {company.phone || '+00 123 345 445'}</div>
-                    <div><span style={{ color: textAccent, fontWeight: 800 }}>E :</span> {company.email || 'youremail@gmail.com'}</div>
-                    <div>{company.address ? `${company.address}` : 'Walsh, Somerfield - US'}</div>
+                    <div><span style={{ color: textAccent, fontWeight: 800 }}>P :</span> {company.phone || '—'}</div>
+                    <div><span style={{ color: textAccent, fontWeight: 800 }}>E :</span> {company.email || '—'}</div>
+                    <div>
+                      {[company.address, company.city, company.state].filter(Boolean).join(', ') || (
+                        <span style={{ color: '#94A3B8', fontStyle: 'italic' }}>Address not configured</span>
+                      )}
+                    </div>
                   </div>
 
                   {/* Center Friendly Note */}

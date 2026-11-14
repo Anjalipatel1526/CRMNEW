@@ -354,7 +354,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         router.replace('/empportal');
         return;
       }
-      if ((pathname.startsWith('/sales/deals') || pathname.startsWith('/sales/quotations')) && !employeeAccess?.deals) {
+      if (pathname.startsWith('/sales') && !employeeAccess?.deals) {
         router.replace('/empportal');
         return;
       }
@@ -486,7 +486,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         tab.href !== '/' &&
         tab.href !== '/dashboard' &&
         tab.href !== '/empportal' &&
-        pathname.startsWith(tab.href) &&
+        (pathname.startsWith(tab.href) || (tab.href === '/sales/deals' && pathname.startsWith('/sales'))) &&
         tab.href.length > best.length
       ) {
         best = tab.href;

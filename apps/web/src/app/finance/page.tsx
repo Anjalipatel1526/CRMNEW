@@ -750,7 +750,11 @@ export default function FinancePage() {
                               {comp.email}
                             </div>
                           )}
-                          <div>{comp.city ? `${comp.city}, ${comp.state || ''}` : 'Walsh, Somerfield - US'}</div>
+                          <div>
+                            {[comp.address, comp.locality, comp.city, comp.state, comp.pincode].filter(Boolean).join(', ') || (
+                              <span style={{ color: '#94A3B8', fontStyle: 'italic' }}>Address not configured</span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -773,7 +777,7 @@ export default function FinancePage() {
                       <thead>
                         <tr style={{ borderBottom: '2px solid #E2E8F0' }}>
                           <th style={{ padding: '8px 6px', textAlign: 'left', fontWeight: 800, color: '#0F172A', width: '45px' }}>No.</th>
-                          <th style={{ padding: '8px 6px', textAlign: 'left', fontWeight: 800, color: '#0F172A' }}>Product Deskription</th>
+                          <th style={{ padding: '8px 6px', textAlign: 'left', fontWeight: 800, color: '#0F172A' }}>Product Description</th>
                           <th style={{ padding: '8px 6px', textAlign: 'right', fontWeight: 800, color: '#0F172A', width: '100px' }}>Price</th>
                           <th style={{ padding: '8px 6px', textAlign: 'center', fontWeight: 800, color: '#0F172A', width: '60px' }}>QTY</th>
                           <th style={{ padding: '8px 6px', textAlign: 'right', fontWeight: 800, color: '#0F172A', width: '110px' }}>Total</th>
@@ -843,9 +847,13 @@ export default function FinancePage() {
                     >
                       {/* Left Contact */}
                       <div style={{ fontSize: '0.72rem', color: '#475569', lineHeight: 1.45, fontWeight: 600 }}>
-                        <div><span style={{ color: textAccent, fontWeight: 800 }}>P :</span> {comp.phone || '+00 123 345 445'}</div>
-                        <div><span style={{ color: textAccent, fontWeight: 800 }}>E :</span> {comp.email || 'youremail@dealership.com'}</div>
-                        <div>{comp.city ? `${comp.city}, ${comp.state || ''}` : 'Walsh, Somerfield - US'}</div>
+                        <div><span style={{ color: textAccent, fontWeight: 800 }}>P :</span> {comp.phone || '—'}</div>
+                        <div><span style={{ color: textAccent, fontWeight: 800 }}>E :</span> {comp.email || '—'}</div>
+                        <div>
+                          {[comp.address, comp.city, comp.state].filter(Boolean).join(', ') || (
+                            <span style={{ color: '#94A3B8', fontStyle: 'italic' }}>Address not configured</span>
+                          )}
+                        </div>
                       </div>
 
                       {/* Center Friendly Note */}
