@@ -533,7 +533,16 @@ class DataService {
     this.data.leads.unshift(customerLead);
     this.persist();
 
-    // Persist to Supabase backend
+    // Persist Customer to Supabase backend API route
+    if (typeof window !== 'undefined') {
+      fetch('/api/crm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entity: 'customer', data: newCust }),
+      }).catch((e) => console.warn('[API] Customer backend sync info:', e?.message));
+    }
+
+    // Persist to Supabase backend directly
     if (isSupabaseConfigured()) {
       supabase
         .from('customers')
@@ -855,7 +864,16 @@ class DataService {
     this.data.leads.unshift(newLead);
     this.persist();
 
-    // Persist to Supabase backend
+    // Persist Lead to Supabase backend API route
+    if (typeof window !== 'undefined') {
+      fetch('/api/crm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entity: 'lead', data: newLead }),
+      }).catch((e) => console.warn('[API] Lead backend sync info:', e?.message));
+    }
+
+    // Persist to Supabase backend directly
     if (isSupabaseConfigured()) {
       supabase
         .from('leads')
@@ -1071,7 +1089,16 @@ class DataService {
     this.data.vehicles.unshift(newVeh);
     this.persist();
 
-    // Persist to Supabase backend
+    // Persist Vehicle to Supabase backend API route
+    if (typeof window !== 'undefined') {
+      fetch('/api/crm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entity: 'vehicle', data: newVeh }),
+      }).catch((e) => console.warn('[API] Vehicle backend sync info:', e?.message));
+    }
+
+    // Persist to Supabase backend directly
     if (isSupabaseConfigured()) {
       supabase
         .from('vehicles')
@@ -1311,6 +1338,15 @@ class DataService {
 
     this.data.deals.unshift(newDeal);
     this.persist();
+
+    // Persist Deal to Supabase backend API route
+    if (typeof window !== 'undefined') {
+      fetch('/api/crm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entity: 'deal', data: newDeal }),
+      }).catch((e) => console.warn('[API] Deal backend sync info:', e?.message));
+    }
 
     if (isSupabaseConfigured()) {
       supabase

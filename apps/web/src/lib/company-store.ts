@@ -230,20 +230,13 @@ export function getCompanyProfile(): CompanyProfile {
 export async function fetchCompanyProfile(): Promise<CompanyProfile> {
   if (typeof window === 'undefined') return DEFAULT_COMPANY_PROFILE;
 
-  if (isSupabaseConfigured()) {
-    try {
-      const tenantId = getActiveTenantId();
-      const { data, error } = await supabase
-        .from('company_profiles')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .order('updated_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (error) {
-        console.warn('[CompanyStore] Supabase fetch error:', error.message);
-      } else if (data) {
+  try {
+    const tenantId = getActiveTenantId();
+    const res = await fetch(`/api/company-profile?tenantId=${encodeURIComponent(tenantId)}`);
+    if (res.ok) {
+      const json = await res.json();
+      if (json?.profile) {
+        const data = json.profile;
         const mapped: CompanyProfile = {
           id: data.id || `company_${tenantId}`,
           legalName: data.legal_name || '',
@@ -271,7 +264,7 @@ export async function fetchCompanyProfile(): Promise<CompanyProfile> {
           logoUrl: data.logo_url || '/unai-logo.png',
           brandColor: data.brand_color || '#6253F8',
           watermarkEnabled: data.watermark_enabled ?? true,
-          watermarkOpacity: Number(data.watermark_opacity) || 0.22,
+          watermarkOpacity: Number(data.watermark_opacity) || 0.08,
           authorizedSignatoryName: data.authorized_signatory_name || '',
           authorizedSignatoryDesignation: data.authorized_signatory_designation || '',
           signatureUrl: data.signature_url || '',
@@ -282,25 +275,11 @@ export async function fetchCompanyProfile(): Promise<CompanyProfile> {
         const key = getStorageKey();
         localStorage.setItem(key, JSON.stringify(mapped));
         window.dispatchEvent(new CustomEvent('crm-company-profile-changed', { detail: mapped }));
-
-        if (mapped.logoUrl && mapped.logoUrl.startsWith('data:image/') && mapped.logoUrl.length > 25000) {
-          const originalLogo = mapped.logoUrl;
-          compressDataUrl(originalLogo).then((compressed) => {
-            if (compressed && compressed !== originalLogo && compressed.length < originalLogo.length) {
-              mapped.logoUrl = compressed;
-              try {
-                localStorage.setItem(key, JSON.stringify(mapped));
-                window.dispatchEvent(new CustomEvent('crm-company-profile-changed', { detail: mapped }));
-              } catch {}
-            }
-          });
-        }
-
         return mapped;
       }
-    } catch (err) {
-      console.error('[CompanyStore] Failed to load company profile from Supabase:', err);
     }
+  } catch (err) {
+    console.warn('[CompanyStore] Fetch API route fallback:', err);
   }
 
   return getCompanyProfile();
@@ -325,7 +304,24 @@ export function saveCompanyProfile(profile: Partial<CompanyProfile>): CompanyPro
     localStorage.setItem(key, JSON.stringify(updated));
     window.dispatchEvent(new CustomEvent('crm-company-profile-changed', { detail: updated }));
 
-    // Persist to Supabase company_profiles table
+    // Persist to Supabase company_profiles table via Server Route & Direct Client
+    if (typeof window !== 'undefined') {
+      fetch('/api/company-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ profile: updated }),
+      })
+        .then((res) => res.json())
+        .then((res) => {
+          if (res?.success) {
+            console.log('[CompanyStore] Successfully synced company profile to Supabase backend table.');
+          } else if (res?.error) {
+            console.warn('[CompanyStore] Backend saveCompanyProfile note:', res.error);
+          }
+        })
+        .catch((e) => console.warn('[CompanyStore] Network sync info:', e?.message));
+    }
+
     if (isSupabaseConfigured()) {
       const payload = {
         id: updated.id,

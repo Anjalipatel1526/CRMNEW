@@ -62,6 +62,16 @@ export function saveTestDrives(drives: TestDrive[]): void {
     const key = getStorageKey();
     localStorage.setItem(key, JSON.stringify(drives));
     window.dispatchEvent(new Event('crm-testdrives-changed'));
+
+    // Persist latest drive to Supabase backend API route
+    if (drives.length > 0) {
+      const latest = drives[0];
+      fetch('/api/test-drives', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ drive: latest }),
+      }).catch(() => {});
+    }
   } catch (err) {
     console.error('Failed to save test drives to storage:', err);
   }

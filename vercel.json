@@ -2,5 +2,18 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "buildCommand": "npm run build",
-  "outputDirectory": ".next"
+  "outputDirectory": ".next",
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "crmnew-anjalipatel1526s-projects.vercel.app"
+        }
+      ],
+      "destination": "https://crmnew-navy.vercel.app/:path*",
+      "permanent": true
+    }
+  ]
 }

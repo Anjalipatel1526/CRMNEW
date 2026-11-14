@@ -57,10 +57,23 @@ function GoogleAuthContent() {
     setError(null);
 
     try {
+      // Determine the exact authorized redirect callback URL
+      let callbackUrl = 'https://crmnew-navy.vercel.app/auth/callback';
+      if (typeof window !== 'undefined') {
+        const host = window.location.hostname;
+        if (host === 'localhost' || host === '127.0.0.1') {
+          callbackUrl = `${window.location.origin}/auth/callback`;
+        } else if (window.location.origin.includes('crmnew-navy.vercel.app')) {
+          callbackUrl = 'https://crmnew-navy.vercel.app/auth/callback';
+        } else {
+          callbackUrl = `${window.location.origin}/auth/callback`;
+        }
+      }
+
       const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: callbackUrl,
           queryParams: {
             prompt: 'select_account',
           },

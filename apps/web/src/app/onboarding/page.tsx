@@ -586,20 +586,43 @@ export default function OnboardingPage() {
   };
 
   // Form submission in Step 5: Save everything and route to login
-  const handleFinalSubmit = (e: React.FormEvent) => {
+  const handleFinalSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateStep5()) return;
 
-    // 1. Save company profile with isOnboarded: true and logoUrl
+    // 1. Direct Server Sync to Supabase Backend API route (creates tenant, branch, company profile, modules, and admin user)
+    try {
+      await fetch('/api/company-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          profile: {
+            ...formData,
+            isOnboarded: true,
+          },
+          modules: modulesList,
+          credentials: {
+            userId: credentials.userId.trim(),
+            password: credentials.password,
+            fullName: credentials.fullName.trim() || formData.authorizedSignatoryName || formData.tradeName || 'Dealership Administrator',
+            email: formData.email.trim(),
+          },
+        }),
+      });
+    } catch (apiErr) {
+      console.warn('[Onboarding] Backend API sync note:', apiErr);
+    }
+
+    // 2. Save company profile with isOnboarded: true and logoUrl
     const updatedCompany = saveCompanyProfile({
       ...formData,
       isOnboarded: true,
     });
 
-    // 2. Save modules with plugin states
+    // 3. Save modules with plugin states
     saveModules(modulesList);
 
-    // 3. Save User ID and Password credentials
+    // 4. Save User ID and Password credentials
     saveUserCredentials({
       userId: credentials.userId.trim(),
       password: credentials.password,
@@ -607,7 +630,7 @@ export default function OnboardingPage() {
       email: formData.email.trim(),
     });
 
-    // 4. Update in-memory userContext tenant name
+    // 5. Update in-memory userContext tenant name
     try {
       const ctx = api.getUserContext();
       if (ctx?.tenant) {
@@ -615,7 +638,7 @@ export default function OnboardingPage() {
       }
     } catch (err) {}
 
-    // 5. Open success modal then redirect to login page
+    // 6. Open success modal then redirect to login page
     setIsSuccessModalOpen(true);
   };
 
