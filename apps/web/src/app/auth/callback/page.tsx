@@ -123,21 +123,24 @@ function AuthCallbackContent() {
         console.warn('[AuthCallback] Session sync info:', e);
       }
 
-      // Check if this user's dealership has already completed onboarding
+      // Check if this specific email has already completed onboarding
       try {
-        const res = await fetch('/api/company-profile');
-        if (res.ok) {
-          const json = await res.json();
-          if (json?.profile && json.profile.is_onboarded) {
-            router.replace('/dashboard');
-            return;
+        const userEmail = (user.email || '').toLowerCase().trim();
+        if (userEmail) {
+          const res = await fetch(`/api/company-profile?email=${encodeURIComponent(userEmail)}`);
+          if (res.ok) {
+            const json = await res.json();
+            if (json?.isOnboarded) {
+              router.replace('/dashboard');
+              return;
+            }
           }
         }
       } catch (checkErr) {
         console.warn('[AuthCallback] Profile check note:', checkErr);
       }
 
-      // If not yet onboarded, route to onboarding form
+      // First time user or not yet onboarded: MUST route to onboarding
       router.replace('/onboarding');
     };
 

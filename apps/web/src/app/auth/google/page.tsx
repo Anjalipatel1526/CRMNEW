@@ -23,19 +23,23 @@ function GoogleAuthContent() {
         const { data: { session } } = await supabase.auth.getSession();
         if (isMounted) {
           if (session?.user) {
-            // Check if account has already completed onboarding
-            try {
-              const checkRes = await fetch('/api/company-profile');
-              if (checkRes.ok) {
-                const checkJson = await checkRes.json();
-                if (checkJson?.profile && checkJson.profile.is_onboarded) {
-                  router.replace('/dashboard');
-                  return;
+            // Check if THIS specific account has already completed onboarding
+            const userEmail = (session.user.email || '').toLowerCase().trim();
+            if (userEmail) {
+              try {
+                const checkRes = await fetch(`/api/company-profile?email=${encodeURIComponent(userEmail)}`);
+                if (checkRes.ok) {
+                  const checkJson = await checkRes.json();
+                  if (checkJson?.isOnboarded) {
+                    router.replace('/dashboard');
+                    return;
+                  }
                 }
+              } catch (checkErr) {
+                console.warn('[GoogleAuth] Onboarding check note:', checkErr);
               }
-            } catch (checkErr) {
-              console.warn('[GoogleAuth] Onboarding check note:', checkErr);
             }
+            // If first time or not onboarded, go to onboarding
             router.replace('/onboarding');
             return;
           }

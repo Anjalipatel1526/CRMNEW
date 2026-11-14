@@ -29,6 +29,7 @@ import { Customer, Lead, Vehicle, Deal, Appointment, JobCard } from '@crm/shared
 
 import { WordFadeIn } from '@/components/ui/WordFadeIn';
 import { getCompanyProfile, DEFAULT_COMPANY_PROFILE, CompanyProfile } from '@/lib/company-store';
+import { supabase } from '@/lib/supabase';
 
 export interface HotDeal {
   id: string;
@@ -108,12 +109,50 @@ export default function DashboardPage() {
   } | null>(null);
 
   useEffect(() => {
-    const session = getUserSession();
-    if (session?.employeeId && !session?.isAdmin) {
-      router.replace('/empportal');
-      return;
-    }
-    setIsMounted(true);
+    let isMounted = true;
+
+    const checkAuthAndOnboarding = async () => {
+      // 1. Employee staff check
+      const localSession = getUserSession();
+      if (localSession?.employeeId && !localSession?.isAdmin) {
+        router.replace('/empportal');
+        return;
+      }
+
+      // 2. Supabase Google Session check
+      const { data: { session } } = await supabase.auth.getSession();
+      const userEmail = (session?.user?.email || localSession?.email || '').toLowerCase().trim();
+
+      // If user is not authenticated at all, redirect to Google Auth
+      if (!session?.user && !localSession?.isLoggedIn) {
+        router.replace('/auth/google');
+        return;
+      }
+
+      // 3. Verify that THIS account has actually completed onboarding
+      if (userEmail) {
+        try {
+          const res = await fetch(`/api/company-profile?email=${encodeURIComponent(userEmail)}`);
+          if (res.ok) {
+            const json = await res.json();
+            if (!json?.isOnboarded) {
+              // Not onboarded! Redirect to onboarding form
+              router.replace('/onboarding');
+              return;
+            }
+          }
+        } catch (err) {
+          console.warn('[Dashboard] Onboarding verification note:', err);
+        }
+      }
+
+      if (isMounted) {
+        setIsMounted(true);
+        refreshData();
+        setCompany(getCompanyProfile());
+      }
+    };
+
     const refreshData = () => {
       setVehicles(api.getVehicles());
       setLeads(api.getLeads());
@@ -122,12 +161,14 @@ export default function DashboardPage() {
       setJobCards(api.getJobCards());
       setCustomers(api.getCustomers());
     };
-    refreshData();
-    setCompany(getCompanyProfile());
+
+    checkAuthAndOnboarding();
+
     const handleCompany = () => setCompany(getCompanyProfile());
     window.addEventListener('crm-company-profile-changed', handleCompany);
     window.addEventListener('crm-data-changed', refreshData);
     return () => {
+      isMounted = false;
       window.removeEventListener('crm-company-profile-changed', handleCompany);
       window.removeEventListener('crm-data-changed', refreshData);
     };

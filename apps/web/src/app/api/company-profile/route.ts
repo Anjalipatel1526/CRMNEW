@@ -85,42 +85,69 @@ async function ensureTenantAndBranch(
   return { primaryBranchId };
 }
 
-// GET: Fetch company profile for tenant
+// GET: Fetch company profile for tenant or specific user email
 export async function GET(req: NextRequest) {
   if (!isSupabaseConfigured()) {
-    return NextResponse.json({ error: 'Supabase is not configured' }, { status: 503 });
+    return NextResponse.json({ error: 'Supabase is not configured', isOnboarded: false }, { status: 503 });
   }
 
   const { searchParams } = new URL(req.url);
-  const tenantId = searchParams.get('tenantId') || 't_default';
+  const email = searchParams.get('email')?.toLowerCase().trim();
+  const tenantId = searchParams.get('tenantId');
 
   try {
-    let { data, error } = await supabaseAdmin
-      .from('company_profiles')
-      .select('*')
-      .eq('tenant_id', tenantId)
-      .order('updated_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    // If no row found for this specific tenantId, fallback to the most recent company profile row
-    if (!data) {
-      const fallback = await supabaseAdmin
+    // 1. If email is provided, strictly search for this user's profile
+    if (email) {
+      const cleanSlug = `t_${email.replace(/[^a-z0-9_-]/g, '_').slice(0, 36)}`;
+      const { data } = await supabaseAdmin
         .from('company_profiles')
         .select('*')
+        .or(`email.ilike.${email},tenant_id.eq.${cleanSlug}`)
         .order('updated_at', { ascending: false })
         .limit(1)
         .maybeSingle();
-      data = fallback.data;
+
+      if (data && data.is_onboarded) {
+        return NextResponse.json({ profile: data, isOnboarded: true });
+      }
+
+      // Check user_credentials as secondary verification
+      const { data: cred } = await supabaseAdmin
+        .from('user_credentials')
+        .select('*')
+        .eq('email', email)
+        .limit(1)
+        .maybeSingle();
+
+      if (cred) {
+        return NextResponse.json({ profile: null, isOnboarded: true });
+      }
+
+      // First time user or not yet onboarded
+      return NextResponse.json({ profile: null, isOnboarded: false });
     }
 
-    if (error && !data) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+    // 2. If tenantId is provided and NOT default
+    if (tenantId && tenantId !== 't_default') {
+      const { data } = await supabaseAdmin
+        .from('company_profiles')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (data && data.is_onboarded) {
+        return NextResponse.json({ profile: data, isOnboarded: true });
+      }
+
+      return NextResponse.json({ profile: null, isOnboarded: false });
     }
 
-    return NextResponse.json({ profile: data });
+    // 3. If neither email nor specific tenantId is provided, do NOT assume onboarded
+    return NextResponse.json({ profile: null, isOnboarded: false });
   } catch (err: any) {
-    return NextResponse.json({ error: err?.message || 'Server error' }, { status: 500 });
+    return NextResponse.json({ error: err?.message || 'Server error', isOnboarded: false }, { status: 500 });
   }
 }
 

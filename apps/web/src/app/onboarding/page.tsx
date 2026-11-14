@@ -132,16 +132,18 @@ export default function OnboardingPage() {
           }));
         }
 
-        // Check if this dealership is already onboarded in the backend database
+        // Check if THIS specific user's dealership is already onboarded in the backend database
         try {
-          const profileCheckRes = await fetch('/api/company-profile');
-          if (profileCheckRes.ok) {
-            const profileCheckJson = await profileCheckRes.json();
-            if (profileCheckJson?.profile && profileCheckJson.profile.is_onboarded) {
-              const urlParams = new URLSearchParams(window.location.search);
-              if (urlParams.get('edit') !== 'true' && urlParams.get('reset') !== 'true') {
-                router.replace('/dashboard');
-                return;
+          if (googleEmail) {
+            const profileCheckRes = await fetch(`/api/company-profile?email=${encodeURIComponent(googleEmail)}`);
+            if (profileCheckRes.ok) {
+              const profileCheckJson = await profileCheckRes.json();
+              if (profileCheckJson?.isOnboarded) {
+                const urlParams = new URLSearchParams(window.location.search);
+                if (urlParams.get('edit') !== 'true' && urlParams.get('reset') !== 'true') {
+                  router.replace('/dashboard');
+                  return;
+                }
               }
             }
           }
