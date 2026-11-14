@@ -107,24 +107,12 @@ export async function GET(req: NextRequest) {
         .limit(1)
         .maybeSingle();
 
-      if (data && data.is_onboarded) {
+      if (data && Boolean(data.is_onboarded)) {
         return NextResponse.json({ profile: data, isOnboarded: true });
       }
 
-      // Check user_credentials as secondary verification
-      const { data: cred } = await supabaseAdmin
-        .from('user_credentials')
-        .select('*')
-        .eq('email', email)
-        .limit(1)
-        .maybeSingle();
-
-      if (cred) {
-        return NextResponse.json({ profile: null, isOnboarded: true });
-      }
-
-      // First time user or not yet onboarded
-      return NextResponse.json({ profile: null, isOnboarded: false });
+      // If no completed profile exists for this email, they are NOT onboarded yet
+      return NextResponse.json({ profile: data || null, isOnboarded: false });
     }
 
     // 2. If tenantId is provided and NOT default
@@ -229,7 +217,7 @@ export async function POST(req: NextRequest) {
       authorized_signatory_name: profile.authorizedSignatoryName || profile.authorized_signatory_name || '',
       authorized_signatory_designation: profile.authorizedSignatoryDesignation || profile.authorized_signatory_designation || '',
       signature_url: profile.signatureUrl || profile.signature_url || '',
-      is_onboarded: true,
+      is_onboarded: Boolean(profile.isOnboarded ?? profile.is_onboarded ?? false),
       updated_at: new Date().toISOString(),
     };
 

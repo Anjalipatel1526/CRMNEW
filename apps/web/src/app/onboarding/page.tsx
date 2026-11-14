@@ -132,23 +132,34 @@ export default function OnboardingPage() {
           }));
         }
 
-        // Check if THIS specific user's dealership is already onboarded in the backend database
+        // Pre-populate any existing company profile fields from backend if available
         try {
           if (googleEmail) {
-            const profileCheckRes = await fetch(`/api/company-profile?email=${encodeURIComponent(googleEmail)}`);
-            if (profileCheckRes.ok) {
-              const profileCheckJson = await profileCheckRes.json();
-              if (profileCheckJson?.isOnboarded) {
-                const urlParams = new URLSearchParams(window.location.search);
-                if (urlParams.get('edit') !== 'true' && urlParams.get('reset') !== 'true') {
-                  router.replace('/dashboard');
-                  return;
-                }
+            const profileRes = await fetch(`/api/company-profile?email=${encodeURIComponent(googleEmail)}`);
+            if (profileRes.ok) {
+              const profileJson = await profileRes.json();
+              if (profileJson?.profile) {
+                const p = profileJson.profile;
+                setFormData((prev) => ({
+                  ...prev,
+                  legalName: prev.legalName || p.legal_name || '',
+                  tradeName: prev.tradeName || p.trade_name || '',
+                  gstin: prev.gstin || p.gstin || '',
+                  phone: prev.phone || p.phone || '',
+                  address: prev.address || p.address || '',
+                  city: prev.city || p.city || '',
+                  state: prev.state || p.state || '',
+                  pincode: prev.pincode || p.pincode || '',
+                  bankName: prev.bankName || p.bank_name || '',
+                  accountNumber: prev.accountNumber || p.account_number || '',
+                  ifscCode: prev.ifscCode || p.ifsc_code || '',
+                  branchName: prev.branchName || p.branch_name || '',
+                }));
               }
             }
           }
         } catch (checkErr) {
-          console.warn('[Onboarding] Profile check note:', checkErr);
+          console.warn('[Onboarding] Profile load note:', checkErr);
         }
       } catch {
         if (!isMounted) return;

@@ -268,7 +268,7 @@ export async function fetchCompanyProfile(): Promise<CompanyProfile> {
           authorizedSignatoryName: data.authorized_signatory_name || '',
           authorizedSignatoryDesignation: data.authorized_signatory_designation || '',
           signatureUrl: data.signature_url || '',
-          isOnboarded: data.is_onboarded ?? true,
+          isOnboarded: Boolean(data.is_onboarded),
           updatedAt: data.updated_at || new Date().toISOString(),
         };
 
@@ -296,7 +296,7 @@ export function saveCompanyProfile(profile: Partial<CompanyProfile>): CompanyPro
       ...current,
       ...profile,
       id: profileId,
-      isOnboarded: true,
+      isOnboarded: profile.isOnboarded !== undefined ? Boolean(profile.isOnboarded) : Boolean(current.isOnboarded),
       updatedAt: new Date().toISOString(),
     };
 
@@ -354,7 +354,7 @@ export function saveCompanyProfile(profile: Partial<CompanyProfile>): CompanyPro
         authorized_signatory_name: updated.authorizedSignatoryName || '',
         authorized_signatory_designation: updated.authorizedSignatoryDesignation || '',
         signature_url: updated.signatureUrl || '',
-        is_onboarded: updated.isOnboarded ?? true,
+        is_onboarded: Boolean(updated.isOnboarded),
         updated_at: new Date().toISOString(),
       };
 
