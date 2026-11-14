@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { getUserSession } from '@/lib/auth-context';
 import { api } from '@/lib/api-client';
+import { getActiveTenantId } from '@/lib/tenant-context';
 import { Branch } from '@crm/shared-types';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Modal } from '@/components/ui/Modal';
@@ -354,7 +355,7 @@ export default function SettingsPage() {
     } else {
       const newBranch: Branch = {
         id: 'b-' + Date.now(),
-        tenantId: 't-apex-001',
+        tenantId: getActiveTenantId(),
         code: branchForm.code.trim().toUpperCase(),
         name: branchForm.name.trim(),
         address: {

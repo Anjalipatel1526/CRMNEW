@@ -50,11 +50,17 @@ export interface Employee {
   };
   leaveHistory: LeaveRecord[];
   accessControl: EmployeeAccessControl;
+  tenantId?: string;
 }
 
 import { supabase, isSupabaseConfigured } from './supabase';
+import { getActiveTenantId, getScopedKey } from './tenant-context';
 
-const STORAGE_KEY = 'crm_employees_v2';
+const BASE_STORAGE_KEY = 'crm_employees_v2';
+
+function getStorageKey(): string {
+  return getScopedKey(BASE_STORAGE_KEY);
+}
 
 export const INITIAL_EMPLOYEES: Employee[] = [];
 
@@ -63,9 +69,10 @@ export function getEmployees(): Employee[] {
   try {
     // Purge legacy mock employees from previous sessions
     localStorage.removeItem('crm_employees_v1');
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const key = getStorageKey();
+    const raw = localStorage.getItem(key);
     if (!raw) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify([]));
+      localStorage.setItem(key, JSON.stringify([]));
       return [];
     }
     const parsed = JSON.parse(raw);
@@ -85,10 +92,11 @@ export async function fetchEmployees(): Promise<Employee[]> {
   if (isSupabaseConfigured()) {
     try {
       let data: any[] | null = null;
+      const tenantId = getActiveTenantId();
       
       // 1. Try fetching via /api/employees (uses admin role key on server, bypasses RLS)
       try {
-        const apiRes = await fetch('/api/employees');
+        const apiRes = await fetch(`/api/employees?tenantId=${encodeURIComponent(tenantId)}`);
         if (apiRes.ok) {
           const json = await apiRes.json();
           if (Array.isArray(json.data)) {
@@ -104,6 +112,7 @@ export async function fetchEmployees(): Promise<Employee[]> {
         const { data: directData, error } = await supabase
           .from('employees')
           .select('*')
+          .eq('tenant_id', tenantId)
           .order('created_at', { ascending: false });
 
         if (error) {
@@ -122,6 +131,7 @@ export async function fetchEmployees(): Promise<Employee[]> {
           const existing = localMap.get(row.id);
           return {
             id: row.id,
+            tenantId: row.tenant_id || tenantId,
             employeeCode: existing?.employeeCode || `EMP-${row.id.slice(-3).toUpperCase()}`,
             fullName: row.full_name || 'Staff Member',
             email: row.email || '',
@@ -209,7 +219,8 @@ export function initEmployeesRealtime(): void {
 export function saveEmployees(employees: Employee[]): void {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(employees));
+    const key = getStorageKey();
+    localStorage.setItem(key, JSON.stringify(employees));
     window.dispatchEvent(new Event('crm-employees-changed'));
   } catch (err) {
     console.error('Failed to save employees to storage:', err);
@@ -223,6 +234,7 @@ export function addEmployee(employeeData: Partial<Employee>): Employee {
   const isTemporary = employeeData.isTemporaryPassword !== undefined ? employeeData.isTemporaryPassword : true;
   const mustChange = employeeData.mustChangePassword !== undefined ? employeeData.mustChangePassword : true;
   const isAdmin = !!employeeData.isAdmin;
+  const tenantId = employeeData.tenantId || getActiveTenantId();
 
   const defaultAllAccess: EmployeeAccessControl = {
     pipeline: true,
@@ -252,6 +264,7 @@ export function addEmployee(employeeData: Partial<Employee>): Employee {
 
   const newEmp: Employee = {
     id: employeeData.id || 'emp-' + Date.now(),
+    tenantId: tenantId,
     employeeCode: code,
     fullName: employeeData.fullName || 'New Employee',
     email: employeeData.email || `employee.${Date.now()}@dealership.com`,
@@ -287,6 +300,7 @@ export function addEmployee(employeeData: Partial<Employee>): Employee {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         id: newEmp.id,
+        tenantId: newEmp.tenantId,
         fullName: newEmp.fullName,
         email: newEmp.email,
         phone: newEmp.phone,
@@ -444,6 +458,12 @@ export function verifyEmployeeLogin(
       success: false,
       error: 'Invalid password. If this is your first time logging in, please enter the temporary password provided by your administrator.',
     };
+  }
+
+  if (typeof window !== 'undefined' && emp.tenantId) {
+    try {
+      localStorage.setItem(`crm_emp_tenant_${emp.id}`, emp.tenantId);
+    } catch {}
   }
 
   const requiresPasswordChange = emp.mustChangePassword === true || emp.isTemporaryPassword === true;

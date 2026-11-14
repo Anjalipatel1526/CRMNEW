@@ -21,6 +21,7 @@ import {
 } from '@crm/shared-types';
 import { PricingEngine } from '@crm/business-rules';
 import { supabase, isSupabaseConfigured } from './supabase';
+import { getActiveTenantId, getScopedKey } from './tenant-context';
 
 interface DataStore {
   tenant: any;
@@ -39,7 +40,7 @@ interface DataStore {
 
 const initialData: DataStore = {
   tenant: {
-    id: 't-apex-001',
+    id: 't_default',
     name: 'Dealership Group',
     slug: 'dealership',
     status: 'active' as const,
@@ -65,7 +66,7 @@ const initialData: DataStore = {
       updatedAt: new Date().toISOString(),
     },
     tenant: {
-      id: 't-apex-001',
+      id: 't_default',
       name: 'Dealership Group',
       slug: 'dealership',
       status: 'active' as const,
@@ -81,7 +82,7 @@ const initialData: DataStore = {
     },
     membership: {
       id: 'm-01',
-      tenantId: 't-apex-001',
+      tenantId: 't_default',
       userId: 'u-admin-001',
       roleKey: 'tenant_admin' as const,
       branchIds: [],
@@ -109,40 +110,101 @@ class DataService {
 
   constructor() {
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('crm_store');
-      localStorage.removeItem('crm_store_clean_v1');
-      const saved = localStorage.getItem('crm_store_clean_v2');
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          // Sanitize any stale mock records from earlier versions
-          const mockCustIds = new Set(['cust-101', 'cust-102', 'cust-103', 'cust-001', 'cust-002', 'cust-003']);
-          const mockLeadIds = new Set(['lead-201', 'lead-202', 'lead-203', 'lead-001', 'lead-002', 'lead-003']);
-          const mockDealIds = new Set(['deal-301', 'deal-001']);
-          const mockBranchIds = new Set(['b-dt-001', 'b-wb-002', 'b-001', 'b-002']);
-          if (Array.isArray(parsed.customers)) {
-            parsed.customers = parsed.customers.filter((c: any) => !mockCustIds.has(c.id));
-          }
-          if (Array.isArray(parsed.leads)) {
-            parsed.leads = parsed.leads.filter((l: any) => !mockLeadIds.has(l.id));
-          }
-          if (Array.isArray(parsed.deals)) {
-            parsed.deals = parsed.deals.filter((d: any) => !mockDealIds.has(d.id));
-          }
-          if (Array.isArray(parsed.branches)) {
-            parsed.branches = parsed.branches.filter((b: any) => !mockBranchIds.has(b.id));
-          }
-          this.data = parsed;
-        } catch (e) {
-          console.error('Failed to parse local storage', e);
-        }
-      }
+      this.loadFromStorage();
+      // Listen for session switch or login/logout
+      window.addEventListener('crm-session-changed', () => {
+        this.loadFromStorage();
+        this.syncAllFromSupabase().catch(() => {});
+      });
+
       // Automatically trigger sync from Supabase database
       setTimeout(() => {
         this.syncAllFromSupabase().catch((err) =>
           console.warn('[API] Background Supabase sync note:', err)
         );
       }, 100);
+    }
+  }
+
+  loadFromStorage(): void {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.removeItem('crm_store');
+      localStorage.removeItem('crm_store_clean_v1');
+      const scopedKey = getScopedKey('crm_store_clean_v2');
+      const saved = localStorage.getItem(scopedKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const mockCustIds = new Set(['cust-101', 'cust-102', 'cust-103', 'cust-001', 'cust-002', 'cust-003']);
+        const mockLeadIds = new Set(['lead-201', 'lead-202', 'lead-203', 'lead-001', 'lead-002', 'lead-003']);
+        const mockDealIds = new Set(['deal-301', 'deal-001']);
+        const mockBranchIds = new Set(['b-dt-001', 'b-wb-002', 'b-001', 'b-002']);
+        if (Array.isArray(parsed.customers)) {
+          parsed.customers = parsed.customers.filter((c: any) => !mockCustIds.has(c.id));
+        }
+        if (Array.isArray(parsed.leads)) {
+          parsed.leads = parsed.leads.filter((l: any) => !mockLeadIds.has(l.id));
+        }
+        if (Array.isArray(parsed.deals)) {
+          parsed.deals = parsed.deals.filter((d: any) => !mockDealIds.has(d.id));
+        }
+        if (Array.isArray(parsed.branches)) {
+          parsed.branches = parsed.branches.filter((b: any) => !mockBranchIds.has(b.id));
+        }
+        this.data = parsed;
+      } else {
+        const tenantId = getActiveTenantId();
+        this.data = {
+          ...initialData,
+          tenant: { ...initialData.tenant, id: tenantId },
+          userContext: {
+            ...initialData.userContext,
+            tenant: { ...initialData.userContext.tenant, id: tenantId },
+            membership: { ...initialData.userContext.membership, tenantId },
+          },
+          customers: [],
+          leads: [],
+          vehicles: [],
+          deals: [],
+          quotations: [],
+          appointments: [],
+          payments: [],
+          jobCards: [],
+          campaigns: [],
+          branches: [],
+        };
+      }
+    } catch (e) {
+      console.error('Failed to parse local storage', e);
+    }
+  }
+
+  resetData(): void {
+    const tenantId = getActiveTenantId();
+    this.data = {
+      ...initialData,
+      tenant: { ...initialData.tenant, id: tenantId },
+      userContext: {
+        ...initialData.userContext,
+        tenant: { ...initialData.userContext.tenant, id: tenantId },
+        membership: { ...initialData.userContext.membership, tenantId },
+      },
+      customers: [],
+      leads: [],
+      vehicles: [],
+      deals: [],
+      quotations: [],
+      appointments: [],
+      payments: [],
+      jobCards: [],
+      campaigns: [],
+      branches: [],
+    };
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.removeItem(getScopedKey('crm_store_clean_v2'));
+        window.dispatchEvent(new CustomEvent('crm-data-changed'));
+      } catch {}
     }
   }
 
@@ -175,13 +237,14 @@ class DataService {
   private persist() {
     if (typeof window === 'undefined') return;
 
+    const scopedKey = getScopedKey('crm_store_clean_v2');
     try {
-      localStorage.setItem('crm_store_clean_v2', JSON.stringify(this.data));
+      localStorage.setItem(scopedKey, JSON.stringify(this.data));
     } catch (err) {
       console.warn('[API] localStorage quota exceeded, applying asset optimization...', err);
       try {
         const sanitized = this.sanitizeForStorage(this.data);
-        localStorage.setItem('crm_store_clean_v2', JSON.stringify(sanitized));
+        localStorage.setItem(scopedKey, JSON.stringify(sanitized));
       } catch (retryErr) {
         console.warn('[API] Storage still exceeding quota, stripping cached photos from local backup...', retryErr);
         try {
@@ -194,7 +257,7 @@ class DataService {
               photos: (v.photos || []).filter((p) => !p.url?.startsWith('data:')),
             })),
           };
-          localStorage.setItem('crm_store_clean_v2', JSON.stringify(minimal));
+          localStorage.setItem(scopedKey, JSON.stringify(minimal));
         } catch (finalErr) {
           console.error('[API] Unable to persist to localStorage, keeping in-memory state active:', finalErr);
         }
@@ -242,9 +305,11 @@ class DataService {
   async fetchBranches(): Promise<Branch[]> {
     if (isSupabaseConfigured()) {
       try {
+        const tenantId = getActiveTenantId();
         const { data, error } = await supabase
           .from('branches')
           .select('*')
+          .eq('tenant_id', tenantId)
           .order('created_at', { ascending: true });
 
         if (error) {
@@ -252,7 +317,7 @@ class DataService {
         } else if (data && Array.isArray(data)) {
           const remoteBranches: Branch[] = data.map((r: any) => ({
             id: r.id,
-            tenantId: r.tenant_id || 't-apex-001',
+            tenantId: r.tenant_id || tenantId,
             code: r.code || '',
             name: r.name || '',
             address: r.address || { line1: '', city: '', state: '', pincode: '' },
@@ -291,9 +356,10 @@ class DataService {
 
     if (isSupabaseConfigured()) {
       try {
+        const tenantId = getActiveTenantId();
         const payload = {
           id: branch.id,
-          tenant_id: branch.tenantId || 't-apex-001',
+          tenant_id: branch.tenantId || tenantId,
           code: branch.code,
           name: branch.name,
           address: branch.address || {},
@@ -341,9 +407,11 @@ class DataService {
   async fetchCustomers(): Promise<Customer[]> {
     if (isSupabaseConfigured()) {
       try {
+        const tenantId = getActiveTenantId();
         const { data, error } = await supabase
           .from('customers')
           .select('*')
+          .eq('tenant_id', tenantId)
           .order('created_at', { ascending: false });
 
         if (error) {
@@ -351,7 +419,7 @@ class DataService {
         } else if (data && Array.isArray(data)) {
           const remoteCustomers: Customer[] = data.map((r: any) => ({
             id: r.id,
-            tenantId: r.tenant_id || 't-apex-001',
+            tenantId: r.tenant_id || tenantId,
             branchId: r.branch_id || 'b-dt-001',
             type: r.type || 'individual',
             firstName: r.first_name || '',
@@ -386,9 +454,10 @@ class DataService {
   }
 
   addCustomer(customerData: Partial<Customer>): Customer {
+    const tenantId = getActiveTenantId();
     const newCust: Customer = {
       id: customerData.id || 'cust-' + Date.now(),
-      tenantId: customerData.tenantId || 't-apex-001',
+      tenantId: customerData.tenantId || tenantId,
       branchId: customerData.branchId || 'b-dt-001',
       type: customerData.type || 'individual',
       firstName: customerData.firstName || 'New',
@@ -435,7 +504,7 @@ class DataService {
 
     const customerLead: Lead = {
       id: 'lead-' + Date.now(),
-      tenantId: newCust.tenantId || 't-apex-001',
+      tenantId: newCust.tenantId || tenantId,
       branchId: newCust.branchId || 'b-dt-001',
       customerId: newCust.id,
       source: 'Direct Registration',
@@ -617,9 +686,10 @@ class DataService {
         const prefMake = parts[0] || 'Enquiry';
         const prefModel = parts.slice(1).join(' ') || (rawCar ? rawCar : 'Vehicle Enquiry');
 
+        const tenantId = getActiveTenantId();
         const autoLead: Lead = {
           id: 'lead-cust-' + cust.id,
-          tenantId: cust.tenantId || 't-apex-001',
+          tenantId: cust.tenantId || tenantId,
           branchId: cust.branchId || 'b-dt-001',
           customerId: cust.id,
           source: 'Customer Registration',
@@ -685,9 +755,11 @@ class DataService {
   async fetchLeads(): Promise<Lead[]> {
     if (isSupabaseConfigured()) {
       try {
+        const tenantId = getActiveTenantId();
         const { data, error } = await supabase
           .from('leads')
           .select('*')
+          .eq('tenant_id', tenantId)
           .order('created_at', { ascending: false });
 
         if (error) {
@@ -697,7 +769,7 @@ class DataService {
             const cust = this.data.customers.find((c) => c.id === r.customer_id);
             const mappedLead: Lead = {
               id: r.id,
-              tenantId: r.tenant_id || 't-apex-001',
+              tenantId: r.tenant_id || tenantId,
               branchId: r.branch_id || 'b-dt-001',
               customerId: r.customer_id,
               source: r.source || 'Showroom Walk-in',
@@ -747,12 +819,13 @@ class DataService {
   addLead(leadData: any): Lead {
     const cust = this.data.customers.find((c) => c.id === leadData.customerId);
     const branch = this.data.branches.find((b) => b.id === leadData.branchId);
+    const tenantId = getActiveTenantId();
 
     const newLead: Lead = {
       id: leadData.id || 'lead-' + Date.now(),
-      tenantId: 't-apex-001',
+      tenantId: leadData.tenantId || tenantId,
       branchId: leadData.branchId || 'b-dt-001',
-      customerId: leadData.customerId || (this.data.customers[0]?.id || 'cust-101'),
+      customerId: leadData.customerId || (this.data.customers[0]?.id || ''),
       source: leadData.source || 'Website',
       status: leadData.status || 'new',
       assignedTo: leadData.assignedTo || 'u-sales-003',
@@ -894,9 +967,11 @@ class DataService {
   async fetchVehicles(): Promise<Vehicle[]> {
     if (isSupabaseConfigured()) {
       try {
+        const tenantId = getActiveTenantId();
         const { data, error } = await supabase
           .from('vehicles')
           .select('*')
+          .eq('tenant_id', tenantId)
           .order('created_at', { ascending: false });
 
         if (error) {
@@ -904,7 +979,7 @@ class DataService {
         } else if (data && Array.isArray(data)) {
           const remoteVehicles: Vehicle[] = data.map((r: any) => ({
             id: r.id,
-            tenantId: r.tenant_id || 't-apex-001',
+            tenantId: r.tenant_id || tenantId,
             branchId: r.branch_id || 'b-dt-001',
             stockNumber: r.stock_number || 'STK-' + r.id.slice(-4),
             vin: r.vin || 'VIN-' + r.id.slice(-8),
@@ -952,10 +1027,11 @@ class DataService {
       ? [vData.imageUrl]
       : [];
     const primaryImg = imagesList[0] || vData.imageUrl || '';
+    const tenantId = getActiveTenantId();
 
     const newVeh: Vehicle = {
       id: vData.id || 'veh-' + Date.now(),
-      tenantId: 't-apex-001',
+      tenantId: vData.tenantId || tenantId,
       branchId: vData.branchId || 'b-dt-001',
       stockNumber: vData.stockNumber || 'STK-2024-' + Math.floor(100 + Math.random() * 900),
       vin: vData.vin || 'MALC' + Math.floor(100000000 + Math.random() * 900000000),
@@ -978,7 +1054,7 @@ class DataService {
       images: imagesList,
       photos: imagesList.map((url, idx) => ({
         id: `p-${Date.now()}-${idx}`,
-        tenantId: 't-apex-001',
+        tenantId,
         vehicleId: vData.id || 'veh-' + Date.now(),
         storageKey: `photo-0${idx + 1}`,
         url,
@@ -1088,12 +1164,13 @@ class DataService {
   addAppointment(aptData: any): Appointment {
     const cust = this.data.customers.find((c) => c.id === aptData.customerId);
     const veh = this.data.vehicles.find((v) => v.id === aptData.vehicleId);
+    const tenantId = getActiveTenantId();
 
     const newApt: Appointment = {
       id: 'apt-' + Date.now(),
-      tenantId: 't-apex-001',
+      tenantId: aptData.tenantId || tenantId,
       branchId: aptData.branchId || 'b-dt-001',
-      customerId: aptData.customerId || (this.data.customers[0]?.id || 'cust-101'),
+      customerId: aptData.customerId || (this.data.customers[0]?.id || ''),
       leadId: aptData.leadId,
       vehicleId: aptData.vehicleId,
       appointmentType: aptData.appointmentType || 'test_drive',
@@ -1144,9 +1221,11 @@ class DataService {
   async fetchDeals(): Promise<Deal[]> {
     if (isSupabaseConfigured()) {
       try {
+        const tenantId = getActiveTenantId();
         const { data, error } = await supabase
           .from('deals')
           .select('*')
+          .eq('tenant_id', tenantId)
           .order('created_at', { ascending: false });
 
         if (error) {
@@ -1157,7 +1236,7 @@ class DataService {
             const veh = this.data.vehicles.find((v) => v.id === r.vehicle_id);
             return {
               id: r.id,
-              tenantId: r.tenant_id || 't-apex-001',
+              tenantId: r.tenant_id || tenantId,
               branchId: r.branch_id || 'b-dt-001',
               customerId: r.customer_id,
               vehicleId: r.vehicle_id,
@@ -1202,13 +1281,14 @@ class DataService {
   addDeal(dealData: any): Deal {
     const cust = this.data.customers.find((c) => c.id === dealData.customerId);
     const veh = this.data.vehicles.find((v) => v.id === dealData.vehicleId);
+    const tenantId = getActiveTenantId();
 
     const newDeal: Deal = {
       id: dealData.id || 'deal-' + Date.now(),
-      tenantId: 't-apex-001',
+      tenantId: dealData.tenantId || tenantId,
       branchId: dealData.branchId || 'b-dt-001',
-      customerId: dealData.customerId || (this.data.customers[0]?.id || 'cust-101'),
-      vehicleId: dealData.vehicleId || (this.data.vehicles[0]?.id || 'v-001'),
+      customerId: dealData.customerId || (this.data.customers[0]?.id || ''),
+      vehicleId: dealData.vehicleId || (this.data.vehicles[0]?.id || ''),
       dealNumber: dealData.dealNumber || 'DEAL-2024-' + Math.floor(100 + Math.random() * 900),
       stage: dealData.stage || 'initiated',
       vehiclePrice: Number(dealData.vehiclePrice) || 1500000,
@@ -1271,10 +1351,11 @@ class DataService {
   createQuotation(qData: any): Quotation {
     const cust = this.data.customers.find((c) => c.id === qData.customerId);
     const totals = PricingEngine.calculateQuotationTotals(qData.items || []);
+    const tenantId = getActiveTenantId();
 
     const newQ: Quotation = {
       id: 'quo-' + Date.now(),
-      tenantId: 't-apex-001',
+      tenantId: qData.tenantId || tenantId,
       branchId: qData.branchId || 'b-dt-001',
       customerId: qData.customerId,
       quoteNumber: 'Q-2024-' + Math.floor(100 + Math.random() * 900),
@@ -1304,9 +1385,10 @@ class DataService {
 
   recordPayment(pData: any): Payment {
     const cust = this.data.customers.find((c) => c.id === pData.customerId);
+    const tenantId = getActiveTenantId();
     const newPayment: Payment = {
       id: 'pmt-' + Date.now(),
-      tenantId: 't-apex-001',
+      tenantId: pData.tenantId || tenantId,
       branchId: pData.branchId || 'b-dt-001',
       customerId: pData.customerId,
       bookingId: pData.bookingId,

@@ -63,58 +63,7 @@ export interface DealershipNotification {
   priority?: 'normal' | 'high' | 'urgent';
 }
 
-const DEFAULT_NOTIFICATIONS: DealershipNotification[] = [
-  {
-    id: 'notif-1',
-    title: 'New Online Lead Assigned',
-    message: 'Vikram Malhotra submitted a quote enquiry for Hyundai Creta SX (Petrol MT).',
-    category: 'lead',
-    timestamp: '10m ago',
-    isRead: false,
-    linkHref: '/crm/leads',
-    priority: 'high',
-  },
-  {
-    id: 'notif-2',
-    title: 'Test Drive Scheduled Today',
-    message: 'Neha Sharma confirmed test drive for Tata Harrier Fearless+ at 3:30 PM.',
-    category: 'test_drive',
-    timestamp: '35m ago',
-    isRead: false,
-    linkHref: '/test-drives',
-    priority: 'normal',
-  },
-  {
-    id: 'notif-3',
-    title: 'Deal Discount Approval Needed',
-    message: '₹45,000 executive discount requested on Mahindra XUV700 AX7 deal.',
-    category: 'deal',
-    timestamp: '1h ago',
-    isRead: false,
-    linkHref: '/sales/deals',
-    priority: 'urgent',
-  },
-  {
-    id: 'notif-4',
-    title: 'Vehicle Stock Allocation',
-    message: 'Maruti Suzuki Brezza ZXi+ assigned to Downtown Branch inventory.',
-    category: 'inventory',
-    timestamp: '3h ago',
-    isRead: true,
-    linkHref: '/vehicles',
-    priority: 'normal',
-  },
-  {
-    id: 'notif-5',
-    title: 'Customer Follow-Up Due',
-    message: 'Follow-up call with Amit Verma regarding loan document verification.',
-    category: 'customer',
-    timestamp: '5h ago',
-    isRead: true,
-    linkHref: '/crm/customers',
-    priority: 'normal',
-  },
-];
+const DEFAULT_NOTIFICATIONS: DealershipNotification[] = [];
 
 const PRESET_PROFILE_AVATARS = [
   'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
@@ -372,7 +321,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
     return undefined;
   }, [activeSession]);
 
-  // Protect employee workflow: prevent staff from accessing admin-only pages
+  // Protect employee workflow: prevent staff from accessing admin-only pages or pages without explicit permission
   useEffect(() => {
     if (!isMounted) return;
     if (isStaffEmployee) {
@@ -383,9 +332,46 @@ export function Shell({ children }: { children: React.ReactNode }) {
         pathname === '/onboarding'
       ) {
         router.replace('/empportal');
+        return;
+      }
+      if (pathname.startsWith('/finance') && !employeeAccess?.finance) {
+        router.replace('/empportal');
+        return;
+      }
+      if (pathname.startsWith('/crm/leads') && !employeeAccess?.pipeline) {
+        router.replace('/empportal');
+        return;
+      }
+      if (pathname.startsWith('/crm/customers') && !employeeAccess?.customers) {
+        router.replace('/empportal');
+        return;
+      }
+      if (pathname.startsWith('/vehicles/procurement') && !employeeAccess?.procurement) {
+        router.replace('/empportal');
+        return;
+      }
+      if (pathname.startsWith('/vehicles') && !pathname.startsWith('/vehicles/procurement') && !employeeAccess?.inventory) {
+        router.replace('/empportal');
+        return;
+      }
+      if ((pathname.startsWith('/sales/deals') || pathname.startsWith('/sales/quotations')) && !employeeAccess?.deals) {
+        router.replace('/empportal');
+        return;
+      }
+      if (pathname.startsWith('/documents') && !employeeAccess?.documents) {
+        router.replace('/empportal');
+        return;
+      }
+      if (pathname.startsWith('/reports') && !employeeAccess?.reports) {
+        router.replace('/empportal');
+        return;
+      }
+      if (pathname.startsWith('/test-drives') && !employeeAccess?.testDrives) {
+        router.replace('/empportal');
+        return;
       }
     }
-  }, [pathname, isMounted, isStaffEmployee, router]);
+  }, [pathname, isMounted, isStaffEmployee, employeeAccess, router]);
 
   // Only display plugged-in (active) modules in the top navigation bar, respecting employee access control if not admin
   const activeNavTabs = useMemo(() => {

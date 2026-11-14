@@ -149,6 +149,7 @@ export default function EmployeeLoginPage() {
       avatarUrl: emp.avatarUrl,
       phone: emp.phone,
       accessControl: emp.accessControl,
+      tenantId: emp.tenantId,
     });
 
     setWorkflowStep('success');

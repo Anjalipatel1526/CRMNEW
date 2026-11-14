@@ -1,6 +1,7 @@
 'use client';
 
 import { supabase, isSupabaseConfigured } from './supabase';
+import { getActiveTenantId, getScopedKey } from './tenant-context';
 
 export interface CompanyProfile {
   id: string;
@@ -52,7 +53,11 @@ export interface CompanyProfile {
   updatedAt: string;
 }
 
-const STORAGE_KEY = 'crm_dealership_company_profile_v1';
+const BASE_STORAGE_KEY = 'crm_dealership_company_profile_v1';
+
+function getStorageKey(): string {
+  return getScopedKey(BASE_STORAGE_KEY);
+}
 
 /**
  * Automatically compress oversized Base64 data URLs (e.g. user uploaded 4MB photos) down to a lightweight WebP (~3KB)
@@ -101,7 +106,7 @@ export function compressDataUrl(dataUrl: string, maxDim: number = 96, quality: n
 }
 
 export const DEFAULT_COMPANY_PROFILE: CompanyProfile = {
-  id: 'company-default-01',
+  id: 'company_profile',
   legalName: '',
   tradeName: '',
   tagline: '',
@@ -129,8 +134,8 @@ export const DEFAULT_COMPANY_PROFILE: CompanyProfile = {
   brandColor: '#6253F8',
   watermarkEnabled: true,
   watermarkOpacity: 0.22,
-  authorizedSignatoryName: 'Anjali',
-  authorizedSignatoryDesignation: 'COO',
+  authorizedSignatoryName: '',
+  authorizedSignatoryDesignation: '',
   signatureUrl: '',
   isOnboarded: false,
   updatedAt: new Date().toISOString(),
@@ -149,14 +154,15 @@ export interface UserCredentials {
 export function saveUserCredentials(creds: { userId: string; password?: string; fullName: string; email: string }) {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem(CREDS_KEY, JSON.stringify({ ...creds, createdAt: new Date().toISOString() }));
+    const tenantId = getActiveTenantId();
+    localStorage.setItem(getScopedKey(CREDS_KEY), JSON.stringify({ ...creds, createdAt: new Date().toISOString() }));
     
     // Sync to Supabase user_credentials table if configured
     if (isSupabaseConfigured() && creds.email) {
       supabase
         .from('user_credentials')
         .upsert({
-          tenant_id: 't-apex-001',
+          tenant_id: tenantId,
           user_id: creds.userId || creds.email,
           password_hash: creds.password,
           full_name: creds.fullName || creds.email,
@@ -175,7 +181,7 @@ export function saveUserCredentials(creds: { userId: string; password?: string; 
 export function getUserCredentials(): UserCredentials | null {
   if (typeof window === 'undefined') return null;
   try {
-    const raw = localStorage.getItem(CREDS_KEY);
+    const raw = localStorage.getItem(getScopedKey(CREDS_KEY));
     return raw ? JSON.parse(raw) : null;
   } catch (err) {
     return null;
@@ -185,7 +191,8 @@ export function getUserCredentials(): UserCredentials | null {
 export function getCompanyProfile(): CompanyProfile {
   if (typeof window === 'undefined') return DEFAULT_COMPANY_PROFILE;
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const key = getStorageKey();
+    const raw = localStorage.getItem(key);
     if (!raw) {
       return DEFAULT_COMPANY_PROFILE;
     }
@@ -200,12 +207,6 @@ export function getCompanyProfile(): CompanyProfile {
     if (profile.brandColor === '#F27A1A' || profile.brandColor === '#0284C7' || profile.brandColor === '#EA580C') {
       profile.brandColor = '#6253F8';
     }
-    if (!profile.authorizedSignatoryName || profile.authorizedSignatoryName === 'Witzharrey') {
-      profile.authorizedSignatoryName = 'Anjali';
-    }
-    if (!profile.authorizedSignatoryDesignation || profile.authorizedSignatoryDesignation === 'Manager') {
-      profile.authorizedSignatoryDesignation = 'COO';
-    }
     // Auto-compress oversized data URL logos (>25KB) to guarantee lightweight performance
     if (profile.logoUrl && profile.logoUrl.startsWith('data:image/') && profile.logoUrl.length > 25000) {
       const originalLogo = profile.logoUrl;
@@ -213,7 +214,7 @@ export function getCompanyProfile(): CompanyProfile {
         if (compressed && compressed !== originalLogo && compressed.length < originalLogo.length) {
           profile.logoUrl = compressed;
           try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
+            localStorage.setItem(key, JSON.stringify(profile));
             window.dispatchEvent(new CustomEvent('crm-company-profile-changed', { detail: profile }));
           } catch {}
         }
@@ -231,9 +232,11 @@ export async function fetchCompanyProfile(): Promise<CompanyProfile> {
 
   if (isSupabaseConfigured()) {
     try {
+      const tenantId = getActiveTenantId();
       const { data, error } = await supabase
         .from('company_profiles')
         .select('*')
+        .eq('tenant_id', tenantId)
         .order('updated_at', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -242,7 +245,7 @@ export async function fetchCompanyProfile(): Promise<CompanyProfile> {
         console.warn('[CompanyStore] Supabase fetch error:', error.message);
       } else if (data) {
         const mapped: CompanyProfile = {
-          id: data.id || 'company-default-01',
+          id: data.id || `company_${tenantId}`,
           legalName: data.legal_name || '',
           tradeName: data.trade_name || '',
           tagline: data.tagline || '',
@@ -269,14 +272,15 @@ export async function fetchCompanyProfile(): Promise<CompanyProfile> {
           brandColor: data.brand_color || '#6253F8',
           watermarkEnabled: data.watermark_enabled ?? true,
           watermarkOpacity: Number(data.watermark_opacity) || 0.22,
-          authorizedSignatoryName: data.authorized_signatory_name || 'Anjali',
-          authorizedSignatoryDesignation: data.authorized_signatory_designation || 'COO',
+          authorizedSignatoryName: data.authorized_signatory_name || '',
+          authorizedSignatoryDesignation: data.authorized_signatory_designation || '',
           signatureUrl: data.signature_url || '',
           isOnboarded: data.is_onboarded ?? true,
           updatedAt: data.updated_at || new Date().toISOString(),
         };
 
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(mapped));
+        const key = getStorageKey();
+        localStorage.setItem(key, JSON.stringify(mapped));
         window.dispatchEvent(new CustomEvent('crm-company-profile-changed', { detail: mapped }));
 
         if (mapped.logoUrl && mapped.logoUrl.startsWith('data:image/') && mapped.logoUrl.length > 25000) {
@@ -285,7 +289,7 @@ export async function fetchCompanyProfile(): Promise<CompanyProfile> {
             if (compressed && compressed !== originalLogo && compressed.length < originalLogo.length) {
               mapped.logoUrl = compressed;
               try {
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(mapped));
+                localStorage.setItem(key, JSON.stringify(mapped));
                 window.dispatchEvent(new CustomEvent('crm-company-profile-changed', { detail: mapped }));
               } catch {}
             }
@@ -306,20 +310,26 @@ export function saveCompanyProfile(profile: Partial<CompanyProfile>): CompanyPro
   if (typeof window === 'undefined') return { ...DEFAULT_COMPANY_PROFILE, ...profile };
   try {
     const current = getCompanyProfile();
+    const tenantId = getActiveTenantId();
+    const profileId = updatedId(profile.id || current.id, tenantId);
+
     const updated: CompanyProfile = {
       ...current,
       ...profile,
+      id: profileId,
       isOnboarded: true,
       updatedAt: new Date().toISOString(),
     };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+
+    const key = getStorageKey();
+    localStorage.setItem(key, JSON.stringify(updated));
     window.dispatchEvent(new CustomEvent('crm-company-profile-changed', { detail: updated }));
 
     // Persist to Supabase company_profiles table
     if (isSupabaseConfigured()) {
       const payload = {
-        id: updated.id || 'company-default-01',
-        tenant_id: 't-apex-001',
+        id: updated.id,
+        tenant_id: tenantId,
         legal_name: updated.legalName || '',
         trade_name: updated.tradeName || '',
         tagline: updated.tagline || '',
@@ -346,8 +356,8 @@ export function saveCompanyProfile(profile: Partial<CompanyProfile>): CompanyPro
         brand_color: updated.brandColor || '#6253F8',
         watermark_enabled: updated.watermarkEnabled ?? true,
         watermark_opacity: updated.watermarkOpacity || 0.22,
-        authorized_signatory_name: updated.authorizedSignatoryName || 'Anjali',
-        authorizedSignatoryDesignation: updated.authorizedSignatoryDesignation || 'COO',
+        authorized_signatory_name: updated.authorizedSignatoryName || '',
+        authorized_signatory_designation: updated.authorizedSignatoryDesignation || '',
         signature_url: updated.signatureUrl || '',
         is_onboarded: updated.isOnboarded ?? true,
         updated_at: new Date().toISOString(),
@@ -372,16 +382,25 @@ export function saveCompanyProfile(profile: Partial<CompanyProfile>): CompanyPro
   }
 }
 
+function updatedId(existingId: string | undefined, tenantId: string): string {
+  if (existingId && existingId !== 'company-default-01' && existingId !== 'company_profile') {
+    return existingId;
+  }
+  return `company_${tenantId}`;
+}
+
 export function resetCompanyProfile(): CompanyProfile {
   if (typeof window === 'undefined') return DEFAULT_COMPANY_PROFILE;
   try {
-    localStorage.removeItem(STORAGE_KEY);
-    localStorage.removeItem(CREDS_KEY);
+    const key = getStorageKey();
+    localStorage.removeItem(key);
+    localStorage.removeItem(getScopedKey(CREDS_KEY));
     window.dispatchEvent(new CustomEvent('crm-company-profile-changed', { detail: DEFAULT_COMPANY_PROFILE }));
     
     if (isSupabaseConfigured()) {
-      supabase.from('company_profiles').delete().eq('id', 'company-default-01').then(() => {
-        console.log('[CompanyStore] Reset company profile in Supabase');
+      const tenantId = getActiveTenantId();
+      supabase.from('company_profiles').delete().eq('tenant_id', tenantId).then(() => {
+        console.log('[CompanyStore] Reset company profile in Supabase for tenant:', tenantId);
       });
     }
 

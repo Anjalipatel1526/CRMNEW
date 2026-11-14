@@ -1,4 +1,5 @@
 import { supabase, isSupabaseConfigured } from './supabase';
+import { getActiveTenantId, getScopedKey } from './tenant-context';
 
 export interface VaultDocument {
   id: string;
@@ -18,97 +19,35 @@ export interface VaultDocument {
   fileDataUrl?: string;
 }
 
-const STORAGE_KEY = 'crm_compliance_documents_v1';
+const STORAGE_KEY_BASE = 'crm_compliance_documents_v2';
 
-export const INITIAL_DOCUMENTS: VaultDocument[] = [
-  {
-    id: 'doc-001',
-    title: 'Customer Aadhaar & PAN Card KYC Dossier',
-    type: 'kyc',
-    classificationLabel: 'Customer KYC (PAN / Aadhaar)',
-    entityType: 'customer',
-    entityId: 'cust-101',
-    entityName: 'Rahul Verma',
-    fileName: 'rahul_verma_kyc_pan_aadhaar.pdf',
-    fileSizeBytes: 2457600,
-    mimeType: 'application/pdf',
-    storageKey: 'vault/doc-001/rahul_verma_kyc.pdf',
-    status: 'verified',
-    uploadedAt: '02 Nov 2026',
-    verifiedAt: '03 Nov 2026',
-  },
-  {
-    id: 'doc-002',
-    title: 'Vehicle Registration Certificate (RC Form 23)',
-    type: 'rc',
-    classificationLabel: 'Vehicle RC / Fitness Certificate',
-    entityType: 'vehicle',
-    entityId: 'veh-201',
-    entityName: 'Mercedes-Benz E-Class E200',
-    fileName: 'rc_copy_dl01ab1234.pdf',
-    fileSizeBytes: 1843200,
-    mimeType: 'application/pdf',
-    storageKey: 'vault/doc-002/rc_copy_dl01ab1234.pdf',
-    status: 'verified',
-    uploadedAt: '01 Nov 2026',
-    verifiedAt: '02 Nov 2026',
-  },
-  {
-    id: 'doc-003',
-    title: 'Comprehensive Zero-Dep Motor Insurance Policy',
-    type: 'insurance',
-    classificationLabel: 'Insurance Policy Certificate',
-    entityType: 'vehicle',
-    entityId: 'veh-202',
-    entityName: 'BMW X5 xDrive40i',
-    fileName: 'icici_lombard_zero_dep_policy.pdf',
-    fileSizeBytes: 3145728,
-    mimeType: 'application/pdf',
-    storageKey: 'vault/doc-003/icici_lombard_zero_dep_policy.pdf',
-    status: 'under_review',
-    uploadedAt: '03 Nov 2026',
-  },
-  {
-    id: 'doc-004',
-    title: '150-Point Technical Pre-Delivery Inspection (PDI)',
-    type: 'pdi',
-    classificationLabel: 'PDI Technical Checklist',
-    entityType: 'vehicle',
-    entityId: 'veh-203',
-    entityName: 'Audi A6 Technology 45 TFSI',
-    fileName: 'pdi_passed_inspection_checklist.pdf',
-    fileSizeBytes: 1258291,
-    mimeType: 'application/pdf',
-    storageKey: 'vault/doc-004/pdi_checklist.pdf',
-    status: 'verified',
-    uploadedAt: '04 Nov 2026',
-    verifiedAt: '04 Nov 2026',
-  },
-];
+export const INITIAL_DOCUMENTS: VaultDocument[] = [];
 
 export function getDocuments(): VaultDocument[] {
-  if (typeof window === 'undefined') return INITIAL_DOCUMENTS;
+  if (typeof window === 'undefined') return [];
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    localStorage.removeItem('crm_compliance_documents_v1');
+    const scopedKey = getScopedKey(STORAGE_KEY_BASE);
+    const raw = localStorage.getItem(scopedKey);
     if (!raw) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_DOCUMENTS));
-      return INITIAL_DOCUMENTS;
+      return [];
     }
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed)) {
       return parsed;
     }
-    return INITIAL_DOCUMENTS;
+    return [];
   } catch (err) {
     console.error('Failed to read documents from storage:', err);
-    return INITIAL_DOCUMENTS;
+    return [];
   }
 }
 
 export function saveDocuments(docs: VaultDocument[]): void {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(docs));
+    const scopedKey = getScopedKey(STORAGE_KEY_BASE);
+    localStorage.setItem(scopedKey, JSON.stringify(docs));
     window.dispatchEvent(new Event('crm-documents-changed'));
   } catch (err) {
     console.error('Failed to save documents to storage:', err);
@@ -152,15 +91,17 @@ function mapSupabaseRowToVaultDoc(row: any, localMap: Map<string, VaultDocument>
 }
 
 export async function fetchDocuments(): Promise<VaultDocument[]> {
-  if (typeof window === 'undefined') return INITIAL_DOCUMENTS;
+  if (typeof window === 'undefined') return [];
+
+  const tenantId = getActiveTenantId();
 
   if (isSupabaseConfigured()) {
     try {
       let data: any[] | null = null;
 
-      // 1. Fetch from server API route /api/documents (uses service role key to bypass RLS)
+      // 1. Fetch from server API route /api/documents (scoped by tenantId)
       try {
-        const res = await fetch('/api/documents');
+        const res = await fetch(`/api/documents?tenantId=${encodeURIComponent(tenantId)}`);
         if (res.ok) {
           const json = await res.json();
           if (Array.isArray(json.data)) {
@@ -176,6 +117,7 @@ export async function fetchDocuments(): Promise<VaultDocument[]> {
         const { data: directData, error } = await supabase
           .from('documents')
           .select('*')
+          .eq('tenant_id', tenantId)
           .order('created_at', { ascending: false });
 
         if (!error && Array.isArray(directData)) {
@@ -189,7 +131,6 @@ export async function fetchDocuments(): Promise<VaultDocument[]> {
         localList.forEach((d) => localMap.set(d.id, d));
 
         // Supabase is the source of truth!
-        // If a document was deleted in Supabase, it is NOT in data and will be removed from frontend.
         const remoteList: VaultDocument[] = data.map((row) => mapSupabaseRowToVaultDoc(row, localMap));
 
         saveDocuments(remoteList);
@@ -286,6 +227,7 @@ export async function addDocument(docData: {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id: newDoc.id,
+          tenantId: getActiveTenantId(),
           title: newDoc.title,
           entityType: newDoc.entityType,
           entityId: newDoc.entityId,

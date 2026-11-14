@@ -65,30 +65,28 @@ export interface HotDeal {
 const AUDIT_LOG_EVENTS: any[] = [];
 
 const REVENUE_DATA_12M = [
-  { month: 'Nov', revenue: 0, target: 150000 },
-  { month: 'Dec', revenue: 0, target: 150000 },
-  { month: 'Jan', revenue: 0, target: 150000 },
-  { month: 'Feb', revenue: 0, target: 150000 },
-  { month: 'Mar', revenue: 0, target: 150000 },
-  { month: 'Apr', revenue: 0, target: 150000 },
-  { month: 'May', revenue: 0, target: 150000 },
-  { month: 'Jun', revenue: 0, target: 150000 },
-  { month: 'Jul', revenue: 0, target: 150000 },
-  { month: 'Aug', revenue: 0, target: 150000 },
-  { month: 'Sep', revenue: 0, target: 150000 },
-  { month: 'Oct', revenue: 0, target: 150000 },
+  { month: 'Nov', revenue: 0, target: 0 },
+  { month: 'Dec', revenue: 0, target: 0 },
+  { month: 'Jan', revenue: 0, target: 0 },
+  { month: 'Feb', revenue: 0, target: 0 },
+  { month: 'Mar', revenue: 0, target: 0 },
+  { month: 'Apr', revenue: 0, target: 0 },
+  { month: 'May', revenue: 0, target: 0 },
+  { month: 'Jun', revenue: 0, target: 0 },
+  { month: 'Jul', revenue: 0, target: 0 },
+  { month: 'Aug', revenue: 0, target: 0 },
+  { month: 'Sep', revenue: 0, target: 0 },
+  { month: 'Oct', revenue: 0, target: 0 },
 ];
 
 const REVENUE_DATA_6M = [
-  { month: 'May', revenue: 0, target: 150000 },
-  { month: 'Jun', revenue: 0, target: 150000 },
-  { month: 'Jul', revenue: 0, target: 150000 },
-  { month: 'Aug', revenue: 0, target: 150000 },
-  { month: 'Sep', revenue: 0, target: 150000 },
-  { month: 'Oct', revenue: 0, target: 150000 },
+  { month: 'May', revenue: 0, target: 0 },
+  { month: 'Jun', revenue: 0, target: 0 },
+  { month: 'Jul', revenue: 0, target: 0 },
+  { month: 'Aug', revenue: 0, target: 0 },
+  { month: 'Sep', revenue: 0, target: 0 },
+  { month: 'Oct', revenue: 0, target: 0 },
 ];
-
-const HOT_DEALS: HotDeal[] = [];
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -153,6 +151,51 @@ export default function DashboardPage() {
   const totalDealValue = deals.reduce((sum, d) => sum + d.grandTotal, 0);
   const totalDeposits = deals.reduce((sum, d) => sum + d.amountPaid, 0);
 
+  const hotDeals: HotDeal[] = useMemo(() => {
+    return deals.slice(0, 6).map((d) => {
+      const cust = customers.find((c) => c.id === d.customerId);
+      const veh = vehicles.find((v) => v.id === d.vehicleId);
+      const custName = d.customerName || (cust ? `${cust.firstName} ${cust.lastName}` : 'Direct Client');
+      const vehName = d.vehicleName || (veh ? `${veh.make} ${veh.model}` : 'Vehicle');
+      const initials = (custName || 'CL').slice(0, 2).toUpperCase();
+
+      return {
+        id: d.id,
+        dealNumber: d.dealNumber || 'DEAL-' + d.id.slice(-4),
+        vehicle: vehName,
+        variant: veh?.variant || 'Standard',
+        vin: veh?.vin || 'VIN-PENDING',
+        fuel: veh?.fuelType || 'Petrol',
+        transmission: veh?.transmission || 'Manual',
+        color: veh?.color || 'White',
+        customer: custName,
+        phone: cust?.phone || '+91 98000 00000',
+        email: cust?.email || '',
+        city: cust?.address?.city || 'Mumbai',
+        advisor: 'Senior Sales Executive',
+        branch: 'Main Showroom',
+        value: d.grandTotal || d.vehiclePrice || 0,
+        basePrice: d.vehiclePrice || 0,
+        rtoRoadTax: d.taxTotal || 0,
+        insurance: d.feesTotal || 0,
+        accessories: d.accessoriesTotal || 0,
+        tokenPaid: d.amountPaid || 0,
+        loanApproved: d.loanAmount || 0,
+        financier: d.lenderName || (d.financeType === 'loan' ? 'Partner Bank' : 'Direct / Self'),
+        balanceDue: d.balanceDue || 0,
+        prob: (d.stage as string) === 'delivered' || d.stage === 'ready' ? 100 : d.stage === 'documents' ? 95 : d.stage === 'pdi' ? 90 : d.stage === 'finance' ? 85 : 80,
+        date: d.createdAt ? d.createdAt.split('T')[0] : new Date().toISOString().split('T')[0],
+        stages: ['Draft Quotation', 'Token Deposit', 'Loan & KYC Approval', 'PDI & Gate Pass', 'Delivered'],
+        currentStage: (d.stage as string) === 'delivered' || d.stage === 'ready' ? 5 : d.stage === 'pdi' ? 4 : d.stage === 'documents' ? 3 : d.stage === 'finance' ? 2 : 1,
+        gateDetails: [
+          { name: 'Vehicle Allocation', status: 'Cleared', date: 'Day 1', note: 'Allocated from current inventory' },
+          { name: 'Finance Clearance', status: d.amountPaid > 0 ? 'Cleared' : 'Pending', date: 'Day 2', note: d.financeType || 'Direct' },
+        ],
+        avatars: [{ text: initials, bg: '#EEF2FF', color: '#6253F8' }],
+      };
+    });
+  }, [deals, customers, vehicles]);
+
   const activeRevenueData = useMemo(() => {
     if (selectedMonth === 'all') {
       return REVENUE_DATA_12M;
@@ -170,7 +213,7 @@ export default function DashboardPage() {
     return `₹${won.toLocaleString('en-IN')}`;
   }, [deals]);
 
-  const targetMetCount = activeRevenueData.filter(d => d.revenue >= d.target).length;
+  const targetMetCount = activeRevenueData.filter(d => d.target > 0 && d.revenue >= d.target).length;
   const brandDisplayName = isMounted ? (company.tradeName || company.legalName || 'UNAI CRM') : 'UNAI CRM';
 
   return (
@@ -273,7 +316,7 @@ export default function DashboardPage() {
               </span>
               <span style={{ fontSize: '0.9rem', color: 'var(--muted)', fontWeight: 500 }}>
                 {selectedMonth === 'all'
-                  ? `won in ${selectedYear} · ${targetMetCount} of 12 months at target`
+                  ? (targetMetCount > 0 ? `won in ${selectedYear} · ${targetMetCount} of 12 months at target` : `won in ${selectedYear} · All deals on track`)
                   : `won in ${selectedMonth} ${selectedYear} · As of ${selectedDate}`}
               </span>
             </div>
@@ -282,7 +325,7 @@ export default function DashboardPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '18px', marginTop: '6px' }}>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', fontWeight: 600, color: 'var(--muted)' }}>
                 <span style={{ width: '10px', height: '10px', borderRadius: '3px', background: 'linear-gradient(180deg, #7957F6 0%, #4054F5 100%)' }} />
-                Target met (₹156.7K+)
+                Target met
               </span>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', fontWeight: 600, color: 'var(--muted)' }}>
                 <span style={{ width: '10px', height: '10px', borderRadius: '3px', background: 'linear-gradient(180deg, #E06341 0%, #C8431F 100%)' }} />
@@ -290,7 +333,7 @@ export default function DashboardPage() {
               </span>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', fontWeight: 600, color: 'var(--muted)' }}>
                 <span style={{ width: '14px', height: '2px', borderTop: '2px dashed var(--muted)' }} />
-                Monthly target ₹156.7K
+                Monthly target
               </span>
             </div>
           </div>
@@ -303,7 +346,7 @@ export default function DashboardPage() {
                 <span>₹200K</span>
               </div>
               <div className="unique-grid-line unique-grid-line--target" style={{ top: '22%' }}>
-                <span className="unique-target-tag">Target ₹156.7K</span>
+                <span className="unique-target-tag">Target</span>
               </div>
               <div className="unique-grid-line" style={{ top: '50%' }}>
                 <span>₹100K</span>
@@ -415,7 +458,7 @@ export default function DashboardPage() {
 
           {/* Unique Hot Deals Grid */}
           <div className="unique-deals-grid">
-            {HOT_DEALS.length === 0 ? (
+            {hotDeals.length === 0 ? (
               <div
                 style={{
                   gridColumn: '1 / -1',
@@ -441,7 +484,7 @@ export default function DashboardPage() {
                 </Link>
               </div>
             ) : (
-              HOT_DEALS.map((deal) => {
+              hotDeals.map((deal) => {
                 const strokeDash = `${deal.prob}, 100`;
                 const strokeColor =
                   deal.prob >= 95 ? '#6253F8' :
@@ -1066,7 +1109,7 @@ export default function DashboardPage() {
               </div>
               <span className="unique-deal-tag">#{selectedDeal.dealNumber}</span>
               <div className="hero-dossier-switcher" style={{ marginLeft: '8px' }}>
-                {HOT_DEALS.map((d) => (
+                {hotDeals.map((d) => (
                   <button
                     key={d.id}
                     type="button"

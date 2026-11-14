@@ -28,6 +28,7 @@ import {
 import { WordFadeIn } from '@/components/ui/WordFadeIn';
 import { InvoiceDocumentGenerator, ExecutiveSignatureSvg, getInvoiceColorSystem } from '@/components/invoices/InvoiceDocumentGenerator';
 import { getCompanyProfile } from '@/lib/company-store';
+import { getActiveTenantId } from '@/lib/tenant-context';
 
 export default function FinancePage() {
   const [payments, setPayments] = useState<Payment[]>(api.getPayments());
@@ -44,7 +45,7 @@ export default function FinancePage() {
   const handleSaveInvoice = (inv: any) => {
     const newPayment: Payment = {
       id: 'pay-' + Date.now(),
-      tenantId: 't-apex-001',
+      tenantId: getActiveTenantId(),
       branchId: 'b-dt-001',
       currency: 'INR',
       paymentNumber: inv.invoiceNumber,

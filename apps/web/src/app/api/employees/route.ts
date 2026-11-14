@@ -2,28 +2,39 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin, isSupabaseConfigured } from '@/lib/supabase';
 
 // Helper to ensure tenant and branch exist so foreign key constraints never fail
-async function getOrCreateTenantAndBranch(): Promise<{ tenantId: string; branchId: string }> {
+async function getOrCreateTenantAndBranch(requestedTenantId?: string): Promise<{ tenantId: string; branchId: string }> {
   try {
-    // 1. Check if a tenant already exists
-    const { data: existingTenants } = await supabaseAdmin
-      .from('tenants')
-      .select('id')
-      .limit(1);
+    let tenantId: string = requestedTenantId || '';
 
-    let tenantId = existingTenants?.[0]?.id;
-
-    if (!tenantId) {
-      tenantId = 't-apex-001';
+    if (tenantId) {
       await supabaseAdmin.from('tenants').upsert(
         {
           id: tenantId,
-          name: 'Apex Luxury Motors',
-          slug: 'apex-luxury-motors',
+          name: 'Dealership Workspace',
+          slug: tenantId.replace(/^t_/, ''),
           status: 'active',
           dealer_model: 'mixed',
           primary_contact_name: 'Dealership Admin',
-          primary_email: 'admin@apexmotors.com',
-          primary_phone: '+91 98765 43210',
+          currency: 'INR',
+          timezone: 'Asia/Kolkata',
+        },
+        { onConflict: 'id' }
+      );
+    } else {
+      const { data: existingTenants } = await supabaseAdmin
+        .from('tenants')
+        .select('id')
+        .limit(1);
+
+      tenantId = existingTenants?.[0]?.id || 't_default';
+      await supabaseAdmin.from('tenants').upsert(
+        {
+          id: tenantId,
+          name: 'Dealership Workspace',
+          slug: 'dealership',
+          status: 'active',
+          dealer_model: 'mixed',
+          primary_contact_name: 'Dealership Admin',
           currency: 'INR',
           timezone: 'Asia/Kolkata',
         },
@@ -41,13 +52,13 @@ async function getOrCreateTenantAndBranch(): Promise<{ tenantId: string; branchI
     let branchId = existingBranches?.[0]?.id;
 
     if (!branchId) {
-      branchId = 'b-dt-001';
+      branchId = `b_${tenantId.slice(0, 8)}_01`;
       await supabaseAdmin.from('branches').upsert(
         {
           id: branchId,
           tenant_id: tenantId,
-          code: 'DT-01',
-          name: 'Apex Downtown Flagship',
+          code: 'BR-01',
+          name: 'Main Showroom',
           is_active: true,
         },
         { onConflict: 'id' }
@@ -57,21 +68,30 @@ async function getOrCreateTenantAndBranch(): Promise<{ tenantId: string; branchI
     return { tenantId, branchId };
   } catch (err) {
     console.warn('[API/employees] Tenant/Branch resolution warning:', err);
-    return { tenantId: 't-apex-001', branchId: 'b-dt-001' };
+    return { tenantId: requestedTenantId || 't_default', branchId: 'b_default' };
   }
 }
 
 // GET /api/employees - Fetch all employees from Supabase
-export async function GET() {
+export async function GET(req: Request) {
   if (!isSupabaseConfigured()) {
     return NextResponse.json({ data: [], error: 'Supabase not configured' });
   }
 
   try {
-    const { data, error } = await supabaseAdmin
+    const { searchParams } = new URL(req.url);
+    const tenantId = searchParams.get('tenantId');
+
+    let query = supabaseAdmin
       .from('employees')
       .select('*')
       .order('created_at', { ascending: false });
+
+    if (tenantId) {
+      query = query.eq('tenant_id', tenantId);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       console.error('[API/employees] GET error:', error.message);
@@ -93,7 +113,9 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { tenantId, branchId } = await getOrCreateTenantAndBranch();
+    const resolved = await getOrCreateTenantAndBranch(body.tenantId || body.tenant_id);
+    const tenantId = body.tenantId || body.tenant_id || resolved.tenantId;
+    const branchId = body.branchId || body.branch_id || resolved.branchId;
 
     const empId = body.id || 'emp-' + Date.now();
     const payloadWithKeys: Record<string, any> = {

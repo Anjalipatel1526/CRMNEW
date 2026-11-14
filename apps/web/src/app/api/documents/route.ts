@@ -2,8 +2,26 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin, isSupabaseConfigured } from '@/lib/supabase';
 
 // Helper to ensure default tenant exists
-async function getOrCreateTenant(): Promise<string> {
+async function getOrCreateTenant(requestedTenantId?: string): Promise<string> {
   try {
+    let tenantId = requestedTenantId;
+    if (tenantId) {
+      await supabaseAdmin.from('tenants').upsert(
+        {
+          id: tenantId,
+          name: 'Dealership Workspace',
+          slug: tenantId.replace(/^t_/, ''),
+          status: 'active',
+          dealer_model: 'mixed',
+          primary_contact_name: 'Dealership Admin',
+          currency: 'INR',
+          timezone: 'Asia/Kolkata',
+        },
+        { onConflict: 'id' }
+      );
+      return tenantId;
+    }
+
     const { data: existingTenants } = await supabaseAdmin
       .from('tenants')
       .select('id')
@@ -13,17 +31,15 @@ async function getOrCreateTenant(): Promise<string> {
       return existingTenants[0].id;
     }
 
-    const defaultTenantId = 't-apex-001';
+    const defaultTenantId = 't_default';
     await supabaseAdmin.from('tenants').upsert(
       {
         id: defaultTenantId,
-        name: 'Apex Luxury Motors',
-        slug: 'apex-luxury-motors',
+        name: 'Dealership Workspace',
+        slug: 'dealership',
         status: 'active',
         dealer_model: 'mixed',
         primary_contact_name: 'Dealership Admin',
-        primary_email: 'admin@apexmotors.com',
-        primary_phone: '+91 98765 43210',
         currency: 'INR',
         timezone: 'Asia/Kolkata',
       },
@@ -32,21 +48,30 @@ async function getOrCreateTenant(): Promise<string> {
     return defaultTenantId;
   } catch (err) {
     console.warn('[API/documents] Tenant resolution warning:', err);
-    return 't-apex-001';
+    return requestedTenantId || 't_default';
   }
 }
 
 // GET /api/documents - Retrieve all compliance / vault documents
-export async function GET() {
+export async function GET(req: Request) {
   if (!isSupabaseConfigured()) {
     return NextResponse.json({ data: [], error: 'Supabase not configured' });
   }
 
   try {
-    const { data, error } = await supabaseAdmin
+    const { searchParams } = new URL(req.url);
+    const tenantId = searchParams.get('tenantId');
+
+    let query = supabaseAdmin
       .from('documents')
       .select('*')
       .order('created_at', { ascending: false });
+
+    if (tenantId) {
+      query = query.eq('tenant_id', tenantId);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       console.error('[API/documents] GET error:', error.message);
@@ -68,7 +93,7 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const tenantId = await getOrCreateTenant();
+    const tenantId = await getOrCreateTenant(body.tenantId || body.tenant_id);
 
     const docId = body.id || 'doc-' + Date.now();
     const fileName = body.fileName || body.file_name || 'document.pdf';

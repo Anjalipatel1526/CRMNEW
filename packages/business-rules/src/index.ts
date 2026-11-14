@@ -171,7 +171,10 @@ export class PricingEngine {
     // Rule matrix by role
     const thresholds: Record<string, number> = {
       sales_executive: 2.0,   // up to 2% auto-allowed
+      service_advisor: 3.0,   // up to 3% auto-allowed
+      inventory_manager: 5.0, // up to 5% auto-allowed
       branch_manager: 7.5,    // up to 7.5% auto-allowed
+      finance_manager: 10.0,  // up to 10% auto-allowed
       tenant_admin: 100.0,    // full authority
       platform_admin: 100.0,
     };

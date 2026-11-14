@@ -3,6 +3,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { UserContext, Branch, UserRole } from '@crm/shared-types';
 import { api } from './api-client';
+import { sanitizeSlug } from './tenant-context';
+import { supabase } from './supabase';
 
 const SESSION_KEY = 'crm_active_user_session_v1';
 
@@ -21,6 +23,7 @@ export interface UserSession {
   employeeCode?: string;
   isAdmin?: boolean;
   accessControl?: EmployeeAccessControl;
+  tenantId?: string;
 }
 
 export function saveUserSession(session: UserSession) {
@@ -71,6 +74,7 @@ interface AuthContextType {
       avatarUrl?: string;
       phone?: string;
       accessControl?: EmployeeAccessControl;
+      tenantId?: string;
     }
   ) => void;
   updateUserProfile: (updates: { fullName?: string; email?: string; phone?: string; avatarUrl?: string }) => void;
@@ -190,12 +194,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       avatarUrl?: string;
       phone?: string;
       accessControl?: EmployeeAccessControl;
+      tenantId?: string;
     }
   ) => {
     const resolvedName = fullName || emailOrId.split('@')[0] || 'Administrator';
     const resolvedEmail = emailOrId.includes('@') ? emailOrId : `${emailOrId.toLowerCase().replace(/\s+/g, '')}@dealership.com`;
     const resolvedUserId = emailOrId;
     const localAvatar = meta?.avatarUrl || (typeof window !== 'undefined' ? localStorage.getItem('crm_user_avatar') || '' : '');
+    const resolvedTenantId = meta?.tenantId || (
+      meta?.employeeId ? (meta?.tenantId || 't_default') : `t_${sanitizeSlug(resolvedUserId)}`
+    );
 
     const newSession: UserSession = {
       isLoggedIn: true,
@@ -210,6 +218,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       employeeCode: meta?.employeeCode,
       isAdmin: Boolean(meta?.isAdmin),
       accessControl: meta?.accessControl,
+      tenantId: resolvedTenantId,
     };
 
     saveUserSession(newSession);
@@ -275,11 +284,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     window.dispatchEvent(new CustomEvent('crm-user-profile-changed', { detail: updated }));
   };
 
-  const logout = () => {
+  const logout = async () => {
     clearUserSession();
     setSession(null);
     setIsLoggedIn(false);
     setUserContext(initialContext);
+
+    try {
+      await supabase.auth.signOut();
+    } catch {}
+
+    api.resetData();
+
     if (typeof window !== 'undefined') {
       window.location.href = '/login';
     }

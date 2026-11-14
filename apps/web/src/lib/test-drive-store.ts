@@ -23,7 +23,14 @@ export interface TestDrive {
   createdAt: string;
 }
 
-const STORAGE_KEY = 'crm_test_drives_v2';
+import { supabase, isSupabaseConfigured } from './supabase';
+import { getActiveTenantId, getScopedKey } from './tenant-context';
+
+const BASE_STORAGE_KEY = 'crm_test_drives_v2';
+
+function getStorageKey(): string {
+  return getScopedKey(BASE_STORAGE_KEY);
+}
 
 export const INITIAL_TEST_DRIVES: TestDrive[] = [];
 
@@ -32,9 +39,10 @@ export function getTestDrives(): TestDrive[] {
   try {
     // Purge legacy mock test drives from previous sessions
     localStorage.removeItem('crm_test_drives_v1');
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const key = getStorageKey();
+    const raw = localStorage.getItem(key);
     if (!raw) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify([]));
+      localStorage.setItem(key, JSON.stringify([]));
       return [];
     }
     const parsed = JSON.parse(raw);
@@ -48,12 +56,11 @@ export function getTestDrives(): TestDrive[] {
   }
 }
 
-import { supabase, isSupabaseConfigured } from './supabase';
-
 export function saveTestDrives(drives: TestDrive[]): void {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(drives));
+    const key = getStorageKey();
+    localStorage.setItem(key, JSON.stringify(drives));
     window.dispatchEvent(new Event('crm-testdrives-changed'));
   } catch (err) {
     console.error('Failed to save test drives to storage:', err);
@@ -65,9 +72,11 @@ export async function fetchTestDrives(): Promise<TestDrive[]> {
 
   if (isSupabaseConfigured()) {
     try {
+      const tenantId = getActiveTenantId();
       const { data, error } = await supabase
         .from('test_drives')
         .select('*')
+        .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -182,13 +191,14 @@ export function addTestDrive(driveData: Partial<TestDrive>): TestDrive {
 
   // Sync to Supabase test_drives table
   if (isSupabaseConfigured()) {
+    const tenantId = getActiveTenantId();
     supabase
       .from('test_drives')
       .insert({
         id: newDrive.id,
-        tenant_id: 't-apex-001',
-        vehicle_id: 'v-001',
-        customer_id: 'cust-101',
+        tenant_id: tenantId,
+        vehicle_id: 'v_active',
+        customer_id: 'cust_active',
         route: newDrive.route,
         start_odometer: newDrive.startOdo,
         feedback: newDrive.feedback || '',
