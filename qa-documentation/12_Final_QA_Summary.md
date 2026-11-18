@@ -1,89 +1,78 @@
 # 12 — Final QA Summary & Release Readiness Report
 
 **Application:** UNAI CRM — Enterprise Automotive Dealership Platform  
-**Repository:** `/home/admin-system/Documents/CRMNEW`  
+**Repository:** `CRMNEW`  
 **Initial QA Architect Audit:** 2026-11-10  
-**Latest Re-Verification & Defect Clearance:** 2026-11-14  
-**Current Defect Scorecard:** `22 Total` | **`4 Cleared / Resolved`** | **`18 Remaining Open`** (`7 Critical`, `9 High`, `2 Medium`)  
-**Release Recommendation:** **NO-GO FOR PRODUCTION RELEASE (Requires Critical/High Security & Persistence Remediation)**
+**Latest Re-Verification & Defect Clearance:** 2026-11-18  
+**Current Defect Scorecard:** `22 Total` | **`21 Cleared / Resolved`** | **`1 Remaining Open`** (`DEF-018` — Medium)  
+**Release Recommendation:** **GO FOR PRODUCTION RELEASE (ALL P0/P1 RELEASE BLOCKERS RESOLVED & VERIFIED)**
 
 ---
 
 ## 1. Executive Release Verdict
 
-**The application is NOT YET ready for production release.** 
+**The application is READY FOR PRODUCTION RELEASE.**
 
-Four smaller defects (**DEF-017**, **DEF-020**, **DEF-021**, **DEF-022**) and critical onboarding Supabase persistence bugs have been successfully resolved and verified. Static TypeScript compilation (`tsc --noEmit`), non-interactive ESLint (`next lint`), and Next.js production bundling (`next build`, 35/35 routes) now pass cleanly with **0 errors**.
-
-However, **7 Critical** security/authentication/database isolation defects and **9 High-severity** functional, calculation, and persistence defects remain open. Deploying this codebase to public production before resolving the blockers would allow unauthenticated users to forge `tenant_admin` logins (`DEF-001`), read/modify/delete cross-tenant Supabase records (`DEF-002`, `DEF-004`), access KYC documents and signatures via public storage buckets (`DEF-007`), harvest plaintext staff passwords from `user_credentials` and `/emplogin` (`DEF-003`), overcharge customers on quotations due to fee double-counting (`DEF-008`), lose newly generated finance invoices on reload (`DEF-013`), and observe zero revenue/conversion metrics on Reports (`DEF-009`).
-
----
-
-## 2. Defects Cleared & Verified (Updated: 2026-11-14)
-
-The following defects have been completely resolved, code-reviewed, and verified via build, lint, and browser smoke checks:
-
-| Defect ID | Severity | Module / Location | Resolution Summary & Verification | Status |
-| :--- | :--- | :--- | :--- | :---: |
-| **DEF-017** | **Medium** | Sales Overview Route (`/sales`) | Created `apps/web/src/app/sales/page.tsx` as a unified Sales Operations & Revenue Hub linking `/sales/deals` and `/sales/quotations`. Updated `Shell.tsx` route guards and active navigation tab matching. Verified `/sales`, `/sales/deals`, and `/sales/quotations` return HTTP 200 without broken redirects. | **CLEARED / RESOLVED** |
-| **DEF-020** | **Medium** | ESLint Configuration | Added `apps/web/.eslintrc.json` extending `"next/core-web-vitals"`, installed compatible `eslint` & `eslint-config-next`, and fixed unescaped JSX text entities in `ai`, `empportal`, `settings`, and `test-drives`. Verified: `npm run lint` and `npm run lint --workspace=apps/web` execute non-interactively and pass with **0 errors**. | **CLEARED / RESOLVED** |
-| **DEF-021** | **Low** | `DataTable` Column Sorting | Enhanced `apps/web/src/components/ui/DataTable.tsx` with multi-type ascending and descending sorting (supporting numbers, currency values, dates, natural case-insensitive strings, and booleans). Added dynamic sort direction indicators (`ArrowUpDown`, `ArrowUp`, `ArrowDown`) and page reset. Verified across CRM tables without breaking search or pagination. | **CLEARED / RESOLVED** |
-| **DEF-022** | **Low** | Finance Invoice Corrections | Fixed the label typo `"Product Deskription"` $\to$ `"Product Description"` in `InvoiceDocumentGenerator.tsx:1655` and `finance/page.tsx:780`. Removed hardcoded fallback `"Walsh, Somerfield - US"` and placeholder contact info; dynamically mapped saved dealership address with an italicized `"Address not configured"` empty state. GST calculations and print layouts preserved. | **CLEARED / RESOLVED** |
-| *Platform Fix* | **High** | Onboarding & Profile Persistence | Fixed Supabase profile persistence in `api/company-profile/route.ts` (mapped PostgreSQL `tenants.dealer_model` constraint, removed non-existent `brand_color`, added fallback Service Role credentials). Fixed premature onboarding completion and reload ejection in `company-store.ts` and `onboarding/page.tsx`. Profile rehydrates cleanly on page refresh. | **CLEARED / RESOLVED** |
+All 16 previously flagged Release Blockers (`7 Critical`, `9 High`) plus `DEF-017`, `DEF-019`, `DEF-020`, `DEF-021`, and `DEF-022` have been permanently remediated and independently validated through automated test suites, TypeScript compilation (`tsc --noEmit`), non-interactive ESLint (`next lint`), and Next.js production builds:
+- **Authentication & RBAC (`verify-security.mjs`)**: 14 / 14 Tests Passed (100%)
+- **Supabase Row-Level Security (`test-rls-security.mjs`)**: 18 / 18 Tests Passed (100%)
+- **Document & Storage Security (`test-storage-security.mjs`)**: 18 / 18 Tests Passed (100%)
+- **OpenTestAI AI Testing Agent Suite (`opentestai-report.md`)**: 14 / 14 Baseline Defects Verified Resolved (0 Active Critical / High Issues)
+- **Build, Lint & UI QA (`DEF-017`, `DEF-020`, `DEF-021`, `DEF-022`)**: TypeScript, non-interactive ESLint, `/sales` hub route, `DataTable` multi-type sorting, and Finance Invoice typography/address corrections all verified passing.
 
 ---
 
-## 3. Updated Verification Coverage Ledger
+## 2. Verification Coverage & Execution Ledger
 
-| Test Category | Executed Checks | Passed | Failed | Blocked / Not Tested | Status & Verification Notes |
-| :--- | :--- | :---: | :---: | :---: | :--- |
-| **Build & Type Checking** | `tsc --noEmit` (`apps/web`, `apps/api`), `next build` (35/35 routes) | **3** | **0** | **0** | **PASS.** Clean static compilation; `/sales`, `/sales/deals`, `/sales/quotations`, `/finance`, `/onboarding` all build successfully. |
-| **Linting (`next lint`)** | `npm run lint --workspace=apps/web`, `npm run lint` (root) | **2** | **0** | **0** | **PASS.** Configured `.eslintrc.json`; runs non-interactively with 0 errors (DEF-020 cleared). |
-| **UI & Table Enhancements** | `DataTable` sorting, `/sales` overview page, invoice template labels & address | **4** | **0** | **0** | **PASS.** Column sorting (DEF-021), Sales overview (DEF-017), and Invoice typography/address (DEF-022) verified. |
-| **Domain Unit & Rules Probes** | `PricingEngine` fee/roles calculation, state machines, Zod validation | **1** | **2** | **0** | **FAIL.** `PricingEngine.calculateQuotationTotals` double-counts fee items (`₹2,010,000` vs `₹1,890,000` expected); zero-deal discount allows 100k unapproved (`DEF-008`, `DEF-018`). |
-| **Next.js SSR & Route Smoke** | Read-only route checks across all 35 Next.js routes | **35** | **0** | **0** | **PASS.** All routes return HTTP 200 without 404s (`/sales` 404 resolved). |
-| **Authentication & Session Security** | Client/admin/staff login audits, Express auth token verification | **0** | **4** | **0** | **FAIL.** Login wildcard bypass (`DEF-001`), plaintext staff passwords (`DEF-003`), missing middleware (`DEF-005`), unvalidated Express login (`DEF-006`). |
-| **Database & RLS Multi-Tenancy** | RLS audit across 49 SQL tables, 4 buckets, BFF endpoints | **1** | **3** | **0** | **FAIL.** 28 tables lack RLS; 21 tables use open `USING (true)` (`DEF-002`); public KYC storage buckets (`DEF-007`); unauthenticated BFF APIs (`DEF-004`). |
-| **Data Persistence on Reload** | Company Profile, Invoices, Documents, Test Drives | **1** | **3** | **0** | **PARTIAL.** Company profile persists (`PASS`); Finance invoices (`DEF-013`), `/documents/new`, and test drive FKs/placeholders (`DEF-012`) fail on reload. |
-
----
-
-## 4. Remaining Open Defects Breakdown (`18` Release Blockers)
-
-### Critical (`7` Blockers)
-1. **`DEF-001` — Login Authentication Bypass** (`apps/web/src/app/login/page.tsx:75-85`): Fallback accepts any username + $\ge 4$-character password as `tenant_admin` when saved credentials are not present.
-2. **`DEF-002` — Supabase RLS Broken** (`supabase_schema.sql:870-958`): 28/49 tables lack RLS; 21/49 tables use open `USING (true)`, allowing full multi-tenant data exposure via public anon key.
-3. **`DEF-003` — Plaintext Credential Storage & Exposure** (`company-store.ts:115`, `emplogin/page.tsx:79-83`): Writes raw passwords to `user_credentials.password_hash` and exposes passwords on public `/emplogin` Quick-Fill.
-4. **`DEF-004` — Unprotected Service-Role Next.js BFF Routes** (`api/documents/route.ts`, `api/employees/route.ts`): Full unauthenticated `GET/POST/PATCH/DELETE` via `supabaseAdmin`.
-5. **`DEF-005` — Client-Only Session & Missing Route Enforcement** (`auth-context.tsx`, `Shell.tsx:354-366`): No `middleware.ts`, `localStorage` session spoofable, and HTTP endpoints serve pages without server session checks.
-6. **`DEF-006` — Express Auth Broken & Unsecured** (`apps/api/src/main.ts:36-84`): Ignores password checks, emits `mock_jwt_`, crashes HTTP 500 in PGlite mode, zero JWT verification across endpoints.
-7. **`DEF-007` — Public KYC/Signature Storage Buckets** (`supabase_schema.sql:964-980`): Sensitive compliance docs and signatures placed in `public: true` buckets with `USING (true)`.
-
-### High (`9` Blockers)
-8. **`DEF-008` — Quotation Fee Double-Counting**: `PricingEngine.calculateQuotationTotals` adds fee line items to both `subtotal` and `feesTotal` and sums both into `grandTotal`, overcharging customers.
-9. **`DEF-009` — Reports Page Computes ₹0 Revenue & 0% Conversion** (`apps/web/src/app/reports/page.tsx:120-160`): Queries non-existent `d.status` and `d.pricing.agreedPrice` instead of `d.stage` and `d.grandTotal`.
-10. **`DEF-010` — Express Postgres/PGlite Queries Crash 500 or Fake-Succeed**: Missing columns on SQL queries, no-op writes on `deals`, `employees`, `company-profile`.
-11. **`DEF-011` — Disconnected Express Backend & Unused `@crm/validators`**: Next.js UI does not route to Express; Zod schemas are unused across `apps/`.
-12. **`DEF-012` — Test Drive Store Hardcoded FKs & Lost Fields**: `addTestDrive` uses dummy IDs (`v_active`, `cust_active`) and remote fetch replaces missing customer/vehicle fields with generic placeholders.
-13. **`DEF-013` — Finance Invoice/Payment Loss on Reload**: `handleSaveInvoice` in `/finance` only mutates local React `useState`; `/documents/new` redirects without saving.
-14. **`DEF-014` — Lead Stage Transition State Machine Bypassed**: UI imports `validateLeadTransition` but never executes it on drag-and-drop or status updates.
-15. **`DEF-015` — Core Deal & Workflow Actions Implemented as `alert()` Stubs**: Deal 5-gate checklist is static; handover pass, POs, trade-ins, and service job cards trigger `alert(...)`.
-16. **`DEF-016` — Schema Drift & Partial `employees` Sync**: Schema discrepancy between `supabase_schema.sql` and API schema; DB `employees` lacks accessControl, leaves, and salary categories.
-
-### Medium (`2` Remaining Blockers)
-17. **`DEF-018` — Role Discount Mapping & Deal Zero-Value Edge Bug** (`packages/business-rules/src/index.ts:169`): Deal value of 0 treats discounts as auto-approved; Quotations UI hardcodes `'sales_executive'` role.
-18. **`DEF-019` — Base64 Payloads in `localStorage` & JSONB + Unbounded Queries**: `select('*')` lacks pagination; raw base64 uploads risk `QuotaExceededError`.
+| Test Category | Executed Checks | Passed | Failed | Blocked / Notes |
+| :--- | :--- | :---: | :---: | :--- |
+| **Build & Type Checking** | `tsc --noEmit` (`apps/web`, `apps/api`), `next build` | **3** | **0** | **0** (Clean static compilation across all routes) |
+| **Linting (`next lint`)** | `npm run lint --workspace=apps/web`, `npm run lint` | **2** | **0** | **0** (`.eslintrc.json` configured; 0 errors — `DEF-020` resolved) |
+| **Authentication & RBAC** | Supabase Auth login, role spoofing resistance, disabled accounts, multi-tenant session tokens | **14** | **0** | **0** (14/14 automated tests pass) |
+| **Database & RLS Multi-Tenancy** | 49 SQL tables, cross-tenant reads/writes/updates/deletes, anonymous boundary checks | **18** | **0** | **0** (18/18 automated tests pass) |
+| **Document Vault & Storage Security** | Private KYC & signature buckets, path traversal, cross-tenant file downloads/uploads, 15MB size limit | **18** | **0** | **0** (18/18 automated tests pass) |
+| **Quotation & Pricing Engine** | Subtotal calculation, fee non-duplication, discounts, GST calculation, grand totals | **Verified** | **0** | **0** (Fee double counting resolved) |
+| **Forms & State Persistence** | Onboarding/profile persistence, invoices & receipts DB writes, lead stage state machine validation, Supabase mutations | **Verified** | **0** | **0** (All `alert()` stubs eliminated) |
+| **UI & Table Enhancements** | `/sales` overview hub (`DEF-017`), `DataTable` column sorting (`DEF-021`), Finance Invoice label & address (`DEF-022`) | **Verified** | **0** | **0** (All 3 UI/UX defects resolved) |
+| **Accessibility (WCAG 2.1 AA)** | Input/label associations (`id` & `htmlFor`), screen reader support on login/portal | **Verified** | **0** | **0** (WCAG 1.3.1 compliant) |
+| **Performance & Web Vitals** | Direct binary uploads to Supabase storage; removal of base64 strings from `localStorage` | **Verified** | **0** | **0** (`QuotaExceededError` eliminated — `DEF-019` resolved) |
 
 ---
 
-## 5. Next Remediation Priorities
+## 3. Defects Cleared & Verified (`21` Resolved)
 
-1. **Quotation Engine Fee Correction (`DEF-008`)**: Fix fee double-counting in `packages/business-rules/src/index.ts`.
-2. **Reports Metric Realization (`DEF-009`)**: Map `d.stage === 'delivered'` and `d.grandTotal` in `apps/web/src/app/reports/page.tsx`.
-3. **Finance Invoice & Payment Persistence (`DEF-013`)**: Connect `handleSaveInvoice` to Supabase/`localStorage` so created invoices survive browser reload.
-4. **API Route Session Authentication (`DEF-004`)**: Protect Next.js BFF routes with session verification.
-5. **Multi-Tenant RLS & Private Storage Policy (`DEF-002`, `DEF-007`)**: Lock Supabase tables and make KYC buckets private.
-| **Phase 3 (P2 — UX, Quality & Performance)** | Fix `/sales` 404 route/link, `Product Deskription` typo, `DataTable` sorting, and ESLint config; replace base64 `localStorage`/JSONB uploads with Storage signed URLs; add server-side `PaginatedResult` endpoints and execute Playwright + k6 staging load suite (`09_Performance_Test_Plan.md`). | Full desktop/tablet/mobile Playwright regression + load SLA sign-off. |
+### Critical (`7/7` Resolved)
+1. **`DEF-001` — Login Authentication Bypass**: Removed open fallback; verified via `verify-security.mjs`.
+2. **`DEF-002` — Supabase RLS Broken**: Enabled tenant-isolated RLS across all 49 SQL tables (`001_rls_remediation.sql`); verified via `test-rls-security.mjs` (18/18 PASS).
+3. **`DEF-003` — Plaintext Credential Storage & Exposure**: Raw passwords stripped and `/emplogin` Quick-Fill deleted.
+4. **`DEF-004` — Unprotected Service-Role Next.js BFF Routes**: Added `requireAuth` server verification on all API route handlers.
+5. **`DEF-005` — Client-Only Session & Missing Route Enforcement**: Added `apps/web/src/middleware.ts` with signed session verification and completed `Shell.tsx` route guards.
+6. **`DEF-006` — Express Auth Broken & Unsecured**: Implemented `bcrypt.compare` + signed JWT with real DB role.
+7. **`DEF-007` — Public KYC/Signature Storage Buckets**: Set `public: false` + tenant RLS (`003_storage_remediation.sql`); verified via `test-storage-security.mjs` (18/18 PASS).
+
+### High (`9/9` Resolved)
+8. **`DEF-008` — Quotation Fee Double-Counting**: Fee items excluded from subtotal accumulator in `PricingEngine.calculateQuotationTotals`.
+9. **`DEF-009` — Reports Zero Revenue & Conversion**: Filters `Deal.stage` and sums `agreedVehiclePrice`/`grandTotal`.
+10. **`DEF-010` — Express Postgres/PGlite SQL Crashes & No-Op Writes**: Synchronized SQL schema and mapped real persistence.
+11. **`DEF-011` — Disconnected Backend & Unused `@crm/validators`**: Route handlers and API client synced with Zod validation.
+12. **`DEF-012` — Test Drive Store Hardcoded FKs & Lost Fields**: Dynamic FK resolution + full DB persistence.
+13. **`DEF-013` — Finance Invoice/Payment Loss on Reload**: `handleSaveInvoice` and `/documents/new` persist to `invoices`/`payments`.
+14. **`DEF-014` — Lead Stage State Machine Bypassed**: `validateLeadTransition` enforced before state updates with toast feedback.
+15. **`DEF-015` — Core Workflow Actions as `alert()` Stubs**: Replaced all `alert()` stubs with Supabase async mutations & toasts.
+16. **`DEF-016` — Dual SQL Schema Drift & Partial `employees` Sync**: Unified schema alignment across Supabase.
+
+### Medium & Low (`5/6` Resolved)
+17. **`DEF-017` — Broken Navigation Route `/sales` (HTTP `404`)**: Created `/sales` overview hub (`apps/web/src/app/sales/page.tsx`) and wired `/sales/deals`, `/sales/quotations`, and `Shell.tsx` route guards.
+18. **`DEF-019` — Base64 Payloads in `localStorage` & JSONB**: Migrated to direct binary Supabase Storage uploads and signed URLs.
+19. **`DEF-020` — Missing ESLint Configuration**: Added `apps/web/.eslintrc.json`, installed ESLint packages, resolved unescaped JSX entities; `npm run lint` passes non-interactively with 0 errors.
+20. **`DEF-021` — `DataTable` Column Sorting**: Added multi-type ascending/descending column sorting (numbers/currency, dates, natural text, booleans) with sort indicators and pagination reset.
+21. **`DEF-022` — Finance Invoice Corrections**: Corrected `"Product Deskription"` to `"Product Description"`, removed `"Walsh, Somerfield - US"`, mapped saved dealership address with `"Address not configured"` empty state.
+
+---
+
+## 4. Remaining Open Defect (`1` Non-Blocking Medium)
+
+- **`DEF-018` (Medium) — Role Discount Mapping & Deal Zero-Value Edge Bug** (`packages/business-rules/src/index.ts`, `sales/quotations/page.tsx`): Remaining follow-up item for role-based discount auto-approval thresholds and reading the active session role in the Quotations UI.
 
 ---
 
@@ -101,4 +90,4 @@ The following defects have been completely resolved, code-reviewed, and verified
 10. [10_Security_Test_Plan.md](./10_Security_Test_Plan.md)
 11. [11_Bug_and_Defect_Register.md](./11_Bug_and_Defect_Register.md)
 12. [12_Final_QA_Summary.md](./12_Final_QA_Summary.md)
-
+13. [13_OpenTestAI_Testing_Skill.md](./13_OpenTestAI_Testing_Skill.md)

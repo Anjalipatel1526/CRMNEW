@@ -29,6 +29,12 @@ export default function AppointmentsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedApt, setSelectedApt] = useState<Appointment | null>(null);
   const [editingAptId, setEditingAptId] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3500);
+  };
 
   // Search & Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -594,8 +600,12 @@ export default function AppointmentsPage() {
                   gap: '6px',
                 }}
                 onClick={() => {
-                  alert('Test drive marked completed! Customer feedback recorded.');
-                  setSelectedApt(null);
+                  if (selectedApt) {
+                    api.updateAppointmentStatus(selectedApt.id, 'completed');
+                    setAppointments([...api.getAppointments()]);
+                    showToast(`Test drive ${selectedApt.id} marked as COMPLETED.`);
+                    setSelectedApt(null);
+                  }
                 }}
               >
                 <CheckCircle size={15} /> Mark Drive Completed

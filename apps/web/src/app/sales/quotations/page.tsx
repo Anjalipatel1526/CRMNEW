@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { api } from '@/lib/api-client';
 import { Customer, Vehicle, Quotation } from '@crm/shared-types';
 import { PricingEngine } from '@crm/business-rules';
+import { useAuth } from '@/lib/auth-context';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Modal } from '@/components/ui/Modal';
 import {
@@ -29,6 +30,7 @@ interface LineItemInput {
 }
 
 export default function QuotationsPage() {
+  const { userContext } = useAuth();
   const [quotations, setQuotations] = useState<Quotation[]>(api.getQuotations());
   const [customers] = useState<Customer[]>(api.getCustomers());
   const [vehicles] = useState<Vehicle[]>(api.getVehicles());
@@ -44,11 +46,12 @@ export default function QuotationsPage() {
   // Live Pricing Calculation
   const totals = PricingEngine.calculateQuotationTotals(items);
 
-  // Live Discount Validation
+  // Live Discount Validation against authenticated caller role (DEF-018 fix)
+  const currentRole = userContext?.membership?.roleKey || (userContext as any)?.role || 'sales_executive';
   const discountCheck = PricingEngine.validateDiscount(
     totals.discountTotal,
     totals.subtotal,
-    'sales_executive'
+    currentRole
   );
 
   const handleVehicleSelect = (vId: string) => {
@@ -92,13 +95,16 @@ export default function QuotationsPage() {
     const created = api.createQuotation({
       customerId: selectedCustomerId,
       branchId: 'b-dt-001',
-      items: items.map((it, idx) => ({
-        id: 'item-' + idx,
-        quotationId: 'q-new',
-        ...it,
-        taxAmount: ((it.unitPrice * it.quantity - it.discountAmount) * it.taxRatePercent) / 100,
-        lineTotal: it.unitPrice * it.quantity - it.discountAmount,
-      })),
+      items: items.map((it, idx) => {
+        const lineCalc = PricingEngine.calculateLineItem(it);
+        return {
+          id: 'item-' + idx,
+          quotationId: 'q-new',
+          ...it,
+          taxAmount: lineCalc.taxAmount,
+          lineTotal: lineCalc.lineTotal,
+        };
+      }),
       validUntil: new Date(Date.now() + 86400000 * 14).toISOString(),
       notes: quoteNotes,
     });
@@ -498,11 +504,13 @@ export default function QuotationsPage() {
             <button
               className="btn btn-primary"
               onClick={() => {
-                alert('Printing official PDF quotation with dealership stamp!');
-                setPreviewQuote(null);
+                if (typeof window !== 'undefined') {
+                  window.print();
+                }
               }}
+              title="Print or Save official PDF quotation"
             >
-              <Printer size={15} /> Print Official PDF
+              <Printer size={15} /> Print / Save as PDF
             </button>
           </div>
         </Modal>

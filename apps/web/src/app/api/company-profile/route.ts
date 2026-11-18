@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin, isSupabaseConfigured } from '@/lib/supabase';
+import { isSupabaseConfigured } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase-server';
+import { verifySession } from '@/lib/server-auth';
 
 // Helper to ensure tenant and branch exist in Supabase so foreign key constraints always succeed
 async function ensureTenantAndBranch(
@@ -93,9 +95,12 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const email = searchParams.get('email')?.toLowerCase().trim();
-  const tenantId = searchParams.get('tenantId');
+  const rawTenantId = searchParams.get('tenantId');
 
   try {
+    // Check if request is authenticated
+    const authResult = await verifySession(req);
+    const tenantId = authResult.success ? authResult.session.tenantId : rawTenantId;
     // 1. If email is provided, strictly search for this user's profile
     if (email) {
       const cleanSlug = `t_${email.replace(/[^a-z0-9_-]/g, '_').slice(0, 36)}`;

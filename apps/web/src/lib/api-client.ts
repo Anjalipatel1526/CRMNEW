@@ -212,6 +212,11 @@ class DataService {
     try {
       return {
         ...data,
+        customers: (data.customers || []).map((c) => ({
+          ...c,
+          panNumber: c.panNumber ? '••••••••' + c.panNumber.slice(-4) : undefined,
+          aadhaarNumber: c.aadhaarNumber ? '••••••••' + c.aadhaarNumber.slice(-4) : undefined,
+        })),
         vehicles: (data.vehicles || []).map((v) => {
           const isLarge = (s?: string) => typeof s === 'string' && s.startsWith('data:') && s.length > 100000;
           const cleanImageUrl = isLarge(v.imageUrl) ? '' : v.imageUrl;
@@ -239,7 +244,8 @@ class DataService {
 
     const scopedKey = getScopedKey('crm_store_clean_v2');
     try {
-      localStorage.setItem(scopedKey, JSON.stringify(this.data));
+      const sanitized = this.sanitizeForStorage(this.data);
+      localStorage.setItem(scopedKey, JSON.stringify(sanitized));
     } catch (err) {
       console.warn('[API] localStorage quota exceeded, applying asset optimization...', err);
       try {
@@ -1238,6 +1244,28 @@ class DataService {
     return newApt;
   }
 
+  updateAppointmentStatus(id: string, status: string): Appointment | null {
+    const apt = this.data.appointments.find((a) => a.id === id);
+    if (!apt) return null;
+    apt.status = status as any;
+    this.persist();
+
+    if (isSupabaseConfigured()) {
+      supabase
+        .from('appointments')
+        .update({
+          status,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id)
+        .then(({ error }) => {
+          if (error) console.warn('[API] Supabase updateAppointmentStatus error:', error.message);
+        });
+    }
+
+    return apt;
+  }
+
   // ==========================================
   // Deals & Quotations
   // ==========================================
@@ -1324,9 +1352,32 @@ class DataService {
       taxTotal: Number(dealData.taxTotal) || 0,
       feesTotal: Number(dealData.feesTotal) || 0,
       tradeInCredit: Number(dealData.tradeInCredit) || 0,
-      grandTotal: Number(dealData.grandTotal) || 1500000,
+      grandTotal: Math.max(
+        0,
+        Math.round(
+          ((Number(dealData.vehiclePrice) || 1500000) +
+            (Number(dealData.accessoriesTotal) || 0) +
+            (Number(dealData.feesTotal) || 0) +
+            (Number(dealData.taxTotal) || 0) -
+            (Number(dealData.discountTotal) || 0) -
+            (Number(dealData.tradeInCredit) || 0)) *
+            100
+        ) / 100
+      ),
       amountPaid: Number(dealData.amountPaid) || 0,
-      balanceDue: Number(dealData.balanceDue) || 1500000,
+      balanceDue: Math.max(
+        0,
+        Math.round(
+          (((Number(dealData.vehiclePrice) || 1500000) +
+            (Number(dealData.accessoriesTotal) || 0) +
+            (Number(dealData.feesTotal) || 0) +
+            (Number(dealData.taxTotal) || 0) -
+            (Number(dealData.discountTotal) || 0) -
+            (Number(dealData.tradeInCredit) || 0)) -
+            (Number(dealData.amountPaid) || 0)) *
+            100
+        ) / 100
+      ),
       currency: 'INR',
       financeType: dealData.financeType || 'cash',
       version: 1,

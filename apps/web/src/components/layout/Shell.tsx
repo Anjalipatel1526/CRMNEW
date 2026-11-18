@@ -234,6 +234,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const [profilePhone, setProfilePhone] = useState('');
   const [profileAvatarUrl, setProfileAvatarUrl] = useState('');
   const [profileSavedToast, setProfileSavedToast] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
 
   useEffect(() => {
     setIsMounted(true);
@@ -355,6 +356,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
         return;
       }
       if (pathname.startsWith('/sales') && !employeeAccess?.deals) {
+        router.replace('/empportal');
+        return;
+      }
+      if (pathname.startsWith('/finance') && !employeeAccess?.finance) {
         router.replace('/empportal');
         return;
       }
@@ -709,14 +714,16 @@ export function Shell({ children }: { children: React.ReactNode }) {
     setProfilePhone(currentPhone);
     setProfileAvatarUrl(currentAvatar);
     setProfileSavedToast(false);
+    setProfileError(null);
     setIsProfileModalOpen(true);
   };
 
   const handleAvatarFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setProfileError(null);
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 4 * 1024 * 1024) {
-      alert('Photo size exceeds 4MB. Please choose a smaller photo.');
+      setProfileError('Photo size exceeds 4MB. Please choose a smaller photo.');
       return;
     }
     const reader = new FileReader();
@@ -1718,6 +1725,26 @@ export function Shell({ children }: { children: React.ReactNode }) {
               ))}
             </div>
           </div>
+
+          {/* Error Banner */}
+          {profileError && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '10px 14px',
+                borderRadius: '10px',
+                backgroundColor: '#FEE2E2',
+                border: '1px solid #FCA5A5',
+                color: '#991B1B',
+                fontSize: '0.82rem',
+                fontWeight: 600,
+              }}
+            >
+              <span>{profileError}</span>
+            </div>
+          )}
 
           {/* Success Banner */}
           {profileSavedToast && (

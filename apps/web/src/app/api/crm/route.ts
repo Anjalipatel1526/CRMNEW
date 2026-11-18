@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin, isSupabaseConfigured } from '@/lib/supabase';
+import { isSupabaseConfigured } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase-server';
+import { requireAuth } from '@/lib/server-auth';
 
 async function ensureTenantAndBranch(tenantId: string) {
   await supabaseAdmin.from('tenants').upsert(
@@ -36,14 +38,16 @@ async function ensureTenantAndBranch(tenantId: string) {
   return { primaryBranchId };
 }
 
-// GET: Fetch all CRM data for tenant
+// GET: Fetch all CRM data strictly scoped to caller's tenant
 export async function GET(req: NextRequest) {
+  const auth = await requireAuth(req);
+  if ('errorResponse' in auth) return auth.errorResponse;
+
   if (!isSupabaseConfigured()) {
     return NextResponse.json({ error: 'Supabase is not configured' }, { status: 503 });
   }
 
-  const { searchParams } = new URL(req.url);
-  const tenantId = searchParams.get('tenantId') || 't_default';
+  const tenantId = auth.session.tenantId;
 
   try {
     const [vehiclesRes, customersRes, leadsRes, dealsRes, appointmentsRes] = await Promise.all([
@@ -66,21 +70,50 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST: Save or update CRM entity (vehicle, customer, lead, deal, etc.) into Supabase backend
+// POST: Save or update CRM entity (strictly scoped to caller's tenant)
 export async function POST(req: NextRequest) {
+  const auth = await requireAuth(req);
+  if ('errorResponse' in auth) return auth.errorResponse;
+
   if (!isSupabaseConfigured()) {
     return NextResponse.json({ error: 'Supabase is not configured' }, { status: 503 });
   }
 
   try {
     const body = await req.json();
-    const { entity, type, data } = body;
+    const { entity, data } = body;
 
-    if (!entity || !data) {
-      return NextResponse.json({ error: 'Missing entity or data' }, { status: 400 });
+    if (!entity || !data || typeof data !== 'object') {
+      return NextResponse.json({ error: 'Missing or invalid entity or data object' }, { status: 400 });
     }
 
-    const tenantId = data.tenant_id || data.tenantId || 't_default';
+    const ALLOWED_ENTITIES = ['vehicle', 'customer', 'lead', 'deal', 'appointment'];
+    if (!ALLOWED_ENTITIES.includes(entity)) {
+      return NextResponse.json(
+        { error: `Invalid entity '${entity}'. Allowed entities: ${ALLOWED_ENTITIES.join(', ')}` },
+        { status: 400 }
+      );
+    }
+
+    // Entity-specific input validations
+    if (entity === 'customer') {
+      const name = (data.first_name || data.firstName || '').trim();
+      const phone = (data.phone || '').trim();
+      if (!name) {
+        return NextResponse.json({ error: 'Validation failed', issues: [{ field: 'firstName', message: 'First name is required' }] }, { status: 400 });
+      }
+      if (!phone || phone.length < 5) {
+        return NextResponse.json({ error: 'Validation failed', issues: [{ field: 'phone', message: 'Valid phone number is required' }] }, { status: 400 });
+      }
+    } else if (entity === 'lead') {
+      const VALID_LEAD_STATUSES = ['new', 'assigned', 'contacted', 'qualified', 'appointment_set', 'test_drive', 'negotiation', 'converted', 'lost', 'nurture'];
+      const status = data.status || 'new';
+      if (!VALID_LEAD_STATUSES.includes(status)) {
+        return NextResponse.json({ error: 'Validation failed', issues: [{ field: 'status', message: `Invalid lead status. Allowed: ${VALID_LEAD_STATUSES.join(', ')}` }] }, { status: 400 });
+      }
+    }
+
+    const tenantId = auth.session.tenantId; // Enforce caller's authentic tenant
     const { primaryBranchId } = await ensureTenantAndBranch(tenantId);
 
     // Normalize branch_id
@@ -148,17 +181,19 @@ export async function POST(req: NextRequest) {
       }
 
       case 'lead': {
-        // Ensure customer exists if customer_id is provided
         if (data.customer_id || data.customerId) {
           const custId = data.customer_id || data.customerId;
-          await supabaseAdmin.from('customers').upsert({
-            id: custId,
-            tenant_id: tenantId,
-            branch_id: data.branch_id || primaryBranchId,
-            first_name: data.customer_name || data.customerName || 'Lead Contact',
-            phone: data.customer_phone || data.customerPhone || '+91 98000 00000',
-            email: data.customer_email || data.customerEmail || null,
-          }, { onConflict: 'id' });
+          await supabaseAdmin.from('customers').upsert(
+            {
+              id: custId,
+              tenant_id: tenantId,
+              branch_id: data.branch_id || primaryBranchId,
+              first_name: data.customer_name || data.customerName || 'Lead Contact',
+              phone: data.customer_phone || data.customerPhone || '+91 98000 00000',
+              email: data.customer_email || data.customerEmail || null,
+            },
+            { onConflict: 'id' }
+          );
         }
 
         const payload = {
@@ -198,9 +233,33 @@ export async function POST(req: NextRequest) {
           tax_total: Number(data.tax_total || data.taxTotal) || 0,
           fees_total: Number(data.fees_total || data.feesTotal) || 0,
           trade_in_credit: Number(data.trade_in_credit || data.tradeInCredit) || 0,
-          grand_total: Number(data.grand_total || data.grandTotal) || 0,
+          // Authoritative server-side financial calculation (never blindly trust client grand total)
+          grand_total: Math.max(
+            0,
+            Math.round(
+              ((Number(data.vehicle_price || data.vehiclePrice) || 0) +
+                (Number(data.accessories_total || data.accessoriesTotal) || 0) +
+                (Number(data.fees_total || data.feesTotal) || 0) +
+                (Number(data.tax_total || data.taxTotal) || 0) -
+                (Number(data.discount_total || data.discountTotal) || 0) -
+                (Number(data.trade_in_credit || data.tradeInCredit) || 0)) *
+                100
+            ) / 100
+          ),
           amount_paid: Number(data.amount_paid || data.amountPaid) || 0,
-          balance_due: Number(data.balance_due || data.balanceDue) || 0,
+          balance_due: Math.max(
+            0,
+            Math.round(
+              (((Number(data.vehicle_price || data.vehiclePrice) || 0) +
+                (Number(data.accessories_total || data.accessoriesTotal) || 0) +
+                (Number(data.fees_total || data.feesTotal) || 0) +
+                (Number(data.tax_total || data.taxTotal) || 0) -
+                (Number(data.discount_total || data.discountTotal) || 0) -
+                (Number(data.trade_in_credit || data.tradeInCredit) || 0)) -
+                (Number(data.amount_paid || data.amountPaid) || 0)) *
+                100
+            ) / 100
+          ),
           currency: data.currency || 'INR',
           finance_type: data.finance_type || data.financeType || 'cash',
           updated_at: new Date().toISOString(),
@@ -226,4 +285,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: err?.message || 'Server error' }, { status: 500 });
   }
 }
-

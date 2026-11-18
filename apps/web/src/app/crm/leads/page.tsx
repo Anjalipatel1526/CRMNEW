@@ -25,6 +25,7 @@ import {
   Edit3,
   X,
   MessageSquare,
+  AlertCircle,
 } from 'lucide-react';
 import { WordFadeIn } from '@/components/ui/WordFadeIn';
 
@@ -336,6 +337,7 @@ export default function LeadsPage() {
   const [draggedLeadId, setDraggedLeadId] = useState<string | null>(null);
   const [dragOverStage, setDragOverStage] = useState<LeadStatus | null>(null);
   const [recentlyMovedId, setRecentlyMovedId] = useState<string | null>(null);
+  const [transitionError, setTransitionError] = useState<string | null>(null);
 
   React.useEffect(() => {
     setMounted(true);
@@ -453,6 +455,20 @@ export default function LeadsPage() {
   };
 
   const handleStageTransition = (leadId: string, newStatus: LeadStatus) => {
+    const lead = leads.find((l) => l.id === leadId);
+    if (!lead) return;
+
+    if (lead.status === newStatus) return;
+
+    // Validate state transition using business rules engine
+    const isAllowed = validateLeadTransition(lead.status, newStatus);
+    if (!isAllowed) {
+      setTransitionError(`Transition from '${lead.status}' to '${newStatus}' is not allowed in sales lifecycle.`);
+      setTimeout(() => setTransitionError(null), 4500);
+      return;
+    }
+
+    setTransitionError(null);
     api.updateLeadStatus(leadId, newStatus);
     setLeads([...api.getLeads()]);
     if (selectedLead && selectedLead.id === leadId) {
@@ -1516,6 +1532,47 @@ export default function LeadsPage() {
 
           </div>
         </Modal>
+      )}
+
+      {/* State Transition Error Toast */}
+      {transitionError && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: '24px',
+            right: '24px',
+            zIndex: 9999,
+            backgroundColor: '#FEF2F2',
+            border: '1.5px solid #FECACA',
+            color: '#991B1B',
+            borderRadius: '12px',
+            padding: '12px 18px',
+            boxShadow: '0 8px 24px rgba(239, 68, 68, 0.25)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            fontSize: '0.86rem',
+            fontWeight: 600,
+          }}
+        >
+          <AlertCircle size={18} style={{ color: '#DC2626', flexShrink: 0 }} />
+          <span>{transitionError}</span>
+          <button
+            type="button"
+            onClick={() => setTransitionError(null)}
+            style={{
+              marginLeft: '8px',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: '#991B1B',
+              padding: '2px',
+              fontWeight: 700,
+            }}
+          >
+            ✕
+          </button>
+        </div>
       )}
     </div>
   );

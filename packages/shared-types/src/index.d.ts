@@ -337,6 +337,15 @@ export interface QuotationTotals {
     taxTotal: number;
     feesTotal: number;
     grandTotal: number;
+    basePrice?: number;
+    accessoriesTotal?: number;
+    warrantyTotal?: number;
+    insuranceTotal?: number;
+    servicesTotal?: number;
+    grossTotal?: number;
+    taxableAmount?: number;
+    tradeInCredit?: number;
+    roundOff?: number;
 }
 export interface Quotation {
     id: UUID;

@@ -1,48 +1,28 @@
-import { NextResponse } from 'next/server';
-import { supabaseAdmin, isSupabaseConfigured } from '@/lib/supabase';
+import { NextRequest, NextResponse } from 'next/server';
+import { isSupabaseConfigured } from '@/lib/supabase';
+import { supabaseAdmin, createServerClient } from '@/lib/supabase-server';
+import { requireAuth } from '@/lib/server-auth';
+import { EmployeeCreateSchema } from '@crm/validators';
 
-// Helper to ensure tenant and branch exist so foreign key constraints never fail
+// Helper to ensure tenant and primary branch exist in Supabase
 async function getOrCreateTenantAndBranch(requestedTenantId?: string): Promise<{ tenantId: string; branchId: string }> {
+  const tenantId = requestedTenantId || 't_default';
+
   try {
-    let tenantId: string = requestedTenantId || '';
+    await supabaseAdmin.from('tenants').upsert(
+      {
+        id: tenantId,
+        name: 'Dealership Workspace',
+        slug: (tenantId.replace(/^t_/, '').toLowerCase().replace(/[^a-z0-9_-]/g, '_') || 'dealership').slice(0, 48),
+        status: 'active',
+        dealer_model: 'mixed',
+        primary_contact_name: 'Dealership Admin',
+        currency: 'INR',
+        timezone: 'Asia/Kolkata',
+      },
+      { onConflict: 'id' }
+    );
 
-    if (tenantId) {
-      await supabaseAdmin.from('tenants').upsert(
-        {
-          id: tenantId,
-          name: 'Dealership Workspace',
-          slug: tenantId.replace(/^t_/, ''),
-          status: 'active',
-          dealer_model: 'mixed',
-          primary_contact_name: 'Dealership Admin',
-          currency: 'INR',
-          timezone: 'Asia/Kolkata',
-        },
-        { onConflict: 'id' }
-      );
-    } else {
-      const { data: existingTenants } = await supabaseAdmin
-        .from('tenants')
-        .select('id')
-        .limit(1);
-
-      tenantId = existingTenants?.[0]?.id || 't_default';
-      await supabaseAdmin.from('tenants').upsert(
-        {
-          id: tenantId,
-          name: 'Dealership Workspace',
-          slug: 'dealership',
-          status: 'active',
-          dealer_model: 'mixed',
-          primary_contact_name: 'Dealership Admin',
-          currency: 'INR',
-          timezone: 'Asia/Kolkata',
-        },
-        { onConflict: 'id' }
-      );
-    }
-
-    // 2. Check if a branch already exists for this tenant
     const { data: existingBranches } = await supabaseAdmin
       .from('branches')
       .select('id')
@@ -72,49 +52,98 @@ async function getOrCreateTenantAndBranch(requestedTenantId?: string): Promise<{
   }
 }
 
-// GET /api/employees - Fetch all employees from Supabase
-export async function GET(req: Request) {
+// GET /api/employees - Fetch all employees scoped to caller's authentic tenant
+export async function GET(req: NextRequest) {
+  const auth = await requireAuth(req);
+  if ('errorResponse' in auth) return auth.errorResponse;
+
   if (!isSupabaseConfigured()) {
     return NextResponse.json({ data: [], error: 'Supabase not configured' });
   }
 
   try {
+    const tenantId = auth.session.tenantId;
     const { searchParams } = new URL(req.url);
-    const tenantId = searchParams.get('tenantId');
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '50', 10)));
+    const offset = (page - 1) * limit;
 
-    let query = supabaseAdmin
+    const { data, count, error } = await supabaseAdmin
       .from('employees')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (tenantId) {
-      query = query.eq('tenant_id', tenantId);
-    }
-
-    const { data, error } = await query;
+      .select('*', { count: 'exact' })
+      .eq('tenant_id', tenantId)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
 
     if (error) {
       console.error('[API/employees] GET error:', error.message);
       return NextResponse.json({ data: [], error: error.message }, { status: 400 });
     }
 
-    return NextResponse.json({ data: data || [] });
+    return NextResponse.json({
+      data: data || [],
+      pagination: {
+        total: count ?? (data?.length || 0),
+        page,
+        limit,
+        totalPages: Math.ceil((count ?? (data?.length || 0)) / limit),
+      },
+    });
   } catch (err: any) {
     console.error('[API/employees] GET unexpected error:', err);
     return NextResponse.json({ data: [], error: err.message }, { status: 500 });
   }
 }
 
-// POST /api/employees - Add or Upsert an employee into Supabase table
-export async function POST(req: Request) {
+// POST /api/employees - Add or Upsert employee (Requires tenant_admin or branch_manager)
+export async function POST(req: NextRequest) {
+  const auth = await requireAuth(req, ['tenant_admin', 'branch_manager']);
+  if ('errorResponse' in auth) return auth.errorResponse;
+
   if (!isSupabaseConfigured()) {
     return NextResponse.json({ error: 'Supabase credentials not configured' }, { status: 400 });
   }
 
   try {
     const body = await req.json();
-    const resolved = await getOrCreateTenantAndBranch(body.tenantId || body.tenant_id);
-    const tenantId = body.tenantId || body.tenant_id || resolved.tenantId;
+
+    const roleMap: Record<string, string> = {
+      'Sales Executive': 'sales_executive',
+      'Branch Manager': 'branch_manager',
+      'Finance Manager': 'finance_manager',
+      'Inventory Manager': 'inventory_manager',
+      'Service Advisor': 'service_advisor',
+      'Technician': 'technician',
+      'Receptionist': 'receptionist',
+      'Administrator': 'tenant_admin',
+    };
+    const normalizedRole = roleMap[body.role || body.designation] || body.role || 'sales_executive';
+
+    const validation = EmployeeCreateSchema.safeParse({
+      id: body.id,
+      fullName: body.fullName || body.full_name || '',
+      email: body.email || '',
+      phone: body.phone,
+      role: normalizedRole,
+      department: body.department,
+      branchId: body.branchId || body.branch_id,
+      designation: body.designation,
+      status: body.status === 'inactive' ? 'inactive' : 'active',
+      isActive: body.status !== 'inactive',
+    });
+
+    if (!validation.success) {
+      return NextResponse.json(
+        {
+          error: 'Validation failed',
+          issues: validation.error.issues.map((i) => ({ field: i.path.join('.'), message: i.message })),
+        },
+        { status: 400 }
+      );
+    }
+
+    const tenantId = auth.session.tenantId; // Enforce caller's tenant
+    const resolved = await getOrCreateTenantAndBranch(tenantId);
     const branchId = body.branchId || body.branch_id || resolved.branchId;
 
     const empId = body.id || 'emp-' + Date.now();
@@ -131,19 +160,17 @@ export async function POST(req: Request) {
       joined_at: body.joiningDate || body.joined_at || new Date().toISOString().split('T')[0],
     };
 
-    // Attempt insert with tenant_id and branch_id
     let { data, error } = await supabaseAdmin
       .from('employees')
       .upsert(payloadWithKeys, { onConflict: 'id' })
       .select();
 
-    // If foreign key constraint failed, fall back to null tenant_id / branch_id
     if (error && error.message && error.message.includes('foreign key')) {
-      console.warn('[API/employees] Foreign key constraint warning, retrying with null foreign keys:', error.message);
+      console.warn('[API/employees] Foreign key warning, retrying with resolved tenant/branch:', error.message);
       const fallbackPayload = {
         ...payloadWithKeys,
-        tenant_id: null,
-        branch_id: null,
+        tenant_id: resolved.tenantId,
+        branch_id: resolved.branchId,
       };
       const retryResult = await supabaseAdmin
         .from('employees')
@@ -165,8 +192,11 @@ export async function POST(req: Request) {
   }
 }
 
-// DELETE /api/employees - Delete employee from Supabase table
-export async function DELETE(req: Request) {
+// DELETE /api/employees - Delete employee (Requires tenant_admin role)
+export async function DELETE(req: NextRequest) {
+  const auth = await requireAuth(req, ['tenant_admin']);
+  if ('errorResponse' in auth) return auth.errorResponse;
+
   if (!isSupabaseConfigured()) {
     return NextResponse.json({ error: 'Supabase not configured' }, { status: 400 });
   }
@@ -181,7 +211,8 @@ export async function DELETE(req: Request) {
     const { error } = await supabaseAdmin
       .from('employees')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .eq('tenant_id', auth.session.tenantId); // Tenant isolation check
 
     if (error) {
       console.error('[API/employees] DELETE error:', error.message);

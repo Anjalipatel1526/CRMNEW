@@ -861,123 +861,965 @@ CREATE TABLE IF NOT EXISTS audit_events (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_audit_tenant_resource ON audit_events(tenant_id, resource_type, resource_id);
+CREATE INDEX IF NOT EXISTS idx_app_users_lower_email ON app_users(lower(email));
+CREATE INDEX IF NOT EXISTS idx_employees_lower_email ON employees(lower(email));
+CREATE INDEX IF NOT EXISTS idx_memberships_user_tenant ON memberships(user_id, tenant_id);
 
 -- ============================================================================
--- 10. SUPABASE ROW LEVEL SECURITY (RLS) POLICIES
+-- 10. SUPABASE ROW LEVEL SECURITY (RLS) POLICIES & MULTI-TENANT ISOLATION
 -- ============================================================================
 
--- Enable RLS on core tables
-ALTER TABLE tenants ENABLE ROW LEVEL SECURITY;
-ALTER TABLE branches ENABLE ROW LEVEL SECURITY;
-ALTER TABLE app_users ENABLE ROW LEVEL SECURITY;
-ALTER TABLE company_profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE dealership_modules ENABLE ROW LEVEL SECURITY;
-ALTER TABLE employees ENABLE ROW LEVEL SECURITY;
-ALTER TABLE customers ENABLE ROW LEVEL SECURITY;
-ALTER TABLE leads ENABLE ROW LEVEL SECURITY;
-ALTER TABLE vehicles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE deals ENABLE ROW LEVEL SECURITY;
-ALTER TABLE quotations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE bookings ENABLE ROW LEVEL SECURITY;
-ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
-ALTER TABLE invoices ENABLE ROW LEVEL SECURITY;
-ALTER TABLE job_cards ENABLE ROW LEVEL SECURITY;
-ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
-ALTER TABLE test_drives ENABLE ROW LEVEL SECURITY;
-ALTER TABLE appointments ENABLE ROW LEVEL SECURITY;
-ALTER TABLE user_credentials ENABLE ROW LEVEL SECURITY;
-ALTER TABLE activities ENABLE ROW LEVEL SECURITY;
-ALTER TABLE vehicle_catalog ENABLE ROW LEVEL SECURITY;
+-- ----------------------------------------------------------------------------
+-- 10.1 AUTHORIZATION HELPER FUNCTIONS
+-- ----------------------------------------------------------------------------
 
--- Allow full access for anon & authenticated roles during setup/demo
-DROP POLICY IF EXISTS "Public Read Access" ON company_profiles;
-CREATE POLICY "Public Read Access" ON company_profiles FOR SELECT USING (true);
+-- Returns authenticated user ID from Supabase auth context
+CREATE OR REPLACE FUNCTION public.auth_uid()
+RETURNS TEXT
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT COALESCE(auth.uid()::text, '');
+$$;
 
-DROP POLICY IF EXISTS "Public Insert/Update Access" ON company_profiles;
-CREATE POLICY "Public Insert/Update Access" ON company_profiles FOR ALL USING (true);
+REVOKE ALL ON FUNCTION public.auth_uid() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.auth_uid() TO authenticated, service_role;
 
-DROP POLICY IF EXISTS "Dealership Modules Public" ON dealership_modules;
-CREATE POLICY "Dealership Modules Public" ON dealership_modules FOR ALL USING (true);
+-- Checks if calling user has an active membership in the given tenant
+CREATE OR REPLACE FUNCTION public.is_tenant_member(p_tenant_id TEXT)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_auth_id UUID;
+  v_found   BOOLEAN := FALSE;
+BEGIN
+  v_auth_id := auth.uid();
+  IF v_auth_id IS NULL THEN
+    RETURN FALSE;
+  END IF;
+  
+  -- Direct membership lookup
+  SELECT EXISTS(
+    SELECT 1 FROM public.memberships m
+    WHERE m.tenant_id = p_tenant_id
+      AND m.user_id = v_auth_id::text
+      AND m.is_active = TRUE
+  ) INTO v_found;
+  
+  IF v_found THEN RETURN TRUE; END IF;
+  
+  -- Membership via app_users email bridge
+  SELECT EXISTS(
+    SELECT 1 
+    FROM auth.users au
+    JOIN public.app_users apu ON lower(apu.email) = lower(au.email)
+    JOIN public.memberships m ON m.user_id = apu.id AND m.tenant_id = p_tenant_id AND m.is_active = TRUE
+    WHERE au.id = v_auth_id
+  ) INTO v_found;
+  
+  IF v_found THEN RETURN TRUE; END IF;
+  
+  -- Employee record with matching active email
+  SELECT EXISTS(
+    SELECT 1
+    FROM auth.users au
+    JOIN public.employees e ON lower(e.email) = lower(au.email)
+    WHERE au.id = v_auth_id
+      AND e.tenant_id = p_tenant_id
+      AND e.is_active = TRUE
+  ) INTO v_found;
+  
+  RETURN v_found;
+END;
+$$;
 
-DROP POLICY IF EXISTS "Tenants Access Policy" ON tenants;
-CREATE POLICY "Tenants Access Policy" ON tenants FOR ALL USING (true);
+REVOKE ALL ON FUNCTION public.is_tenant_member(TEXT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.is_tenant_member(TEXT) TO authenticated, service_role;
 
-DROP POLICY IF EXISTS "Branches Access Policy" ON branches;
-CREATE POLICY "Branches Access Policy" ON branches FOR ALL USING (true);
+-- Resolves user's effective role for a tenant
+CREATE OR REPLACE FUNCTION public.get_user_role(p_tenant_id TEXT)
+RETURNS TEXT
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_auth_id UUID;
+  v_role    TEXT;
+BEGIN
+  v_auth_id := auth.uid();
+  IF v_auth_id IS NULL THEN
+    RETURN NULL;
+  END IF;
+  
+  SELECT m.role_key INTO v_role
+  FROM public.memberships m
+  WHERE m.tenant_id = p_tenant_id
+    AND m.user_id = v_auth_id::text
+    AND m.is_active = TRUE
+  LIMIT 1;
+  
+  IF v_role IS NOT NULL THEN RETURN v_role; END IF;
+  
+  SELECT m.role_key INTO v_role
+  FROM auth.users au
+  JOIN public.app_users apu ON lower(apu.email) = lower(au.email)
+  JOIN public.memberships m ON m.user_id = apu.id AND m.tenant_id = p_tenant_id AND m.is_active = TRUE
+  WHERE au.id = v_auth_id
+  LIMIT 1;
+  
+  IF v_role IS NOT NULL THEN RETURN v_role; END IF;
+  
+  SELECT e.role INTO v_role
+  FROM auth.users au
+  JOIN public.employees e ON lower(e.email) = lower(au.email)
+  WHERE au.id = v_auth_id
+    AND e.tenant_id = p_tenant_id
+    AND e.is_active = TRUE
+  LIMIT 1;
+  
+  RETURN v_role;
+END;
+$$;
 
-DROP POLICY IF EXISTS "App Users Access Policy" ON app_users;
-CREATE POLICY "App Users Access Policy" ON app_users FOR ALL USING (true);
+REVOKE ALL ON FUNCTION public.get_user_role(TEXT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.get_user_role(TEXT) TO authenticated, service_role;
 
-DROP POLICY IF EXISTS "Customers Access Policy" ON customers;
-CREATE POLICY "Customers Access Policy" ON customers FOR ALL USING (true);
+-- Checks if user has admin/management role in the tenant
+CREATE OR REPLACE FUNCTION public.is_tenant_admin(p_tenant_id TEXT)
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT public.get_user_role(p_tenant_id) IN ('tenant_admin', 'branch_manager');
+$$;
 
-DROP POLICY IF EXISTS "Leads Access Policy" ON leads;
-CREATE POLICY "Leads Access Policy" ON leads FOR ALL USING (true);
+REVOKE ALL ON FUNCTION public.is_tenant_admin(TEXT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.is_tenant_admin(TEXT) TO authenticated, service_role;
 
-DROP POLICY IF EXISTS "Vehicles Access Policy" ON vehicles;
-CREATE POLICY "Vehicles Access Policy" ON vehicles FOR ALL USING (true);
+-- Returns array of all tenant IDs caller belongs to
+CREATE OR REPLACE FUNCTION public.user_tenant_ids()
+RETURNS TEXT[]
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_auth_id UUID;
+  v_tids    TEXT[];
+BEGIN
+  v_auth_id := auth.uid();
+  IF v_auth_id IS NULL THEN
+    RETURN ARRAY[]::TEXT[];
+  END IF;
 
-DROP POLICY IF EXISTS "Deals Access Policy" ON deals;
-CREATE POLICY "Deals Access Policy" ON deals FOR ALL USING (true);
+  SELECT array_agg(DISTINCT tenant_id) INTO v_tids
+  FROM (
+    SELECT m.tenant_id FROM public.memberships m
+    WHERE m.user_id = v_auth_id::text AND m.is_active = TRUE
+    UNION
+    SELECT m.tenant_id
+    FROM auth.users au
+    JOIN public.app_users apu ON lower(apu.email) = lower(au.email)
+    JOIN public.memberships m ON m.user_id = apu.id AND m.is_active = TRUE
+    WHERE au.id = v_auth_id
+    UNION
+    SELECT e.tenant_id
+    FROM auth.users au
+    JOIN public.employees e ON lower(e.email) = lower(au.email) AND e.is_active = TRUE
+    WHERE au.id = v_auth_id
+  ) sub;
 
-DROP POLICY IF EXISTS "Quotations Access Policy" ON quotations;
-CREATE POLICY "Quotations Access Policy" ON quotations FOR ALL USING (true);
+  RETURN COALESCE(v_tids, ARRAY[]::TEXT[]);
+END;
+$$;
 
-DROP POLICY IF EXISTS "Bookings Access Policy" ON bookings;
-CREATE POLICY "Bookings Access Policy" ON bookings FOR ALL USING (true);
+REVOKE ALL ON FUNCTION public.user_tenant_ids() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.user_tenant_ids() TO authenticated, service_role;
 
-DROP POLICY IF EXISTS "Payments Access Policy" ON payments;
-CREATE POLICY "Payments Access Policy" ON payments FOR ALL USING (true);
+-- ----------------------------------------------------------------------------
+-- 10.2 ENABLE ROW LEVEL SECURITY ON ALL DATABASE TABLES
+-- ----------------------------------------------------------------------------
 
-DROP POLICY IF EXISTS "Invoices Access Policy" ON invoices;
-CREATE POLICY "Invoices Access Policy" ON invoices FOR ALL USING (true);
+ALTER TABLE public.tenants ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.branches ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.app_users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.memberships ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.role_permissions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.company_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.dealership_modules ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_credentials ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.employees ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.customers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.leads ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.activities ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.appointments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.test_drives ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.vehicle_catalog ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.vehicles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.vehicle_photos ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.vehicle_costs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.vehicle_locations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.suppliers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.purchase_orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.trade_in_appraisals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.inspections ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.reconditioning_jobs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.opportunities ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.quotations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.quotation_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.discount_approvals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.deals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.bookings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.payments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.payment_allocations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.invoices ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.refunds ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.expenses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.documents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.deliveries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.pdi_records ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.registration_cases ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.insurance_policies ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.service_appointments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.job_cards ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.labour_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.parts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.part_usage ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.complaints ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.campaigns ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.referrals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.audit_events ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS "Job Cards Access Policy" ON job_cards;
-CREATE POLICY "Job Cards Access Policy" ON job_cards FOR ALL USING (true);
+-- ----------------------------------------------------------------------------
+-- 10.3 TENANT-SCOPED AUTHORIZATION POLICIES
+-- ----------------------------------------------------------------------------
 
-DROP POLICY IF EXISTS "Documents Access Policy" ON documents;
-CREATE POLICY "Documents Access Policy" ON documents FOR ALL USING (true) WITH CHECK (true);
+-- Tenants: visible only to active members, modifiable only by admins
+CREATE POLICY "tenant_select" ON public.tenants
+  FOR SELECT TO authenticated
+  USING (id = ANY(public.user_tenant_ids()));
 
-DROP POLICY IF EXISTS "Employees Access Policy" ON employees;
-CREATE POLICY "Employees Access Policy" ON employees FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "tenant_update" ON public.tenants
+  FOR UPDATE TO authenticated
+  USING (public.is_tenant_admin(id))
+  WITH CHECK (public.is_tenant_admin(id));
 
-DROP POLICY IF EXISTS "Test Drives Access Policy" ON test_drives;
-CREATE POLICY "Test Drives Access Policy" ON test_drives FOR ALL USING (true);
+-- Branches: scoped to user's tenant
+CREATE POLICY "branch_select" ON public.branches
+  FOR SELECT TO authenticated
+  USING (public.is_tenant_member(tenant_id));
 
-DROP POLICY IF EXISTS "Appointments Access Policy" ON appointments;
-CREATE POLICY "Appointments Access Policy" ON appointments FOR ALL USING (true);
+CREATE POLICY "branch_insert" ON public.branches
+  FOR INSERT TO authenticated
+  WITH CHECK (public.is_tenant_admin(tenant_id));
 
-DROP POLICY IF EXISTS "User Credentials Access Policy" ON user_credentials;
-CREATE POLICY "User Credentials Access Policy" ON user_credentials FOR ALL USING (true);
+CREATE POLICY "branch_update" ON public.branches
+  FOR UPDATE TO authenticated
+  USING (public.is_tenant_admin(tenant_id))
+  WITH CHECK (public.is_tenant_admin(tenant_id));
 
-DROP POLICY IF EXISTS "Activities Access Policy" ON activities;
-CREATE POLICY "Activities Access Policy" ON activities FOR ALL USING (true);
+CREATE POLICY "branch_delete" ON public.branches
+  FOR DELETE TO authenticated
+  USING (public.is_tenant_admin(tenant_id));
 
-DROP POLICY IF EXISTS "Vehicle Catalog Access Policy" ON vehicle_catalog;
-CREATE POLICY "Vehicle Catalog Access Policy" ON vehicle_catalog FOR ALL USING (true);
+-- App Users: self-access and dealership colleague lookups
+CREATE POLICY "app_users_select" ON public.app_users
+  FOR SELECT TO authenticated
+  USING (
+    id = public.auth_uid()
+    OR EXISTS (
+      SELECT 1 FROM public.memberships m1
+      JOIN public.memberships m2 ON m1.tenant_id = m2.tenant_id
+      WHERE m1.user_id = public.auth_uid() AND m1.is_active = TRUE
+        AND m2.user_id = app_users.id AND m2.is_active = TRUE
+    )
+    OR EXISTS (
+      SELECT 1 FROM auth.users au
+      JOIN public.app_users apu ON lower(apu.email) = lower(au.email)
+      WHERE au.id = auth.uid() AND apu.id = app_users.id
+    )
+  );
+
+CREATE POLICY "app_users_update" ON public.app_users
+  FOR UPDATE TO authenticated
+  USING (
+    id = public.auth_uid()
+    OR EXISTS (
+      SELECT 1 FROM auth.users au
+      JOIN public.app_users apu ON lower(apu.email) = lower(au.email)
+      WHERE au.id = auth.uid() AND apu.id = app_users.id
+    )
+  )
+  WITH CHECK (
+    id = public.auth_uid()
+    OR EXISTS (
+      SELECT 1 FROM auth.users au
+      JOIN public.app_users apu ON lower(apu.email) = lower(au.email)
+      WHERE au.id = auth.uid() AND apu.id = app_users.id
+    )
+  );
+
+-- Memberships: tenant-scoped, management controlled
+CREATE POLICY "memberships_select" ON public.memberships
+  FOR SELECT TO authenticated
+  USING (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "memberships_insert" ON public.memberships
+  FOR INSERT TO authenticated
+  WITH CHECK (public.is_tenant_admin(tenant_id));
+
+CREATE POLICY "memberships_update" ON public.memberships
+  FOR UPDATE TO authenticated
+  USING (public.is_tenant_admin(tenant_id))
+  WITH CHECK (public.is_tenant_admin(tenant_id) AND user_id <> public.auth_uid());
+
+CREATE POLICY "memberships_delete" ON public.memberships
+  FOR DELETE TO authenticated
+  USING (public.is_tenant_admin(tenant_id) AND user_id <> public.auth_uid());
+
+-- Role Permissions: tenant-scoped
+CREATE POLICY "role_permissions_select" ON public.role_permissions
+  FOR SELECT TO authenticated
+  USING (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "role_permissions_all" ON public.role_permissions
+  FOR ALL TO authenticated
+  USING (public.is_tenant_admin(tenant_id))
+  WITH CHECK (public.is_tenant_admin(tenant_id));
+
+-- Company Profiles: tenant-scoped
+CREATE POLICY "company_profiles_select" ON public.company_profiles
+  FOR SELECT TO authenticated
+  USING (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "company_profiles_all" ON public.company_profiles
+  FOR ALL TO authenticated
+  USING (public.is_tenant_admin(tenant_id))
+  WITH CHECK (public.is_tenant_admin(tenant_id));
+
+-- Dealership Modules: tenant-scoped
+CREATE POLICY "modules_select" ON public.dealership_modules
+  FOR SELECT TO authenticated
+  USING (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "modules_modify" ON public.dealership_modules
+  FOR ALL TO authenticated
+  USING (public.is_tenant_admin(tenant_id))
+  WITH CHECK (public.is_tenant_admin(tenant_id));
+
+-- User Credentials: strictly restricted to tenant administrators
+CREATE POLICY "user_creds_all" ON public.user_credentials
+  FOR ALL TO authenticated
+  USING (public.is_tenant_admin(tenant_id))
+  WITH CHECK (public.is_tenant_admin(tenant_id));
+
+-- Employees: visible to tenant members, modified by admin
+CREATE POLICY "employees_select" ON public.employees
+  FOR SELECT TO authenticated
+  USING (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "employees_modify" ON public.employees
+  FOR ALL TO authenticated
+  USING (public.is_tenant_admin(tenant_id))
+  WITH CHECK (public.is_tenant_admin(tenant_id));
+
+-- Customers: tenant-scoped
+CREATE POLICY "customers_select" ON public.customers
+  FOR SELECT TO authenticated
+  USING (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "customers_insert" ON public.customers
+  FOR INSERT TO authenticated
+  WITH CHECK (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "customers_update" ON public.customers
+  FOR UPDATE TO authenticated
+  USING (public.is_tenant_member(tenant_id))
+  WITH CHECK (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "customers_delete" ON public.customers
+  FOR DELETE TO authenticated
+  USING (public.is_tenant_admin(tenant_id));
+
+-- Leads: tenant-scoped
+CREATE POLICY "leads_select" ON public.leads
+  FOR SELECT TO authenticated
+  USING (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "leads_insert" ON public.leads
+  FOR INSERT TO authenticated
+  WITH CHECK (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "leads_update" ON public.leads
+  FOR UPDATE TO authenticated
+  USING (public.is_tenant_member(tenant_id))
+  WITH CHECK (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "leads_delete" ON public.leads
+  FOR DELETE TO authenticated
+  USING (public.is_tenant_admin(tenant_id));
+
+-- Activities: tenant-scoped
+CREATE POLICY "activities_select" ON public.activities
+  FOR SELECT TO authenticated
+  USING (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "activities_insert" ON public.activities
+  FOR INSERT TO authenticated
+  WITH CHECK (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "activities_update" ON public.activities
+  FOR UPDATE TO authenticated
+  USING (public.is_tenant_member(tenant_id))
+  WITH CHECK (public.is_tenant_member(tenant_id));
+
+-- Appointments: tenant-scoped
+CREATE POLICY "appointments_select" ON public.appointments
+  FOR SELECT TO authenticated
+  USING (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "appointments_insert" ON public.appointments
+  FOR INSERT TO authenticated
+  WITH CHECK (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "appointments_update" ON public.appointments
+  FOR UPDATE TO authenticated
+  USING (public.is_tenant_member(tenant_id))
+  WITH CHECK (public.is_tenant_member(tenant_id));
+
+-- Test Drives: tenant-scoped
+CREATE POLICY "test_drives_select" ON public.test_drives
+  FOR SELECT TO authenticated
+  USING (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "test_drives_insert" ON public.test_drives
+  FOR INSERT TO authenticated
+  WITH CHECK (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "test_drives_update" ON public.test_drives
+  FOR UPDATE TO authenticated
+  USING (public.is_tenant_member(tenant_id))
+  WITH CHECK (public.is_tenant_member(tenant_id));
+
+-- Vehicle Catalog: tenant-scoped
+CREATE POLICY "vehicle_catalog_select" ON public.vehicle_catalog
+  FOR SELECT TO authenticated
+  USING (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "vehicle_catalog_modify" ON public.vehicle_catalog
+  FOR ALL TO authenticated
+  USING (public.is_tenant_member(tenant_id))
+  WITH CHECK (public.is_tenant_member(tenant_id));
+
+-- Vehicles: tenant-scoped
+CREATE POLICY "vehicles_select" ON public.vehicles
+  FOR SELECT TO authenticated
+  USING (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "vehicles_insert" ON public.vehicles
+  FOR INSERT TO authenticated
+  WITH CHECK (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "vehicles_update" ON public.vehicles
+  FOR UPDATE TO authenticated
+  USING (public.is_tenant_member(tenant_id))
+  WITH CHECK (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "vehicles_delete" ON public.vehicles
+  FOR DELETE TO authenticated
+  USING (public.is_tenant_admin(tenant_id));
+
+-- Vehicle Photos: tenant-scoped
+CREATE POLICY "vehicle_photos_select" ON public.vehicle_photos
+  FOR SELECT TO authenticated
+  USING (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "vehicle_photos_modify" ON public.vehicle_photos
+  FOR ALL TO authenticated
+  USING (public.is_tenant_member(tenant_id))
+  WITH CHECK (public.is_tenant_member(tenant_id));
+
+-- Vehicle Costs: tenant-scoped
+CREATE POLICY "vehicle_costs_select" ON public.vehicle_costs
+  FOR SELECT TO authenticated
+  USING (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "vehicle_costs_modify" ON public.vehicle_costs
+  FOR ALL TO authenticated
+  USING (public.is_tenant_member(tenant_id))
+  WITH CHECK (public.is_tenant_member(tenant_id));
+
+-- Vehicle Locations: tenant-scoped
+CREATE POLICY "vehicle_locations_select" ON public.vehicle_locations
+  FOR SELECT TO authenticated
+  USING (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "vehicle_locations_insert" ON public.vehicle_locations
+  FOR INSERT TO authenticated
+  WITH CHECK (public.is_tenant_member(tenant_id));
+
+-- Suppliers: tenant-scoped
+CREATE POLICY "suppliers_select" ON public.suppliers
+  FOR SELECT TO authenticated
+  USING (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "suppliers_modify" ON public.suppliers
+  FOR ALL TO authenticated
+  USING (public.is_tenant_member(tenant_id))
+  WITH CHECK (public.is_tenant_member(tenant_id));
+
+-- Purchase Orders: tenant-scoped
+CREATE POLICY "purchase_orders_select" ON public.purchase_orders
+  FOR SELECT TO authenticated
+  USING (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "purchase_orders_modify" ON public.purchase_orders
+  FOR ALL TO authenticated
+  USING (public.is_tenant_member(tenant_id))
+  WITH CHECK (public.is_tenant_member(tenant_id));
+
+-- Trade-in Appraisals: tenant-scoped
+CREATE POLICY "trade_in_select" ON public.trade_in_appraisals
+  FOR SELECT TO authenticated
+  USING (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "trade_in_modify" ON public.trade_in_appraisals
+  FOR ALL TO authenticated
+  USING (public.is_tenant_member(tenant_id))
+  WITH CHECK (public.is_tenant_member(tenant_id));
+
+-- Inspections: tenant-scoped
+CREATE POLICY "inspections_select" ON public.inspections
+  FOR SELECT TO authenticated
+  USING (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "inspections_modify" ON public.inspections
+  FOR ALL TO authenticated
+  USING (public.is_tenant_member(tenant_id))
+  WITH CHECK (public.is_tenant_member(tenant_id));
+
+-- Reconditioning Jobs: tenant-scoped
+CREATE POLICY "recon_select" ON public.reconditioning_jobs
+  FOR SELECT TO authenticated
+  USING (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "recon_modify" ON public.reconditioning_jobs
+  FOR ALL TO authenticated
+  USING (public.is_tenant_member(tenant_id))
+  WITH CHECK (public.is_tenant_member(tenant_id));
+
+-- Opportunities: tenant-scoped
+CREATE POLICY "opportunities_select" ON public.opportunities
+  FOR SELECT TO authenticated
+  USING (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "opportunities_modify" ON public.opportunities
+  FOR ALL TO authenticated
+  USING (public.is_tenant_member(tenant_id))
+  WITH CHECK (public.is_tenant_member(tenant_id));
+
+-- Quotations & Items: tenant-scoped
+CREATE POLICY "quotations_select" ON public.quotations
+  FOR SELECT TO authenticated
+  USING (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "quotations_modify" ON public.quotations
+  FOR ALL TO authenticated
+  USING (public.is_tenant_member(tenant_id))
+  WITH CHECK (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "quotation_items_select" ON public.quotation_items
+  FOR SELECT TO authenticated
+  USING (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "quotation_items_modify" ON public.quotation_items
+  FOR ALL TO authenticated
+  USING (public.is_tenant_member(tenant_id))
+  WITH CHECK (public.is_tenant_member(tenant_id));
+
+-- Discount Approvals: tenant-scoped
+CREATE POLICY "discounts_select" ON public.discount_approvals
+  FOR SELECT TO authenticated
+  USING (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "discounts_insert" ON public.discount_approvals
+  FOR INSERT TO authenticated
+  WITH CHECK (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "discounts_update" ON public.discount_approvals
+  FOR UPDATE TO authenticated
+  USING (public.is_tenant_admin(tenant_id))
+  WITH CHECK (public.is_tenant_admin(tenant_id));
+
+-- Deals: tenant-scoped
+CREATE POLICY "deals_select" ON public.deals
+  FOR SELECT TO authenticated
+  USING (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "deals_insert" ON public.deals
+  FOR INSERT TO authenticated
+  WITH CHECK (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "deals_update" ON public.deals
+  FOR UPDATE TO authenticated
+  USING (public.is_tenant_member(tenant_id))
+  WITH CHECK (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "deals_delete" ON public.deals
+  FOR DELETE TO authenticated
+  USING (public.is_tenant_admin(tenant_id));
+
+-- Bookings: tenant-scoped
+CREATE POLICY "bookings_select" ON public.bookings
+  FOR SELECT TO authenticated
+  USING (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "bookings_modify" ON public.bookings
+  FOR ALL TO authenticated
+  USING (public.is_tenant_member(tenant_id))
+  WITH CHECK (public.is_tenant_member(tenant_id));
+
+-- Payments: tenant-scoped, critical financial records
+CREATE POLICY "payments_select" ON public.payments
+  FOR SELECT TO authenticated
+  USING (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "payments_insert" ON public.payments
+  FOR INSERT TO authenticated
+  WITH CHECK (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "payments_update" ON public.payments
+  FOR UPDATE TO authenticated
+  USING (public.is_tenant_admin(tenant_id))
+  WITH CHECK (public.is_tenant_admin(tenant_id));
+
+CREATE POLICY "payments_delete" ON public.payments
+  FOR DELETE TO authenticated
+  USING (public.is_tenant_admin(tenant_id));
+
+-- Payment Allocations: tenant-scoped
+CREATE POLICY "pay_alloc_select" ON public.payment_allocations
+  FOR SELECT TO authenticated
+  USING (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "pay_alloc_modify" ON public.payment_allocations
+  FOR ALL TO authenticated
+  USING (public.is_tenant_member(tenant_id))
+  WITH CHECK (public.is_tenant_member(tenant_id));
+
+-- Invoices: tenant-scoped
+CREATE POLICY "invoices_select" ON public.invoices
+  FOR SELECT TO authenticated
+  USING (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "invoices_modify" ON public.invoices
+  FOR ALL TO authenticated
+  USING (public.is_tenant_member(tenant_id))
+  WITH CHECK (public.is_tenant_member(tenant_id));
+
+-- Refunds: tenant-scoped, management approved
+CREATE POLICY "refunds_select" ON public.refunds
+  FOR SELECT TO authenticated
+  USING (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "refunds_insert" ON public.refunds
+  FOR INSERT TO authenticated
+  WITH CHECK (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "refunds_update" ON public.refunds
+  FOR UPDATE TO authenticated
+  USING (public.is_tenant_admin(tenant_id))
+  WITH CHECK (public.is_tenant_admin(tenant_id));
+
+-- Expenses: tenant-scoped
+CREATE POLICY "expenses_select" ON public.expenses
+  FOR SELECT TO authenticated
+  USING (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "expenses_modify" ON public.expenses
+  FOR ALL TO authenticated
+  USING (public.is_tenant_member(tenant_id))
+  WITH CHECK (public.is_tenant_member(tenant_id));
+
+-- Documents: tenant-scoped KYC and agreements
+CREATE POLICY "documents_select" ON public.documents
+  FOR SELECT TO authenticated
+  USING (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "documents_insert" ON public.documents
+  FOR INSERT TO authenticated
+  WITH CHECK (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "documents_update" ON public.documents
+  FOR UPDATE TO authenticated
+  USING (public.is_tenant_member(tenant_id))
+  WITH CHECK (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "documents_delete" ON public.documents
+  FOR DELETE TO authenticated
+  USING (public.is_tenant_admin(tenant_id));
+
+-- Deliveries, PDI, Registration, Insurance: tenant-scoped
+CREATE POLICY "deliveries_select" ON public.deliveries
+  FOR SELECT TO authenticated
+  USING (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "deliveries_modify" ON public.deliveries
+  FOR ALL TO authenticated
+  USING (public.is_tenant_member(tenant_id))
+  WITH CHECK (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "pdi_select" ON public.pdi_records
+  FOR SELECT TO authenticated
+  USING (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "pdi_modify" ON public.pdi_records
+  FOR ALL TO authenticated
+  USING (public.is_tenant_member(tenant_id))
+  WITH CHECK (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "reg_cases_select" ON public.registration_cases
+  FOR SELECT TO authenticated
+  USING (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "reg_cases_modify" ON public.registration_cases
+  FOR ALL TO authenticated
+  USING (public.is_tenant_member(tenant_id))
+  WITH CHECK (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "insurance_select" ON public.insurance_policies
+  FOR SELECT TO authenticated
+  USING (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "insurance_modify" ON public.insurance_policies
+  FOR ALL TO authenticated
+  USING (public.is_tenant_member(tenant_id))
+  WITH CHECK (public.is_tenant_member(tenant_id));
+
+-- Service Workshop: tenant-scoped
+CREATE POLICY "service_appts_select" ON public.service_appointments
+  FOR SELECT TO authenticated
+  USING (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "service_appts_modify" ON public.service_appointments
+  FOR ALL TO authenticated
+  USING (public.is_tenant_member(tenant_id))
+  WITH CHECK (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "job_cards_select" ON public.job_cards
+  FOR SELECT TO authenticated
+  USING (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "job_cards_modify" ON public.job_cards
+  FOR ALL TO authenticated
+  USING (public.is_tenant_member(tenant_id))
+  WITH CHECK (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "labour_select" ON public.labour_items
+  FOR SELECT TO authenticated
+  USING (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "labour_modify" ON public.labour_items
+  FOR ALL TO authenticated
+  USING (public.is_tenant_member(tenant_id))
+  WITH CHECK (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "parts_select" ON public.parts
+  FOR SELECT TO authenticated
+  USING (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "parts_modify" ON public.parts
+  FOR ALL TO authenticated
+  USING (public.is_tenant_member(tenant_id))
+  WITH CHECK (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "part_usage_select" ON public.part_usage
+  FOR SELECT TO authenticated
+  USING (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "part_usage_modify" ON public.part_usage
+  FOR ALL TO authenticated
+  USING (public.is_tenant_member(tenant_id))
+  WITH CHECK (public.is_tenant_member(tenant_id));
+
+-- Complaints, Campaigns, Referrals: tenant-scoped
+CREATE POLICY "complaints_select" ON public.complaints
+  FOR SELECT TO authenticated
+  USING (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "complaints_modify" ON public.complaints
+  FOR ALL TO authenticated
+  USING (public.is_tenant_member(tenant_id))
+  WITH CHECK (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "campaigns_select" ON public.campaigns
+  FOR SELECT TO authenticated
+  USING (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "campaigns_modify" ON public.campaigns
+  FOR ALL TO authenticated
+  USING (public.is_tenant_member(tenant_id))
+  WITH CHECK (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "referrals_select" ON public.referrals
+  FOR SELECT TO authenticated
+  USING (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "referrals_modify" ON public.referrals
+  FOR ALL TO authenticated
+  USING (public.is_tenant_member(tenant_id))
+  WITH CHECK (public.is_tenant_member(tenant_id));
+
+-- Audit Events: immutable append-only log
+CREATE POLICY "audit_select" ON public.audit_events
+  FOR SELECT TO authenticated
+  USING (public.is_tenant_member(tenant_id));
+
+CREATE POLICY "audit_insert" ON public.audit_events
+  FOR INSERT TO authenticated
+  WITH CHECK (public.is_tenant_member(tenant_id));
 
 -- ============================================================================
--- 11. SUPABASE STORAGE BUCKETS CONFIGURATION
+-- 11. SUPABASE STORAGE BUCKETS CONFIGURATION (PRIVATE BY DEFAULT)
 -- ============================================================================
 
--- Insert storage buckets if not present
-INSERT INTO storage.buckets (id, name, public)
+-- Provision storage buckets with strict privacy flags and size/mime constraints
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES 
-  ('dealership-logos', 'dealership-logos', true),
-  ('vehicle-photos', 'vehicle-photos', true),
-  ('dealership-documents', 'dealership-documents', true),
-  ('signatures', 'signatures', true)
-ON CONFLICT (id) DO NOTHING;
+  (
+    'dealership-documents', 
+    'dealership-documents', 
+    false, 
+    15728640, -- 15MB maximum
+    ARRAY['application/pdf', 'image/jpeg', 'image/png', 'image/webp']
+  ),
+  (
+    'signatures', 
+    'signatures', 
+    false, 
+    5242880,  -- 5MB maximum
+    ARRAY['image/png', 'image/svg+xml', 'image/jpeg']
+  ),
+  ('dealership-logos', 'dealership-logos', true, 2097152, ARRAY['image/png', 'image/jpeg', 'image/svg+xml', 'image/webp']),
+  ('vehicle-photos', 'vehicle-photos', true, 10485760, ARRAY['image/png', 'image/jpeg', 'image/webp'])
+ON CONFLICT (id) DO UPDATE SET 
+  public = EXCLUDED.public,
+  file_size_limit = EXCLUDED.file_size_limit,
+  allowed_mime_types = EXCLUDED.allowed_mime_types;
 
--- Public read access for storage objects
-DROP POLICY IF EXISTS "Public Storage Read" ON storage.objects;
-CREATE POLICY "Public Storage Read" ON storage.objects FOR SELECT USING (true);
+-- 11.1 dealership-logos: Public read, authenticated upload
+CREATE POLICY "logos_public_read" ON storage.objects
+  FOR SELECT USING (bucket_id = 'dealership-logos');
 
-DROP POLICY IF EXISTS "Public Storage Upload" ON storage.objects;
-CREATE POLICY "Public Storage Upload" ON storage.objects FOR INSERT WITH CHECK (true);
+CREATE POLICY "logos_admin_upload" ON storage.objects
+  FOR INSERT TO authenticated 
+  WITH CHECK (
+    bucket_id = 'dealership-logos' 
+    AND (storage.foldername(name))[1] = ANY(public.user_tenant_ids())
+  );
 
-DROP POLICY IF EXISTS "Public Storage Update" ON storage.objects;
-CREATE POLICY "Public Storage Update" ON storage.objects FOR UPDATE USING (true);
+CREATE POLICY "logos_admin_update" ON storage.objects
+  FOR UPDATE TO authenticated 
+  USING (
+    bucket_id = 'dealership-logos' 
+    AND (storage.foldername(name))[1] = ANY(public.user_tenant_ids())
+  );
+
+-- 11.2 vehicle-photos: Public read, authenticated tenant staff upload
+CREATE POLICY "photos_public_read" ON storage.objects
+  FOR SELECT USING (bucket_id = 'vehicle-photos');
+
+CREATE POLICY "photos_staff_upload" ON storage.objects
+  FOR INSERT TO authenticated 
+  WITH CHECK (
+    bucket_id = 'vehicle-photos' 
+    AND (storage.foldername(name))[1] = ANY(public.user_tenant_ids())
+  );
+
+CREATE POLICY "photos_staff_update" ON storage.objects
+  FOR UPDATE TO authenticated 
+  USING (
+    bucket_id = 'vehicle-photos' 
+    AND (storage.foldername(name))[1] = ANY(public.user_tenant_ids())
+  );
+
+-- 11.3 dealership-documents: Strictly authenticated tenant-isolated access (private KYC/contracts)
+CREATE POLICY "docs_tenant_read" ON storage.objects
+  FOR SELECT TO authenticated 
+  USING (
+    bucket_id = 'dealership-documents'
+    AND (
+      (storage.foldername(name))[1] = ANY(public.user_tenant_ids())
+      OR public.has_role_on_tenant((storage.foldername(name))[1], 'tenant_admin')
+    )
+  );
+
+CREATE POLICY "docs_tenant_upload" ON storage.objects
+  FOR INSERT TO authenticated 
+  WITH CHECK (
+    bucket_id = 'dealership-documents'
+    AND (storage.foldername(name))[1] = ANY(public.user_tenant_ids())
+  );
+
+CREATE POLICY "docs_tenant_update" ON storage.objects
+  FOR UPDATE TO authenticated 
+  USING (
+    bucket_id = 'dealership-documents'
+    AND (storage.foldername(name))[1] = ANY(public.user_tenant_ids())
+  );
+
+CREATE POLICY "docs_tenant_delete" ON storage.objects
+  FOR DELETE TO authenticated 
+  USING (
+    bucket_id = 'dealership-documents'
+    AND (
+      public.has_role_on_tenant((storage.foldername(name))[1], 'tenant_admin')
+      OR public.has_role_on_tenant((storage.foldername(name))[1], 'branch_manager')
+    )
+  );
+
+-- 11.4 signatures: Strictly authenticated tenant-isolated access (private digital signatures)
+CREATE POLICY "sigs_tenant_read" ON storage.objects
+  FOR SELECT TO authenticated 
+  USING (
+    bucket_id = 'signatures'
+    AND (
+      (storage.foldername(name))[1] = ANY(public.user_tenant_ids())
+      OR public.has_role_on_tenant((storage.foldername(name))[1], 'tenant_admin')
+    )
+  );
+
+CREATE POLICY "sigs_tenant_upload" ON storage.objects
+  FOR INSERT TO authenticated 
+  WITH CHECK (
+    bucket_id = 'signatures'
+    AND (storage.foldername(name))[1] = ANY(public.user_tenant_ids())
+  );
+
+CREATE POLICY "sigs_tenant_update" ON storage.objects
+  FOR UPDATE TO authenticated 
+  USING (
+    bucket_id = 'signatures'
+    AND (storage.foldername(name))[1] = ANY(public.user_tenant_ids())
+  );
+
+CREATE POLICY "sigs_tenant_delete" ON storage.objects
+  FOR DELETE TO authenticated 
+  USING (
+    bucket_id = 'signatures'
+    AND public.has_role_on_tenant((storage.foldername(name))[1], 'tenant_admin')
+  );
 
 -- ============================================================================
 -- 12. INITIAL PRODUCTION SEED DATA

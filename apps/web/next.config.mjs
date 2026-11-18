@@ -18,29 +18,6 @@ const nextConfig = {
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production' ? { exclude: ['error'] } : false,
   },
-  async redirects() {
-    return [
-      {
-        source: '/:path*',
-        has: [
-          {
-            type: 'host',
-            value: 'crmnew-anjalipatel1526s-projects.vercel.app',
-          },
-        ],
-        destination: 'https://crmnew-navy.vercel.app/:path*',
-        permanent: true,
-      },
-    ];
-  },
-  async rewrites() {
-    return [
-      {
-        source: '/api/v1/:path*',
-        destination: 'http://localhost:4000/api/v1/:path*',
-      },
-    ];
-  },
 };
 
 export default nextConfig;

@@ -145,7 +145,6 @@ const CREDS_KEY = 'crm_user_credentials';
 
 export interface UserCredentials {
   userId: string;
-  password?: string;
   fullName: string;
   email: string;
   createdAt: string;
@@ -155,16 +154,23 @@ export function saveUserCredentials(creds: { userId: string; password?: string; 
   if (typeof window === 'undefined') return;
   try {
     const tenantId = getActiveTenantId();
-    localStorage.setItem(getScopedKey(CREDS_KEY), JSON.stringify({ ...creds, createdAt: new Date().toISOString() }));
+    // Do not store plaintext password in localStorage or database
+    const safeCreds = {
+      userId: creds.userId,
+      fullName: creds.fullName,
+      email: creds.email,
+      createdAt: new Date().toISOString(),
+    };
+    localStorage.setItem(getScopedKey(CREDS_KEY), JSON.stringify(safeCreds));
     
-    // Sync to Supabase user_credentials table if configured
+    // Sync identity to Supabase user_credentials table without raw password (never write raw creds.password)
     if (isSupabaseConfigured() && creds.email) {
       supabase
         .from('user_credentials')
         .upsert({
           tenant_id: tenantId,
           user_id: creds.userId || creds.email,
-          password_hash: creds.password,
+          password_hash: null, // Never persist raw plaintext passwords
           full_name: creds.fullName || creds.email,
           email: creds.email,
         }, { onConflict: 'user_id' })

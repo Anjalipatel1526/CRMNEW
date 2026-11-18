@@ -3,6 +3,8 @@ dotenv.config();
 
 import express, { Request, Response } from 'express';
 import cors from 'cors';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 import { query, queryOne, execute } from './database/db';
 import { supabase } from './supabase';
 import { PricingEngine, validateLeadTransition, validateVehicleTransition } from '@crm/business-rules';
@@ -36,49 +38,146 @@ app.get('/health', (req: Request, res: Response) => {
 app.post('/api/v1/auth/login', async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
-    
+    const cleanEmail = email?.trim()?.toLowerCase();
+
+    if (!cleanEmail || !password) {
+      return res.status(400).json({ error: 'Both email and password are required' });
+    }
+
+    // 1. Look up user in database (Supabase or local PostgreSQL)
+    let user: any = null;
+    let membership: any = null;
+
     if (supabase) {
-      const { data: users } = await supabase
+      const { data: dbUser } = await supabase
         .from('app_users')
         .select('*')
-        .eq('email', email)
-        .limit(1);
+        .eq('email', cleanEmail)
+        .maybeSingle();
+      user = dbUser;
+    }
 
-      if (users && users[0]) {
-        const u = users[0];
-        return res.json({
-          token: `mock_jwt_${u.id}_${Date.now()}`,
-          user: {
-            id: u.id,
-            email: u.email,
-            name: u.full_name,
-            role: 'tenant_admin',
-            branchId: 'b-dt-001',
-          },
-        });
+    if (!user) {
+      user = await queryOne('SELECT * FROM app_users WHERE LOWER(email) = $1', [cleanEmail]);
+    }
+
+    let passwordVerified = false;
+
+    // 2. Validate password hash using bcrypt.compare
+    if (user && user.password_hash) {
+      passwordVerified = await bcrypt.compare(password, user.password_hash);
+    }
+
+    // Fallback: If local bcrypt hash did not match and Supabase Auth client is configured, verify via Supabase Auth
+    let supabaseAuthUser: any = null;
+    if (!passwordVerified && supabase) {
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password: password,
+      });
+      if (!authError && authData.session && authData.user) {
+        passwordVerified = true;
+        supabaseAuthUser = authData.user;
       }
     }
 
-    const user = await queryOne(
-      'SELECT id, email, full_name, role, branch_id FROM app_users WHERE email = $1',
-      [email]
-    );
-
-    if (!user) {
+    if (!passwordVerified || (!user && !supabaseAuthUser)) {
       return res.status(401).json({ error: 'Invalid email or credentials' });
     }
 
-    res.json({
-      token: `mock_jwt_${user.id}_${Date.now()}`,
+    const effectiveUser = user || {
+      id: supabaseAuthUser.id,
+      email: supabaseAuthUser.email,
+      full_name: supabaseAuthUser.user_metadata?.full_name,
+      is_active: true,
+    };
+
+    if (effectiveUser.is_active === false) {
+      return res.status(403).json({ error: 'Account is disabled. Please contact your administrator.' });
+    }
+
+    // 3. Resolve user's actual database role and tenant ID from memberships table
+    const possibleUserIds = [effectiveUser.id];
+    if (supabaseAuthUser && supabaseAuthUser.id !== effectiveUser.id) {
+      possibleUserIds.push(supabaseAuthUser.id);
+    }
+
+    if (supabase) {
+      const { data: memRows } = await supabase
+        .from('memberships')
+        .select('id, tenant_id, role_key, branch_ids, is_active')
+        .in('user_id', possibleUserIds);
+      membership = memRows?.find((m) => m.is_active === true);
+    }
+
+    if (!membership) {
+      membership = await queryOne(
+        'SELECT id, tenant_id, role_key, branch_ids, is_active FROM memberships WHERE user_id = $1 AND is_active = true LIMIT 1',
+        [effectiveUser.id]
+      );
+    }
+
+    let resolvedTenantId = membership?.tenant_id;
+    let resolvedRoleKey = membership?.role_key;
+    let branchIds: string[] = [];
+
+    if (membership?.branch_ids) {
+      branchIds = typeof membership.branch_ids === 'string'
+        ? JSON.parse(membership.branch_ids)
+        : membership.branch_ids;
+    }
+
+    // Fallback check: employees table
+    if (!resolvedTenantId || !resolvedRoleKey) {
+      let emp: any = null;
+      if (supabase) {
+        const { data: empRows } = await supabase
+          .from('employees')
+          .select('id, tenant_id, role, branch_id, status')
+          .eq('email', cleanEmail)
+          .limit(1);
+        emp = empRows?.[0];
+      }
+      if (!emp) {
+        emp = await queryOne('SELECT id, tenant_id, role, branch_id, status FROM employees WHERE LOWER(email) = $1 LIMIT 1', [cleanEmail]);
+      }
+      if (emp && emp.status !== 'inactive' && emp.tenant_id) {
+        resolvedTenantId = emp.tenant_id;
+        resolvedRoleKey = emp.role || 'sales_executive';
+        if (emp.branch_id) branchIds = [emp.branch_id];
+      }
+    }
+
+    if (!resolvedTenantId || !resolvedRoleKey) {
+      return res.status(403).json({ error: 'Account has no active dealership membership' });
+    }
+
+    // 4. Sign valid JWT containing user ID, role, and tenant ID
+    const jwtSecret = process.env.JWT_SECRET || 'crm-enterprise-super-secret-jwt-key-2026';
+    const token = jwt.sign(
+      {
+        userId: effectiveUser.id,
+        role: resolvedRoleKey,
+        tenantId: resolvedTenantId,
+        email: effectiveUser.email,
+      },
+      jwtSecret,
+      { expiresIn: '8h' }
+    );
+
+    return res.json({
+      token,
       user: {
-        id: user.id,
-        email: user.email,
-        name: user.full_name,
-        role: user.role,
-        branchId: user.branch_id,
+        id: effectiveUser.id,
+        email: effectiveUser.email,
+        name: effectiveUser.full_name || cleanEmail.split('@')[0],
+        role: resolvedRoleKey,
+        tenantId: resolvedTenantId,
+        branchId: branchIds[0] || 'b-dt-001',
       },
     });
   } catch (error: any) {
+    console.error('[API/login] Authentication error:', error);
     res.status(500).json({ error: error.message });
   }
 });

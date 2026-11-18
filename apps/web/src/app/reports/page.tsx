@@ -119,14 +119,14 @@ export default function ReportsPage() {
   // Dynamic KPI Metrics
   const grossRevenue = useMemo(() => {
     return dateRangeFilteredDeals
-      .filter((d) => d.status === 'won' || d.status === 'delivered' || d.status === 'contract_signed')
-      .reduce((sum, d) => sum + (d.pricing?.agreedPrice || d.salePrice || 0), 0);
+      .filter((d) => (d.stage || d.status) === 'won' || (d.stage || d.status) === 'delivered' || (d.stage || d.status) === 'contract_signed')
+      .reduce((sum, d) => sum + (d.pricing?.agreedVehiclePrice || d.grandTotal || d.salePrice || 0), 0);
   }, [dateRangeFilteredDeals]);
 
   const overallConversion = useMemo(() => {
     if (dateRangeFilteredLeads.length === 0) return 0;
     const closedCount = dateRangeFilteredDeals.filter(
-      (d) => d.status === 'won' || d.status === 'delivered'
+      (d) => (d.stage || d.status) === 'won' || (d.stage || d.status) === 'delivered'
     ).length;
     return Math.min(100, Math.round((closedCount / dateRangeFilteredLeads.length) * 100));
   }, [dateRangeFilteredDeals, dateRangeFilteredLeads]);
@@ -154,9 +154,9 @@ export default function ReportsPage() {
       const empDeals = dateRangeFilteredDeals.filter(
         (d) =>
           (d.salesExecutiveId === emp.id || d.assignedTo === emp.id) &&
-          (d.status === 'won' || d.status === 'delivered')
+          ((d.stage || d.status) === 'won' || (d.stage || d.status) === 'delivered')
       );
-      const rev = empDeals.reduce((sum, d) => sum + (d.pricing?.agreedPrice || d.salePrice || 0), 0);
+      const rev = empDeals.reduce((sum, d) => sum + (d.pricing?.agreedVehiclePrice || d.grandTotal || d.salePrice || 0), 0);
       const rate = empLeads.length > 0 ? Math.round((empDeals.length / empLeads.length) * 100) : 0;
 
       return {

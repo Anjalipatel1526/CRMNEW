@@ -359,3 +359,44 @@ export const RecordExpenseSchema = z.object({
   incurredAt: z.string(),
 });
 export type RecordExpenseInput = z.infer<typeof RecordExpenseSchema>;
+
+// ============================================================
+// DOCUMENT SCHEMAS
+// ============================================================
+export const DocumentUploadMetadataSchema = z.object({
+  fileName: z.string().min(1, 'File name is required'),
+  fileType: z.string().min(1, 'File type is required'),
+  documentType: z.string().min(1, 'Document type is required'),
+  entityType: z.enum(['customer', 'vehicle', 'deal', 'booking', 'employee', 'general', 'dealership']).default('general'),
+  entityId: z.string().optional(),
+  fileSize: z.number().max(15 * 1024 * 1024, 'File size cannot exceed 15MB').optional(),
+  base64Data: z.string().optional(),
+  tenantId: z.string().optional(),
+});
+export type DocumentUploadMetadataInput = z.infer<typeof DocumentUploadMetadataSchema>;
+
+// ============================================================
+// EMPLOYEE SCHEMAS
+// ============================================================
+export const EmployeeCreateSchema = z.object({
+  id: z.string().optional(),
+  fullName: z.string().min(2, 'Full name must be at least 2 characters'),
+  email: z.string().email('Invalid email address'),
+  phone: z.string().optional(),
+  role: z.enum([
+    'tenant_admin',
+    'branch_manager',
+    'sales_executive',
+    'finance_manager',
+    'inventory_manager',
+    'service_advisor',
+    'technician',
+    'receptionist',
+  ]).default('sales_executive'),
+  department: z.string().optional(),
+  branchId: z.string().optional(),
+  designation: z.string().optional(),
+  status: z.enum(['active', 'inactive', 'on_leave', 'terminated']).default('active'),
+  isActive: z.boolean().default(true),
+});
+export type EmployeeCreateInput = z.infer<typeof EmployeeCreateSchema>;
