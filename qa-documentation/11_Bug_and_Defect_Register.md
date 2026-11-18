@@ -1,7 +1,10 @@
 # 11 — Bug and Defect Register
 
 **Audit Scope:** Full codebase, database schemas, unit/API probes, production build & route checks  
-**Total Defects Logged:** `22` (`7 Critical`, `9 High`, `4 Medium`, `2 Low`)
+**Total Defects Logged:** `22` (`7 Critical`, `9 High`, `4 Medium`, `2 Low`)  
+**Defects Resolved / Cleared:** `4` (`DEF-017`, `DEF-020`, `DEF-021`, `DEF-022`)  
+**Defects Remaining Open:** `18` (`7 Critical`, `9 High`, `2 Medium`)  
+**Last Updated:** 2026-11-14
 
 ---
 
@@ -23,10 +26,10 @@
 | **DEF-014** | **High** | Lead Stage State Machine Bypassed | `apps/web/src/app/crm/leads/page.tsx:8,455-461`, `apps/api/src/main.ts:264-270` | UI imports `validateLeadTransition` cleanly but never calls it; Express Supabase `PATCH /leads/:id/stage` skips transition validation too. | Open | `FUNC-005`, `INT-008` |
 | **DEF-015** | **High** | Core Deal & Workflow Actions Implemented as `alert()` Stubs | `sales/deals/page.tsx:417-471`, `service/page.tsx:274,364`, `marketing/page.tsx:193`, `vehicles/procurement/page.tsx:492,561`, `crm/appointments/page.tsx:597`, `ai/page.tsx:240` | Deal 5-gate status checklist is hardcoded JSX and Handover Pass calls `alert(...)`; PO, Trade-In, Service Job Card, Campaign Launch, WhatsApp dispatch, and Drive Completion only trigger `alert(...)`. | Open | `FUNC-010`, `FUNC-011`, `FUNC-012`, `INT-007`, `UI-005` |
 | **DEF-016** | **High** | Dual SQL Schema Drift & Partial `employees` Sync | `supabase_schema.sql` vs `apps/api/src/database/schema.sql`, `api/employees/route.ts:99-110` | `49` vs `46` tables (`company_profiles`, `dealership_modules`, `user_credentials`, `employees` absent in API SQL); DB `employees` lacks `employeeCode`, `salary`, `password`, `isAdmin`, `accessControl`, `leaveHistory`. | Open | `DB-006`, `DB-008`, `INT-010` |
-| **DEF-017** | **Medium** | Broken Navigation Route `/sales` (HTTP `404`) | `supabase_schema.sql:1062` vs `apps/web/src/app/` | Seeded Sales Desk module points to `/sales`, which has no `page.tsx` and returns **HTTP `404`** (verified via `web_http_probe.ts`). | Open | `UI-001` |
+| **DEF-017** | **Medium** | Broken Navigation Route `/sales` (HTTP `404`) | `apps/web/src/app/sales/page.tsx`, `Shell.tsx:357,489` | Seeded Sales Desk module pointed to `/sales` (HTTP `404`). Created comprehensive Sales Operations & Revenue Hub (`/sales`), wired `/sales/deals` & `/sales/quotations`, and updated Shell route guard. | **Resolved** | `UI-001` |
 | **DEF-018** | **Medium** | Role Discount Mapping & Deal Zero-Value Edge Bug | `packages/business-rules/src/index.ts:169-185`, `sales/quotations/page.tsx:51` | `finance_manager` (and 4 other roles) default to `0%` auto-approved discount; `validateDiscount(100, 0, 'sales_executive')` returns `allowed: true`; Quotations UI hardcodes `'sales_executive'` role. | Open | `FUNC-003` |
 | **DEF-019** | **Medium** | Base64 Payloads in `localStorage` & JSONB Metadata + Unbounded Queries | `api-client.ts`, `document-store.ts`, `api/documents/route.ts:84-86` | `select('*')` has no pagination; base64 file uploads in `localStorage`/JSONB risk `QuotaExceededError` and bloat DB rows. | Open | `INT-004`, `PERF-02` |
-| **DEF-020** | **Medium** | Missing ESLint Config Blocks `npm run lint` | `apps/web/` | Running `npm run lint --workspace=apps/web` prompts interactively to configure ESLint instead of executing automated static checks. | Open | `UI-008` |
-| **DEF-021** | **Low** | `DataTable` Lacks Column Sorting | `apps/web/src/components/ui/DataTable.tsx:96-104` | Search + 10-row pagination implemented, but column header sorting is completely absent. | Open | `FUNC-013` |
-| **DEF-022** | **Low** | Finance Tax Invoice UI Typo & Default Location | `apps/web/src/app/finance/page.tsx:752,775` | Invoice table header displays `"Product Deskription"` and city fallback defaults to `"Walsh, Somerfield - US"`. | Open | `UI-002` |
+| **DEF-020** | **Medium** | Missing ESLint Config Blocks `npm run lint` | `apps/web/.eslintrc.json`, `apps/web/package.json` | Running `npm run lint --workspace=apps/web` prompted interactively. Added `.eslintrc.json` (`next/core-web-vitals`), installed ESLint 8.57.1, fixed unescaped JSX entities; `npm run lint` passes with 0 errors. | **Resolved** | `UI-008` |
+| **DEF-021** | **Low** | `DataTable` Lacks Column Sorting | `apps/web/src/components/ui/DataTable.tsx:56-136` | Column header sorting was completely absent. Added multi-type ascending/descending sorting for text, currency/numbers, dates, and booleans with sort direction arrows and pagination reset. | **Resolved** | `FUNC-013` |
+| **DEF-022** | **Low** | Finance Tax Invoice UI Typo & Default Location | `finance/page.tsx:780,850`, `InvoiceDocumentGenerator.tsx:1590,1655,1810` | Invoice table header displayed `"Product Deskription"` and address defaulted to `"Walsh, Somerfield - US"`. Corrected typo to `"Product Description"`, removed fake US address, and mapped live dealership address. | **Resolved** | `UI-002` |
 
