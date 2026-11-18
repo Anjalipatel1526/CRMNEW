@@ -64,6 +64,152 @@ export function extractToken(req: NextRequest | Request): string | null {
 }
 
 /**
+ * Resolves a verified user's trusted tenant membership and role from Supabase tables.
+ * Checks memberships -> employees -> onboarded dealership admin (company_profiles / user_credentials).
+ * Auto-provisions a canonical memberships row when an onboarded dealership admin logs in.
+ */
+export async function resolveTrustedTenantRole(
+  authUserId: string,
+  userEmail: string,
+  appUser?: { id?: string; full_name?: string | null } | null,
+  userMetadata?: Record<string, any> | null
+): Promise<{
+  tenantId?: string;
+  roleKey?: string;
+  branchIds: string[];
+  membershipId?: string;
+}> {
+  const normalizedEmail = userEmail.toLowerCase().trim();
+  const possibleUserIds = [authUserId];
+  if (appUser?.id && appUser.id !== authUserId) {
+    possibleUserIds.push(appUser.id);
+  }
+
+  // 1. Primary: memberships table
+  const { data: memberships } = await supabaseAdmin
+    .from('memberships')
+    .select('id, tenant_id, user_id, role_key, branch_ids, is_active')
+    .in('user_id', possibleUserIds);
+
+  const activeMembership = memberships?.find((m) => m.is_active === true);
+  if (activeMembership?.tenant_id && activeMembership?.role_key) {
+    return {
+      tenantId: activeMembership.tenant_id,
+      roleKey: activeMembership.role_key,
+      branchIds: Array.isArray(activeMembership.branch_ids) ? activeMembership.branch_ids : [],
+      membershipId: activeMembership.id,
+    };
+  }
+
+  // 2. Fallback: employees table (staff membership)
+  const { data: employeeRows } = await supabaseAdmin
+    .from('employees')
+    .select('id, tenant_id, role, branch_id, is_active')
+    .ilike('email', normalizedEmail);
+
+  const emp = employeeRows && employeeRows.length > 0 ? employeeRows[0] : null;
+  if (emp && emp.is_active !== false && emp.tenant_id) {
+    return {
+      tenantId: emp.tenant_id,
+      roleKey: emp.role || 'sales_executive',
+      branchIds: emp.branch_id ? [emp.branch_id] : [],
+    };
+  }
+
+  // 3. Fallback: onboarded dealership admin in company_profiles or user_credentials
+  let adminTenantId: string | undefined;
+
+  const { data: profileRows } = await supabaseAdmin
+    .from('company_profiles')
+    .select('tenant_id, is_onboarded, email')
+    .ilike('email', normalizedEmail)
+    .order('updated_at', { ascending: false })
+    .limit(5);
+
+  const matchedProfile =
+    profileRows?.find((p) => p.tenant_id && p.is_onboarded) ||
+    profileRows?.find((p) => p.tenant_id);
+
+  if (matchedProfile?.tenant_id) {
+    adminTenantId = matchedProfile.tenant_id;
+  } else {
+    const { data: credRows } = await supabaseAdmin
+      .from('user_credentials')
+      .select('tenant_id, email')
+      .ilike('email', normalizedEmail)
+      .limit(1);
+
+    if (credRows && credRows[0]?.tenant_id) {
+      adminTenantId = credRows[0].tenant_id;
+    }
+  }
+
+  if (adminTenantId) {
+    // Auto-provision canonical app_users + memberships row for future queries & RLS
+    try {
+      const fullName =
+        appUser?.full_name ||
+        userMetadata?.full_name ||
+        userMetadata?.name ||
+        normalizedEmail.split('@')[0];
+
+      const appUserId = appUser?.id || authUserId;
+      await supabaseAdmin.from('app_users').upsert(
+        {
+          id: appUserId,
+          email: normalizedEmail,
+          full_name: fullName,
+          is_active: true,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'email' }
+      );
+
+      // Re-fetch canonical app_users.id in case email already existed under a different id
+      const { data: canonicalUser } = await supabaseAdmin
+        .from('app_users')
+        .select('id')
+        .ilike('email', normalizedEmail)
+        .limit(1);
+
+      const membershipUserId = canonicalUser?.[0]?.id || appUserId;
+
+      const { data: createdMembership } = await supabaseAdmin
+        .from('memberships')
+        .upsert(
+          {
+            tenant_id: adminTenantId,
+            user_id: membershipUserId,
+            role_key: 'tenant_admin',
+            branch_ids: [],
+            branch_scope: 'all',
+            is_active: true,
+          },
+          { onConflict: 'tenant_id,user_id' }
+        )
+        .select('id')
+        .maybeSingle();
+
+      return {
+        tenantId: adminTenantId,
+        roleKey: 'tenant_admin',
+        branchIds: [],
+        membershipId: createdMembership?.id,
+      };
+    } catch (provisionErr) {
+      console.warn('[ServerAuth] Auto-provision membership warning:', provisionErr);
+      return {
+        tenantId: adminTenantId,
+        roleKey: 'tenant_admin',
+        branchIds: [],
+      };
+    }
+  }
+
+  return { branchIds: [] };
+}
+
+/**
  * Cryptographically verifies the session token against Supabase Auth,
  * validates account active status, and resolves verified role & tenant membership from the database.
  * Never trusts client-supplied roles, query parameters, or local storage.
@@ -123,37 +269,12 @@ export async function verifySession(req: NextRequest | Request): Promise<AuthRes
       };
     }
 
-    // 3. Look up active membership in memberships table
-    const possibleUserIds = [authUser.id];
-    if (appUser?.id && appUser.id !== authUser.id) {
-      possibleUserIds.push(appUser.id);
-    }
-
-    const { data: memberships, error: memErr } = await supabaseAdmin
-      .from('memberships')
-      .select('id, tenant_id, user_id, role_key, branch_ids, is_active')
-      .in('user_id', possibleUserIds);
-
-    let activeMembership = memberships?.find((m) => m.is_active === true);
-
-    let resolvedTenantId = activeMembership?.tenant_id;
-    let resolvedRoleKey = activeMembership?.role_key;
-    let branchIds: string[] = Array.isArray(activeMembership?.branch_ids) ? activeMembership.branch_ids : [];
-
-    // 4. Fallback check: employees table (staff membership)
-    if (!resolvedTenantId || !resolvedRoleKey) {
-      const { data: employeeRows } = await supabaseAdmin
-        .from('employees')
-        .select('id, tenant_id, role, branch_id, status')
-        .eq('email', userEmail);
-
-      const emp = employeeRows && employeeRows.length > 0 ? employeeRows[0] : null;
-      if (emp && emp.status !== 'inactive' && emp.tenant_id) {
-        resolvedTenantId = emp.tenant_id;
-        resolvedRoleKey = emp.role || 'sales_executive';
-        if (emp.branch_id) branchIds = [emp.branch_id];
-      }
-    }
+    // 3. Look up active membership in memberships / employees / onboarded dealership admin tables
+    const resolved = await resolveTrustedTenantRole(authUser.id, userEmail, appUser, authUser.user_metadata);
+    const resolvedTenantId = resolved.tenantId;
+    const resolvedRoleKey = resolved.roleKey;
+    const branchIds = resolved.branchIds;
+    const activeMembershipId = resolved.membershipId;
 
     // 5. Enforce Tenant Membership requirement
     if (!resolvedTenantId) {
@@ -189,7 +310,7 @@ export async function verifySession(req: NextRequest | Request): Promise<AuthRes
         tenantId: resolvedTenantId,
         role: resolvedRoleKey as UserRole,
         branchIds,
-        membershipId: activeMembership?.id,
+        membershipId: activeMembershipId,
       },
     };
   } catch (err: any) {

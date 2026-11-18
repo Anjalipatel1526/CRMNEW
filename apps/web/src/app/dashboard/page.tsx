@@ -119,24 +119,45 @@ export default function DashboardPage() {
         return;
       }
 
-      // 2. Supabase Google Session check
+      // 2. Supabase Session / Server Cookie check
       const { data: { session } } = await supabase.auth.getSession();
-      const userEmail = (session?.user?.email || localSession?.email || '').toLowerCase().trim();
+      let userEmail = (session?.user?.email || localSession?.email || '').toLowerCase().trim();
+      let resolvedTenantId = localSession?.tenantId || '';
 
-      // If user is not authenticated at all, redirect to Google Auth
+      // If client session isn't hydrated yet, verify against server HttpOnly session cookie
       if (!session?.user && !localSession?.isLoggedIn) {
-        router.replace('/auth/google');
-        return;
+        try {
+          const meRes = await fetch('/api/auth/me');
+          if (meRes.ok) {
+            const meJson = await meRes.json();
+            if (meJson?.authenticated && meJson?.user?.email) {
+              userEmail = meJson.user.email.toLowerCase().trim();
+              resolvedTenantId = meJson.tenantId || resolvedTenantId;
+            } else {
+              router.replace('/login');
+              return;
+            }
+          } else {
+            router.replace('/login');
+            return;
+          }
+        } catch {
+          router.replace('/login');
+          return;
+        }
       }
 
       // 3. Verify that THIS account has actually completed onboarding
-      if (userEmail) {
+      if (userEmail || resolvedTenantId) {
         try {
-          const res = await fetch(`/api/company-profile?email=${encodeURIComponent(userEmail)}`);
+          const qs = new URLSearchParams();
+          if (userEmail) qs.set('email', userEmail);
+          if (resolvedTenantId) qs.set('tenantId', resolvedTenantId);
+          const res = await fetch(`/api/company-profile?${qs.toString()}`);
           if (res.ok) {
             const json = await res.json();
-            if (!json?.isOnboarded) {
-              // Not onboarded! Redirect to onboarding form
+            if (json?.isOnboarded === false) {
+              // Not onboarded yet! Redirect to onboarding form
               router.replace('/onboarding');
               return;
             }

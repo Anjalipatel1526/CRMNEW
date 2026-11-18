@@ -215,10 +215,12 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const [sessionState, setSessionState] = useState<UserSession | null>(null);
 
   // Optimized logo thumbnail to guarantee < 5KB transfer and instant LCP
-  const [displayLogoUrl, setDisplayLogoUrl] = useState<string>(company.logoUrl || '/unai-logo.png');
+  const [displayLogoUrl, setDisplayLogoUrl] = useState<string>(
+    company.logoUrl && company.logoUrl !== '/unai-logo.png' ? company.logoUrl : ''
+  );
 
   useEffect(() => {
-    const raw = company.logoUrl || '/unai-logo.png';
+    const raw = company.logoUrl && company.logoUrl !== '/unai-logo.png' ? company.logoUrl : '';
     if (raw.startsWith('data:image/') && raw.length > 25000) {
       compressDataUrl(raw, 96, 0.82).then((thumb) => {
         setDisplayLogoUrl(thumb);

@@ -132,12 +132,41 @@ export default function OnboardingPage() {
           }));
         }
 
+        // Ensure server session cookie is synced & check if user is ALREADY onboarded
+        const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+        const allowRevisit = urlParams?.get('edit') === 'true' || urlParams?.get('reset') === 'true';
+
+        if (session?.access_token) {
+          try {
+            const syncRes = await fetch('/api/auth/session', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ accessToken: session.access_token }),
+            });
+            if (syncRes.ok) {
+              const syncJson = await syncRes.json();
+              if (syncJson?.isOnboarded && !allowRevisit) {
+                router.replace('/dashboard');
+                return;
+              }
+            }
+          } catch (syncErr) {
+            console.warn('[Onboarding] Session sync note:', syncErr);
+          }
+        }
+
         // Pre-populate any existing company profile fields from backend if available
         try {
           if (googleEmail) {
-            const profileRes = await fetch(`/api/company-profile?email=${encodeURIComponent(googleEmail)}`);
+            const profileRes = await fetch(`/api/company-profile?email=${encodeURIComponent(googleEmail)}`, {
+              headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined,
+            });
             if (profileRes.ok) {
               const profileJson = await profileRes.json();
+              if (profileJson?.isOnboarded && !allowRevisit) {
+                router.replace('/dashboard');
+                return;
+              }
               if (profileJson?.profile) {
                 const p = profileJson.profile;
                 setFormData((prev) => ({
@@ -224,12 +253,13 @@ export default function OnboardingPage() {
     setModulesList(getModules());
   }, []);
 
-  // Auto-save form progress so filled fields are always retained and editable
+  // Auto-save form progress so filled fields are always retained and editable (only after auth check finishes)
   useEffect(() => {
+    if (isVerifyingAuth || !isAuthenticated) return;
     if (formData.legalName || formData.tradeName || formData.gstin || formData.email || formData.phone) {
       saveCompanyProfile(formData);
     }
-  }, [formData]);
+  }, [formData, isVerifyingAuth, isAuthenticated]);
 
   // Clear specific field error
   const clearError = (field: string) => {

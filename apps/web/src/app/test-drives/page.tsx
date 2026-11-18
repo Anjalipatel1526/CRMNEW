@@ -3,6 +3,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { WordFadeIn } from '@/components/ui/WordFadeIn';
 import { Modal } from '@/components/ui/Modal';
+import { SearchableCarSelect } from '@/components/ui/SearchableCarSelect';
+import { getAllCarOptions } from '@/lib/car-catalog';
+import { api } from '@/lib/api-client';
 import {
   getTestDrives,
   fetchTestDrives,
@@ -77,8 +80,19 @@ export default function TestDrivesPage() {
     if (!newDriveForm.customerName.trim()) return;
 
     const created = addTestDrive(newDriveForm);
+    // Sync newly scheduled test drive directly to Sales Pipeline -> Test Drive stage
+    api.syncLeadStageForActivity({
+      customerName: created.customerName,
+      customerPhone: created.customerPhone,
+      customerEmail: created.customerEmail,
+      vehicleName: created.vehicleName,
+      targetStage: 'test_drive',
+      notes: `Test Drive Scheduled (${created.driveCode}) on ${created.date}${created.timeSlot ? ` (${created.timeSlot})` : ''} — ${created.vehicleName}${created.route ? ` | Route: ${created.route}` : ''}`,
+      nextActionAt: created.date,
+      source: 'Test Drive Desk',
+    });
     setIsAddModalOpen(false);
-    showToast(`Test drive scheduled for ${created.customerName} (${created.driveCode})!`);
+    showToast(`Test drive scheduled for ${created.customerName} (${created.driveCode}) & synced to Pipeline!`);
   };
 
   const handleComplete = (e: React.FormEvent) => {
@@ -97,6 +111,19 @@ export default function TestDrivesPage() {
     setFeedback('');
     showToast(`Test drive ${selectedDriveForComplete.driveCode} marked as COMPLETED.`);
   };
+
+  const inventoryCarOptions = useMemo(() => {
+    const vehicles = api.getVehicles();
+    const defaultSet = new Set(getAllCarOptions().map((o) => o.toLowerCase()));
+    const extra: string[] = [];
+    for (const v of vehicles) {
+      const label = [v.year, v.make, v.model, v.variant].filter(Boolean).join(' ').trim();
+      if (label && !defaultSet.has(label.toLowerCase()) && !extra.includes(label)) {
+        extra.push(label);
+      }
+    }
+    return extra;
+  }, []);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
@@ -466,16 +493,13 @@ export default function TestDrivesPage() {
             <div className="form-grid-2">
               <div className="form-group">
                 <label className="form-label">Allocated Vehicle</label>
-                <select
-                  className="form-select"
+                <SearchableCarSelect
                   value={newDriveForm.vehicleName}
-                  onChange={(e) => setNewDriveForm({ ...newDriveForm, vehicleName: e.target.value })}
-                >
-                  <option value="Mahindra XUV700 AX7L AWD (Midnight Black)">Mahindra XUV700 AX7L AWD (MH-02-EZ-4120)</option>
-                  <option value="Hyundai Creta SX(O) Turbo DCT (Polar White)">Hyundai Creta SX(O) Turbo (MH-03-DF-8812)</option>
-                  <option value="Toyota Fortuner 4x4 AT Legender">Toyota Fortuner 4x4 Legender (MH-01-DA-1008)</option>
-                  <option value="Tata Nexon EV Max (Intense Teal)">Tata Nexon EV Max (MH-47-BE-6601)</option>
-                </select>
+                  onChange={(val) => setNewDriveForm({ ...newDriveForm, vehicleName: val })}
+                  inventoryOptions={inventoryCarOptions}
+                  placeholder="Search or select test drive vehicle..."
+                  openDirection="down"
+                />
               </div>
 
               <div className="form-group">

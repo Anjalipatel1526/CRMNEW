@@ -301,22 +301,26 @@ export function InvoiceDocumentGenerator({
   useEffect(() => {
     const profile = getCompanyProfile();
     setCompany(profile);
-    const targetLogo = profile.logoUrl || '/unai-logo.png';
-    extractBrandColorFromLogo(targetLogo).then((color) => {
-      setAutoThemeColor(color);
-      if (profile.brandColor !== color) {
-        const updated = saveCompanyProfile({ brandColor: color });
-        setCompany(updated);
-      }
-    });
+    const targetLogo = profile.logoUrl && profile.logoUrl !== '/unai-logo.png' ? profile.logoUrl : '';
+    if (targetLogo) {
+      extractBrandColorFromLogo(targetLogo).then((color) => {
+        setAutoThemeColor(color);
+        if (profile.brandColor !== color) {
+          const updated = saveCompanyProfile({ brandColor: color });
+          setCompany(updated);
+        }
+      });
+    }
 
     const handleCompanyChanged = () => {
       const p = getCompanyProfile();
       setCompany(p);
-      const l = p.logoUrl || '/unai-logo.png';
-      extractBrandColorFromLogo(l).then((c) => {
-        setAutoThemeColor(c);
-      });
+      const l = p.logoUrl && p.logoUrl !== '/unai-logo.png' ? p.logoUrl : '';
+      if (l) {
+        extractBrandColorFromLogo(l).then((c) => {
+          setAutoThemeColor(c);
+        });
+      }
     };
     window.addEventListener('crm-company-profile-changed', handleCompanyChanged);
     return () => {

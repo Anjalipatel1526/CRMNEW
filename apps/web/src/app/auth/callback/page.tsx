@@ -114,13 +114,37 @@ function AuthCallbackContent() {
         user.email?.split('@')[0] ||
         'Administrator';
 
+      // Bridge Supabase OAuth token to server HttpOnly session cookies for Edge Middleware & API routes
+      let serverSessionData: any = null;
+      if (session?.access_token) {
+        try {
+          const syncRes = await fetch('/api/auth/session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ accessToken: session.access_token }),
+          });
+          if (syncRes.ok) {
+            serverSessionData = await syncRes.json();
+          }
+        } catch (syncErr) {
+          console.warn('[AuthCallback] Server session cookie sync warning:', syncErr);
+        }
+      }
+
       // Sync user into application auth context
       try {
-        loginUser(user.email || user.id, fullName, 'tenant_admin', {
+        loginUser(user.email || user.id, fullName, serverSessionData?.role || 'tenant_admin', {
           avatarUrl: user.user_metadata?.avatar_url,
+          tenantId: serverSessionData?.tenantId,
+          isAdmin: (serverSessionData?.role || 'tenant_admin') === 'tenant_admin',
         });
       } catch (e) {
         console.warn('[AuthCallback] Session sync info:', e);
+      }
+
+      if (serverSessionData?.isOnboarded) {
+        router.replace('/dashboard');
+        return;
       }
 
       // Check if this specific email has already completed onboarding

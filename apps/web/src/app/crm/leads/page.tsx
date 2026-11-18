@@ -2,6 +2,8 @@
 
 import React, { useState } from 'react';
 import { api } from '@/lib/api-client';
+import { getTestDrives, fetchTestDrives } from '@/lib/test-drive-store';
+import { ALL_CAR_BRANDS, getModelsForBrand } from '@/lib/car-catalog';
 import { Lead, LeadStatus, Customer } from '@crm/shared-types';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Modal } from '@/components/ui/Modal';
@@ -338,21 +340,33 @@ export default function LeadsPage() {
   const [dragOverStage, setDragOverStage] = useState<LeadStatus | null>(null);
   const [recentlyMovedId, setRecentlyMovedId] = useState<string | null>(null);
   const [transitionError, setTransitionError] = useState<string | null>(null);
+  const [pendingTransition, setPendingTransition] = useState<{
+    lead: Lead;
+    fromStatus: LeadStatus;
+    toStatus: LeadStatus;
+    note: string;
+  } | null>(null);
 
   React.useEffect(() => {
     setMounted(true);
-    setLeads([...api.getLeads()]);
-    setCustomers([...api.getCustomers()]);
-    setBranches([...api.getBranches()]);
 
-    api.fetchLeads().then((data) => {
-      if (Array.isArray(data)) setLeads([...data]);
-    });
-    api.fetchCustomers().then((data) => {
-      if (Array.isArray(data)) setCustomers([...data]);
-    });
-    api.fetchBranches().then((data) => {
-      if (Array.isArray(data)) setBranches([...data]);
+    const syncFromActivities = (drivesList = getTestDrives()) => {
+      api.reconcilePipelineFromActivities(drivesList);
+      setLeads([...api.getLeads()]);
+      setCustomers([...api.getCustomers()]);
+      setBranches([...api.getBranches()]);
+    };
+
+    syncFromActivities();
+
+    Promise.all([
+      api.fetchCustomers(),
+      api.fetchLeads(),
+      api.fetchAppointments(),
+      api.fetchBranches(),
+      fetchTestDrives(),
+    ]).then(([, , , , remoteDrives]) => {
+      syncFromActivities(Array.isArray(remoteDrives) ? remoteDrives : getTestDrives());
     });
 
     const handleDataChanged = () => {
@@ -360,8 +374,15 @@ export default function LeadsPage() {
       setCustomers([...api.getCustomers()]);
       setBranches([...api.getBranches()]);
     };
+    const handleTestDrivesChanged = () => {
+      syncFromActivities(getTestDrives());
+    };
     window.addEventListener('crm-data-changed', handleDataChanged);
-    return () => window.removeEventListener('crm-data-changed', handleDataChanged);
+    window.addEventListener('crm-testdrives-changed', handleTestDrivesChanged);
+    return () => {
+      window.removeEventListener('crm-data-changed', handleDataChanged);
+      window.removeEventListener('crm-testdrives-changed', handleTestDrivesChanged);
+    };
   }, []);
 
   const emptyLeadForm = {
@@ -454,6 +475,27 @@ export default function LeadsPage() {
     setIsNewLeadModalOpen(false);
   };
 
+  const commitStageTransition = (leadId: string, newStatus: LeadStatus, remark?: string) => {
+    setTransitionError(null);
+    if (remark && remark.trim()) {
+      const target = api.getLeads().find((l) => l.id === leadId);
+      if (target) {
+        const stageLabel = stages.find((s) => s.key === newStatus)?.label || newStatus;
+        const appended = `[Moved to ${stageLabel}]: ${remark.trim()}`;
+        api.updateLead(leadId, {
+          notes: target.notes ? `${target.notes}\n${appended}` : appended,
+        });
+      }
+    }
+    api.updateLeadStatus(leadId, newStatus);
+    setLeads([...api.getLeads()]);
+    setRecentlyMovedId(leadId);
+    setTimeout(() => setRecentlyMovedId(null), 1400);
+    if (selectedLead && selectedLead.id === leadId) {
+      setSelectedLead({ ...selectedLead, status: newStatus });
+    }
+  };
+
   const handleStageTransition = (leadId: string, newStatus: LeadStatus) => {
     const lead = leads.find((l) => l.id === leadId);
     if (!lead) return;
@@ -468,12 +510,18 @@ export default function LeadsPage() {
       return;
     }
 
-    setTransitionError(null);
-    api.updateLeadStatus(leadId, newStatus);
-    setLeads([...api.getLeads()]);
-    if (selectedLead && selectedLead.id === leadId) {
-      setSelectedLead({ ...selectedLead, status: newStatus });
+    // Require explicit confirmation dialog when moving customer enquiry out of Contacted stage
+    if (lead.status === 'contacted') {
+      setPendingTransition({
+        lead,
+        fromStatus: lead.status,
+        toStatus: newStatus,
+        note: '',
+      });
+      return;
     }
+
+    commitStageTransition(leadId, newStatus);
   };
 
   const stages: {
@@ -585,8 +633,6 @@ export default function LeadsPage() {
     const leadId = e.dataTransfer.getData('text/plain') || draggedLeadId;
     if (leadId) {
       handleStageTransition(leadId, targetStage);
-      setRecentlyMovedId(leadId);
-      setTimeout(() => setRecentlyMovedId(null), 1400);
     }
     setDraggedLeadId(null);
     setDragOverStage(null);
@@ -1230,27 +1276,61 @@ export default function LeadsPage() {
                   <label className="form-label">
                     Preferred Make <span className="req-star">*</span>
                   </label>
-                  <input
-                    type="text"
-                    className="form-input"
+                  <select
+                    className="form-select"
                     value={formData.preferredMake}
-                    onChange={(e) => setFormData({ ...formData, preferredMake: e.target.value })}
-                    placeholder="Enter preferred make"
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        preferredMake: e.target.value,
+                        preferredModel: '',
+                      })
+                    }
                     required
-                  />
+                  >
+                    <option value="">-- Select Car Brand --</option>
+                    {ALL_CAR_BRANDS.map((brand) => (
+                      <option key={brand} value={brand}>
+                        {brand}
+                      </option>
+                    ))}
+                    {formData.preferredMake && !ALL_CAR_BRANDS.includes(formData.preferredMake) && (
+                      <option value={formData.preferredMake}>{formData.preferredMake}</option>
+                    )}
+                  </select>
                 </div>
                 <div className="form-group">
                   <label className="form-label">
                     Preferred Model <span className="req-star">*</span>
                   </label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    value={formData.preferredModel}
-                    onChange={(e) => setFormData({ ...formData, preferredModel: e.target.value })}
-                    placeholder="Enter preferred model"
-                    required
-                  />
+                  {getModelsForBrand(formData.preferredMake).length > 0 ? (
+                    <select
+                      className="form-select"
+                      value={formData.preferredModel}
+                      onChange={(e) => setFormData({ ...formData, preferredModel: e.target.value })}
+                      required
+                    >
+                      <option value="">-- Select Model --</option>
+                      {getModelsForBrand(formData.preferredMake).map((model) => (
+                        <option key={model} value={model}>
+                          {model}
+                        </option>
+                      ))}
+                      {formData.preferredModel &&
+                        !getModelsForBrand(formData.preferredMake).includes(formData.preferredModel) && (
+                          <option value={formData.preferredModel}>{formData.preferredModel}</option>
+                        )}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={formData.preferredModel}
+                      onChange={(e) => setFormData({ ...formData, preferredModel: e.target.value })}
+                      placeholder={formData.preferredMake ? 'Enter preferred model' : 'Select brand first'}
+                      required
+                    />
+                  )}
                 </div>
                 <div className="form-group">
                   <label className="form-label">Fuel Type</label>
@@ -1574,6 +1654,116 @@ export default function LeadsPage() {
           </button>
         </div>
       )}
+      {/* Stage Transition Confirmation Dialog (Contacted -> Next Stage) */}
+      <Modal
+        isOpen={!!pendingTransition}
+        onClose={() => setPendingTransition(null)}
+        title="Confirm Stage Progression"
+        maxWidth="460px"
+      >
+        {pendingTransition && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div
+              style={{
+                padding: '14px 16px',
+                borderRadius: '12px',
+                backgroundColor: '#F8FAFC',
+                border: '1px solid #E2E8F0',
+              }}
+            >
+              <div style={{ fontSize: '0.78rem', color: '#64748B', fontWeight: 600 }}>
+                Customer Enquiry
+              </div>
+              <div style={{ fontSize: '1rem', fontWeight: 800, color: '#0F172A', marginTop: '2px' }}>
+                {pendingTransition.lead.customerName || 'Customer'}
+              </div>
+              {(pendingTransition.lead.preferredMake || pendingTransition.lead.preferredModel) && (
+                <div style={{ fontSize: '0.82rem', color: '#475569', marginTop: '2px' }}>
+                  {pendingTransition.lead.preferredMake} {pendingTransition.lead.preferredModel}
+                </div>
+              )}
+            </div>
+
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '12px',
+                padding: '10px 14px',
+                borderRadius: '10px',
+                backgroundColor: '#EEF2FF',
+                border: '1px solid #C7D2FE',
+              }}
+            >
+              <span style={{ fontWeight: 700, fontSize: '0.86rem', color: '#4338CA' }}>
+                {stages.find((s) => s.key === pendingTransition.fromStatus)?.label || pendingTransition.fromStatus}
+              </span>
+              <ArrowRight size={16} style={{ color: '#6366F1' }} />
+              <span style={{ fontWeight: 800, fontSize: '0.86rem', color: '#0F172A' }}>
+                {stages.find((s) => s.key === pendingTransition.toStatus)?.label || pendingTransition.toStatus}
+              </span>
+            </div>
+
+            <p style={{ margin: 0, fontSize: '0.85rem', color: '#475569', lineHeight: 1.5 }}>
+              Are you sure you want to move this customer enquiry from{' '}
+              <strong>
+                {stages.find((s) => s.key === pendingTransition.fromStatus)?.label || pendingTransition.fromStatus}
+              </strong>{' '}
+              to{' '}
+              <strong>
+                {stages.find((s) => s.key === pendingTransition.toStatus)?.label || pendingTransition.toStatus}
+              </strong>
+              ?
+            </p>
+
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label" style={{ fontSize: '0.8rem' }}>
+                Call / Follow-up Remark (Optional)
+              </label>
+              <textarea
+                className="form-textarea"
+                rows={2}
+                value={pendingTransition.note}
+                onChange={(e) =>
+                  setPendingTransition((prev) => (prev ? { ...prev, note: e.target.value } : null))
+                }
+                placeholder="e.g. Customer confirmed interest, moving forward..."
+              />
+            </div>
+
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '10px',
+                paddingTop: '12px',
+                borderTop: '1px solid #E2E8F0',
+              }}
+            >
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setPendingTransition(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => {
+                  const { lead, toStatus, note } = pendingTransition;
+                  setPendingTransition(null);
+                  commitStageTransition(lead.id, toStatus, note);
+                }}
+              >
+                <CheckCircle2 size={15} style={{ marginRight: '6px' }} />
+                Confirm Move
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

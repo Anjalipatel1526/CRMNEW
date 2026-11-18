@@ -130,7 +130,7 @@ export const DEFAULT_COMPANY_PROFILE: CompanyProfile = {
   ifscCode: '',
   branchName: '',
   upiId: '',
-  logoUrl: '/unai-logo.png',
+  logoUrl: '',
   brandColor: '#6253F8',
   watermarkEnabled: true,
   watermarkOpacity: 0.22,
@@ -207,8 +207,8 @@ export function getCompanyProfile(): CompanyProfile {
       return DEFAULT_COMPANY_PROFILE;
     }
     const profile = { ...DEFAULT_COMPANY_PROFILE, ...parsed };
-    if (!profile.logoUrl) {
-      profile.logoUrl = '/unai-logo.png';
+    if (profile.logoUrl === '/unai-logo.png') {
+      profile.logoUrl = '';
     }
     if (profile.brandColor === '#F27A1A' || profile.brandColor === '#0284C7' || profile.brandColor === '#EA580C') {
       profile.brandColor = '#6253F8';
@@ -267,7 +267,7 @@ export async function fetchCompanyProfile(): Promise<CompanyProfile> {
           ifscCode: data.ifsc_code || '',
           branchName: data.branch_name || '',
           upiId: data.upi_id || '',
-          logoUrl: data.logo_url || '/unai-logo.png',
+          logoUrl: data.logo_url && data.logo_url !== '/unai-logo.png' ? data.logo_url : '',
           brandColor: data.brand_color || '#6253F8',
           watermarkEnabled: data.watermark_enabled ?? true,
           watermarkOpacity: Number(data.watermark_opacity) || 0.08,

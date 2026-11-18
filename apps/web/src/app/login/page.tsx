@@ -49,6 +49,13 @@ export default function LoginPage() {
 
     const getRedirectTarget = () => {
       try {
+        if (typeof window !== 'undefined') {
+          const params = new URLSearchParams(window.location.search);
+          const redirectParam = params.get('redirect');
+          if (redirectParam && redirectParam.startsWith('/') && !redirectParam.startsWith('//')) {
+            return redirectParam;
+          }
+        }
         const last = localStorage.getItem('crm_last_active_page');
         if (last && last !== '/' && last !== '/login' && last !== '/onboarding') return last;
       } catch (err) {}
@@ -63,7 +70,7 @@ export default function LoginPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          email: inputUser.includes('@') ? inputUser : `${inputUser.toLowerCase()}@apexmotors.com`,
+          email: inputUser,
           password: inputPass,
         }),
       });
@@ -81,7 +88,7 @@ export default function LoginPage() {
         try {
           await supabase.auth.setSession({
             access_token: data.token,
-            refresh_token: data.token,
+            refresh_token: data.refreshToken || data.token,
           });
         } catch (e) {
           console.warn('[Login] Client session sync note:', e);
@@ -302,7 +309,23 @@ export default function LoginPage() {
               <div style={{ display: 'flex', gap: '8px', marginTop: '12px', justifyContent: 'center' }}>
                 <button
                   type="button"
-                  onClick={() => router.push('/dashboard')}
+                  onClick={async () => {
+                    try {
+                      const { data: { session } } = await supabase.auth.getSession();
+                      if (session?.access_token) {
+                        const syncRes = await fetch('/api/auth/session', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ accessToken: session.access_token }),
+                        });
+                        if (syncRes.ok) {
+                          router.push('/dashboard');
+                          return;
+                        }
+                      }
+                    } catch {}
+                    router.push('/dashboard');
+                  }}
                   className="btn btn-primary"
                   style={{
                     padding: '8px 16px',

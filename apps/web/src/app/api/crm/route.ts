@@ -116,10 +116,13 @@ export async function POST(req: NextRequest) {
     const tenantId = auth.session.tenantId; // Enforce caller's authentic tenant
     const { primaryBranchId } = await ensureTenantAndBranch(tenantId);
 
-    // Normalize branch_id
-    if (!data.branch_id && !data.branchId) {
-      data.branch_id = primaryBranchId;
-    }
+    // Normalize branch_id (replace placeholder/legacy branch IDs with valid tenant branch)
+    const rawBranch = data.branch_id || data.branchId;
+    const resolvedBranchId = !rawBranch || rawBranch === 'b-dt-001' || rawBranch === 'b_default'
+      ? primaryBranchId
+      : rawBranch;
+    data.branch_id = resolvedBranchId;
+    data.branchId = resolvedBranchId;
 
     let result: any = null;
     let error: any = null;
@@ -181,14 +184,24 @@ export async function POST(req: NextRequest) {
       }
 
       case 'lead': {
-        if (data.customer_id || data.customerId) {
-          const custId = data.customer_id || data.customerId;
+        const custId = data.customer_id || data.customerId || `cust_${Date.now()}`;
+        const { data: existingLeadCust } = await supabaseAdmin
+          .from('customers')
+          .select('id')
+          .eq('id', custId)
+          .maybeSingle();
+
+        if (!existingLeadCust) {
+          const fullName = String(data.customer_name || data.customerName || 'Lead Contact').trim();
+          const nameParts = fullName.split(/\s+/);
           await supabaseAdmin.from('customers').upsert(
             {
               id: custId,
               tenant_id: tenantId,
-              branch_id: data.branch_id || primaryBranchId,
-              first_name: data.customer_name || data.customerName || 'Lead Contact',
+              branch_id: resolvedBranchId,
+              type: 'individual',
+              first_name: nameParts[0] || 'Lead',
+              last_name: nameParts.slice(1).join(' ') || '',
               phone: data.customer_phone || data.customerPhone || '+91 98000 00000',
               email: data.customer_email || data.customerEmail || null,
             },
@@ -199,8 +212,8 @@ export async function POST(req: NextRequest) {
         const payload = {
           id: data.id || `lead_${Date.now()}`,
           tenant_id: tenantId,
-          branch_id: data.branch_id || data.branchId || primaryBranchId,
-          customer_id: data.customer_id || data.customerId || null,
+          branch_id: resolvedBranchId,
+          customer_id: custId,
           source: data.source || 'walk_in',
           status: data.status || 'new',
           budget_min: Number(data.budget_min || data.budgetMin) || 0,
@@ -210,6 +223,7 @@ export async function POST(req: NextRequest) {
           preferred_fuel_type: data.preferred_fuel_type || data.preferredFuelType || 'Petrol',
           score: Number(data.score) || 75,
           notes: data.notes || '',
+          next_action_at: data.next_action_at || data.nextActionAt || null,
           updated_at: new Date().toISOString(),
         };
         const res = await supabaseAdmin.from('leads').upsert(payload, { onConflict: 'id' }).select();
@@ -265,6 +279,84 @@ export async function POST(req: NextRequest) {
           updated_at: new Date().toISOString(),
         };
         const res = await supabaseAdmin.from('deals').upsert(payload, { onConflict: 'id' }).select();
+        result = res.data;
+        error = res.error;
+        break;
+      }
+
+      case 'appointment': {
+        const VALID_TYPES = ['showroom_visit', 'test_drive', 'document_pickup', 'delivery', 'service', 'other'];
+        const VALID_STATUSES = ['scheduled', 'confirmed', 'in_progress', 'completed', 'cancelled', 'no_show'];
+
+        const rawType = String(data.appointment_type || data.appointmentType || 'showroom_visit');
+        const safeType = VALID_TYPES.includes(rawType) ? rawType : 'showroom_visit';
+        const rawStatus = String(data.status || 'confirmed');
+        const safeStatus = VALID_STATUSES.includes(rawStatus) ? rawStatus : 'confirmed';
+
+        // Ensure referenced customer exists so FK constraint on appointments.customer_id succeeds
+        const customerId = data.customer_id || data.customerId || `cust_${Date.now()}`;
+        const { data: existingCust } = await supabaseAdmin
+          .from('customers')
+          .select('id')
+          .eq('id', customerId)
+          .maybeSingle();
+
+        if (!existingCust) {
+          const fullName = String(data.customer_name || data.customerName || 'Walk-in Customer').trim();
+          const nameParts = fullName.split(/\s+/);
+          await supabaseAdmin.from('customers').upsert(
+            {
+              id: customerId,
+              tenant_id: tenantId,
+              branch_id: resolvedBranchId,
+              type: 'individual',
+              first_name: nameParts[0] || 'Customer',
+              last_name: nameParts.slice(1).join(' ') || '',
+              phone: data.customer_phone || data.customerPhone || '+91 98000 00000',
+              email: data.customer_email || data.customerEmail || null,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: 'id' }
+          );
+        }
+
+        // Only link lead_id if it actually exists in leads table (prevents FK error)
+        let validLeadId: string | null = null;
+        const candidateLeadId = data.lead_id || data.leadId;
+        if (candidateLeadId) {
+          const { data: existingLead } = await supabaseAdmin
+            .from('leads')
+            .select('id')
+            .eq('id', candidateLeadId)
+            .maybeSingle();
+          if (existingLead) validLeadId = existingLead.id;
+        }
+
+        const scheduledAt = data.scheduled_at || data.scheduledAt || new Date().toISOString();
+        const isoScheduledAt = isNaN(Date.parse(scheduledAt))
+          ? new Date().toISOString()
+          : new Date(scheduledAt).toISOString();
+
+        // Store either inventory vehicle ID or chosen default car model name in vehicle_id (TEXT column)
+        const storedVehicleRef =
+          data.vehicle_id || data.vehicleId || data.vehicle_name || data.vehicleName || null;
+
+        const payload = {
+          id: data.id || `apt_${Date.now()}`,
+          tenant_id: tenantId,
+          branch_id: resolvedBranchId,
+          customer_id: customerId,
+          lead_id: validLeadId,
+          vehicle_id: storedVehicleRef,
+          appointment_type: safeType,
+          scheduled_at: isoScheduledAt,
+          duration_minutes: Number(data.duration_minutes || data.durationMinutes) || 45,
+          status: safeStatus,
+          outcome: data.outcome || (data.vehicleName || data.vehicle_name || null),
+          notes: data.notes || '',
+        };
+
+        const res = await supabaseAdmin.from('appointments').upsert(payload, { onConflict: 'id' }).select();
         result = res.data;
         error = res.error;
         break;

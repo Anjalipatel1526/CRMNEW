@@ -22,26 +22,48 @@ function GoogleAuthContent() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (isMounted) {
-          if (session?.user) {
-            // Check if THIS specific account has already completed onboarding
+          if (session?.user && session?.access_token) {
+            // Bridge Supabase OAuth token to server HttpOnly cookies AND check onboarding status
+            try {
+              const syncRes = await fetch('/api/auth/session', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ accessToken: session.access_token }),
+              });
+              if (syncRes.ok) {
+                const syncJson = await syncRes.json();
+                if (syncJson?.isOnboarded) {
+                  router.replace('/dashboard');
+                  return;
+                }
+                // Authenticated but not yet onboarded -> go to onboarding
+                router.replace('/onboarding');
+                return;
+              }
+            } catch (syncErr) {
+              console.warn('[GoogleAuth] Session sync note:', syncErr);
+            }
+
+            // Fallback check using company-profile if session sync failed
             const userEmail = (session.user.email || '').toLowerCase().trim();
             if (userEmail) {
               try {
-                const checkRes = await fetch(`/api/company-profile?email=${encodeURIComponent(userEmail)}`);
+                const checkRes = await fetch(`/api/company-profile?email=${encodeURIComponent(userEmail)}`, {
+                  headers: { Authorization: `Bearer ${session.access_token}` },
+                });
                 if (checkRes.ok) {
                   const checkJson = await checkRes.json();
                   if (checkJson?.isOnboarded) {
                     router.replace('/dashboard');
                     return;
                   }
+                  router.replace('/onboarding');
+                  return;
                 }
               } catch (checkErr) {
                 console.warn('[GoogleAuth] Onboarding check note:', checkErr);
               }
             }
-            // If first time or not onboarded, go to onboarding
-            router.replace('/onboarding');
-            return;
           }
           setIsCheckingInitialSession(false);
         }

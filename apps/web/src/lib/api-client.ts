@@ -768,65 +768,87 @@ class DataService {
   }
 
   async fetchLeads(): Promise<Lead[]> {
-    if (isSupabaseConfigured()) {
+    const tenantId = getActiveTenantId();
+    let data: any[] | null = null;
+    let remoteCustomers: any[] = [];
+
+    // 1. Primary: fetch via authenticated server API (/api/crm) which enforces tenant scope via verified cookie
+    if (typeof window !== 'undefined') {
       try {
-        const tenantId = getActiveTenantId();
-        const { data, error } = await supabase
+        const res = await fetch('/api/crm');
+        if (res.ok) {
+          const json = await res.json();
+          if (Array.isArray(json.leads)) data = json.leads;
+          if (Array.isArray(json.customers)) remoteCustomers = json.customers;
+        }
+      } catch (err) {
+        console.warn('[API] /api/crm fetchLeads note:', err);
+      }
+    }
+
+    // 2. Fallback: direct Supabase client
+    if (!data && isSupabaseConfigured()) {
+      try {
+        const res = await supabase
           .from('leads')
           .select('*')
           .eq('tenant_id', tenantId)
           .order('created_at', { ascending: false });
-
-        if (error) {
-          console.warn('[API] Supabase fetchLeads error:', error.message);
-        } else if (data && Array.isArray(data)) {
-          const remoteLeads: Lead[] = data.map((r: any) => {
-            const cust = this.data.customers.find((c) => c.id === r.customer_id);
-            const mappedLead: Lead = {
-              id: r.id,
-              tenantId: r.tenant_id || tenantId,
-              branchId: r.branch_id || 'b-dt-001',
-              customerId: r.customer_id,
-              source: r.source || 'Showroom Walk-in',
-              status: r.status || 'new',
-              assignedTo: r.assigned_to || 'u-sales-003',
-              budgetMin: Number(r.budget_min) || 1500000,
-              budgetMax: Number(r.budget_max) || 2000000,
-              preferredMake: r.preferred_make || '',
-              preferredModel: r.preferred_model || '',
-              preferredFuelType: r.preferred_fuel_type || 'Petrol',
-              timeline: r.timeline || 'Within 7 days',
-              score: Number(r.score) || 75,
-              notes: r.notes || '',
-              nextActionAt: r.next_action_at || new Date(Date.now() + 86400000 * 2).toISOString(),
-              version: r.version || 1,
-              createdAt: r.created_at || new Date().toISOString(),
-              updatedAt: r.updated_at || new Date().toISOString(),
-              customerName: cust
-                ? `${cust.firstName} ${cust.lastName}`
-                : r.preferred_model
-                ? `Buyer for ${r.preferred_model}`
-                : 'Walk-in Client',
-              customer: cust,
-              assigneeName: '',
-              branchName: 'Main Showroom',
-            };
-            if (cust?.phone) (mappedLead as any).customerPhone = cust.phone;
-            if (cust?.email) (mappedLead as any).customerEmail = cust.email;
-            return mappedLead;
-          });
-
-          const remoteIds = new Set(remoteLeads.map((l) => l.id));
-          const unsyncedLocal = this.data.leads.filter((l) => !remoteIds.has(l.id));
-          this.data.leads = [...unsyncedLocal, ...remoteLeads];
-          this.ensureCustomerLeads();
-          this.persist();
-          return this.data.leads;
+        if (!res.error && Array.isArray(res.data)) {
+          data = res.data;
         }
       } catch (err) {
         console.error('[API] Failed to fetch leads from Supabase:', err);
       }
     }
+
+    if (data && Array.isArray(data)) {
+      const remoteLeads: Lead[] = data.map((r: any) => {
+        const cust =
+          this.data.customers.find((c) => c.id === r.customer_id) ||
+          remoteCustomers.find((c) => c.id === r.customer_id);
+        const custFirst = cust?.firstName || cust?.first_name || '';
+        const custLast = cust?.lastName || cust?.last_name || '';
+        const custFullName = `${custFirst} ${custLast}`.trim();
+
+        const mappedLead: Lead = {
+          id: r.id,
+          tenantId: r.tenant_id || tenantId,
+          branchId: r.branch_id || `b_${tenantId}_main`,
+          customerId: r.customer_id,
+          source: r.source || 'Showroom Walk-in',
+          status: r.status || 'new',
+          assignedTo: r.assigned_to || 'u-sales-003',
+          budgetMin: Number(r.budget_min) || 1500000,
+          budgetMax: Number(r.budget_max) || 2000000,
+          preferredMake: r.preferred_make || '',
+          preferredModel: r.preferred_model || '',
+          preferredFuelType: r.preferred_fuel_type || 'Petrol',
+          timeline: r.timeline || 'Within 7 days',
+          score: Number(r.score) || 75,
+          notes: r.notes || '',
+          nextActionAt: r.next_action_at || new Date(Date.now() + 86400000 * 2).toISOString(),
+          version: r.version || 1,
+          createdAt: r.created_at || new Date().toISOString(),
+          updatedAt: r.updated_at || new Date().toISOString(),
+          customerName: custFullName || (r.preferred_model ? `Buyer for ${r.preferred_model}` : 'Walk-in Client'),
+          customer: cust,
+          assigneeName: '',
+          branchName: 'Main Showroom',
+        };
+        if (cust?.phone) (mappedLead as any).customerPhone = cust.phone;
+        if (cust?.email) (mappedLead as any).customerEmail = cust.email;
+        return mappedLead;
+      });
+
+      const remoteIds = new Set(remoteLeads.map((l) => l.id));
+      const unsyncedLocal = this.data.leads.filter((l) => !remoteIds.has(l.id));
+      this.data.leads = [...unsyncedLocal, ...remoteLeads];
+      this.ensureCustomerLeads();
+      this.persist();
+      return this.data.leads;
+    }
+
     this.ensureCustomerLeads();
     return this.data.leads;
   }
@@ -917,15 +939,12 @@ class DataService {
       lead.updatedAt = new Date().toISOString();
       this.persist();
 
-      if (isSupabaseConfigured()) {
-        supabase
-          .from('leads')
-          .update({ status, updated_at: new Date().toISOString() })
-          .eq('id', leadId)
-          .then(({ error }) => {
-            if (error) console.error('[API] Supabase updateLeadStatus error:', error.message);
-            else console.log('[API] Updated lead status in Supabase:', leadId, status);
-          });
+      if (typeof window !== 'undefined') {
+        fetch('/api/crm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ entity: 'lead', data: lead }),
+        }).catch((err) => console.warn('[API] updateLeadStatus sync note:', err));
       }
 
       return lead;
@@ -940,27 +959,12 @@ class DataService {
       lead.updatedAt = new Date().toISOString();
       this.persist();
 
-      if (isSupabaseConfigured()) {
-        const payload: Record<string, any> = {
-          updated_at: new Date().toISOString(),
-        };
-        if (leadData.status !== undefined) payload.status = leadData.status;
-        if (leadData.source !== undefined) payload.source = leadData.source;
-        if (leadData.budgetMin !== undefined) payload.budget_min = leadData.budgetMin;
-        if (leadData.budgetMax !== undefined) payload.budget_max = leadData.budgetMax;
-        if (leadData.preferredMake !== undefined) payload.preferred_make = leadData.preferredMake;
-        if (leadData.preferredModel !== undefined) payload.preferred_model = leadData.preferredModel;
-        if (leadData.preferredFuelType !== undefined) payload.preferred_fuel_type = leadData.preferredFuelType;
-        if (leadData.score !== undefined) payload.score = leadData.score;
-        if (leadData.notes !== undefined) payload.notes = leadData.notes;
-
-        supabase
-          .from('leads')
-          .update(payload)
-          .eq('id', leadId)
-          .then(({ error }) => {
-            if (error) console.error('[API] Supabase updateLead error:', error.message);
-          });
+      if (typeof window !== 'undefined') {
+        fetch('/api/crm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ entity: 'lead', data: lead }),
+        }).catch((err) => console.warn('[API] updateLead sync note:', err));
       }
 
       return lead;
@@ -1194,76 +1198,337 @@ class DataService {
     return this.data.appointments;
   }
 
+  async fetchAppointments(): Promise<Appointment[]> {
+    if (typeof window === 'undefined') return this.data.appointments;
+
+    try {
+      const res = await fetch('/api/crm');
+      if (res.ok) {
+        const json = await res.json();
+        const remoteCustomers: any[] = Array.isArray(json.customers) ? json.customers : [];
+        const remoteVehicles: any[] = Array.isArray(json.vehicles) ? json.vehicles : [];
+        const remoteApts: any[] = Array.isArray(json.appointments) ? json.appointments : [];
+
+        const tenantId = getActiveTenantId();
+        const mapped: Appointment[] = remoteApts.map((r: any) => {
+          const cust =
+            this.data.customers.find((c) => c.id === r.customer_id) ||
+            remoteCustomers.find((c) => c.id === r.customer_id);
+          const veh =
+            this.data.vehicles.find((v) => v.id === r.vehicle_id) ||
+            remoteVehicles.find((v) => v.id === r.vehicle_id);
+
+          const customerName = cust
+            ? `${cust.firstName || cust.first_name || ''} ${cust.lastName || cust.last_name || ''}`.trim()
+            : 'Customer';
+
+          const vehicleName = veh
+            ? `${veh.make || ''} ${veh.model || ''}`.trim()
+            : (r.outcome || r.vehicle_id || 'Vehicle');
+
+          return {
+            id: r.id,
+            tenantId: r.tenant_id || tenantId,
+            branchId: r.branch_id || `b_${tenantId}_main`,
+            customerId: r.customer_id,
+            leadId: r.lead_id || undefined,
+            vehicleId: r.vehicle_id || undefined,
+            appointmentType: (r.appointment_type || 'showroom_visit') as any,
+            scheduledAt: r.scheduled_at || r.created_at || new Date().toISOString(),
+            durationMinutes: Number(r.duration_minutes) || 45,
+            status: (r.status || 'confirmed') as any,
+            notes: r.notes || '',
+            createdAt: r.created_at || new Date().toISOString(),
+            customerName,
+            vehicleName,
+            assignedToName: '',
+          };
+        });
+
+        // Sort newest scheduled/created first
+        mapped.sort(
+          (a, b) =>
+            new Date(b.createdAt || b.scheduledAt).getTime() -
+            new Date(a.createdAt || a.scheduledAt).getTime()
+        );
+
+        this.data.appointments = mapped;
+        this.persist();
+        return this.data.appointments;
+      }
+    } catch (err) {
+      console.warn('[API] /api/crm fetchAppointments note:', err);
+    }
+
+    return this.data.appointments;
+  }
+
   addAppointment(aptData: any): Appointment {
     const cust = this.data.customers.find((c) => c.id === aptData.customerId);
-    const veh = this.data.vehicles.find((v) => v.id === aptData.vehicleId);
+    const veh = aptData.vehicleId
+      ? this.data.vehicles.find((v) => v.id === aptData.vehicleId)
+      : undefined;
     const tenantId = getActiveTenantId();
+    const resolvedVehicleName = veh
+      ? `${veh.make} ${veh.model}`.trim()
+      : (aptData.vehicleName || 'Vehicle');
 
     const newApt: Appointment = {
       id: 'apt-' + Date.now(),
       tenantId: aptData.tenantId || tenantId,
-      branchId: aptData.branchId || 'b-dt-001',
+      branchId: aptData.branchId || `b_${tenantId}_main`,
       customerId: aptData.customerId || (this.data.customers[0]?.id || ''),
       leadId: aptData.leadId,
-      vehicleId: aptData.vehicleId,
-      appointmentType: aptData.appointmentType || 'test_drive',
+      vehicleId: veh ? veh.id : (aptData.vehicleName || undefined),
+      appointmentType: aptData.appointmentType || 'showroom_visit',
       scheduledAt: aptData.scheduledAt || new Date().toISOString(),
       durationMinutes: Number(aptData.durationMinutes) || 45,
       status: 'confirmed',
-      notes: aptData.notes,
+      notes: aptData.notes || '',
       createdAt: new Date().toISOString(),
-      customerName: cust ? `${cust.firstName} ${cust.lastName}` : 'Customer',
-      vehicleName: veh ? `${veh.make} ${veh.model}` : 'Vehicle',
+      customerName: cust ? `${cust.firstName} ${cust.lastName}`.trim() : 'Customer',
+      vehicleName: resolvedVehicleName,
       assignedToName: aptData.assignedToName || '',
     };
     this.data.appointments.unshift(newApt);
     this.persist();
 
-    if (isSupabaseConfigured()) {
-      supabase
-        .from('appointments')
-        .insert({
-          id: newApt.id,
-          tenant_id: newApt.tenantId,
-          branch_id: newApt.branchId,
-          customer_id: newApt.customerId,
-          lead_id: newApt.leadId || null,
-          vehicle_id: newApt.vehicleId || null,
-          appointment_type: newApt.appointmentType,
-          scheduled_at: newApt.scheduledAt,
-          duration_minutes: newApt.durationMinutes,
-          status: newApt.status,
-          notes: newApt.notes,
+    // Persist Appointment to Supabase via authenticated server API route (/api/crm)
+    if (typeof window !== 'undefined') {
+      fetch('/api/crm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          entity: 'appointment',
+          data: {
+            ...newApt,
+            customerPhone: cust?.phone,
+            customerEmail: cust?.email,
+          },
+        }),
+      })
+        .then(async (res) => {
+          if (!res.ok) {
+            const errBody = await res.json().catch(() => ({}));
+            console.error('[API] Failed saving appointment to Supabase:', errBody);
+          } else {
+            console.log('[API] Successfully saved appointment to Supabase database');
+          }
         })
-        .then(({ error }) => {
-          if (error) console.warn('[API] Supabase appointment sync info:', error.message);
-          else console.log('[API] Successfully saved appointment to Supabase database');
-        });
+        .catch((err) => console.error('[API] Appointment save network error:', err));
     }
+
+    // Automatically reflect scheduled appointment in Sales Pipeline -> Appointment Set stage
+    this.syncLeadStageForActivity({
+      customerId: newApt.customerId,
+      customerName: newApt.customerName,
+      customerPhone: cust?.phone,
+      customerEmail: cust?.email,
+      vehicleMake: veh?.make,
+      vehicleModel: veh?.model,
+      vehicleName: newApt.vehicleName,
+      targetStage: 'appointment_set',
+      forceStage: true,
+      notes: `Appointment Set (${(newApt.appointmentType || 'visit').replace('_', ' ')}) for ${new Date(newApt.scheduledAt).toLocaleString('en-IN')}${newApt.notes ? ` — ${newApt.notes}` : ''}`,
+      nextActionAt: newApt.scheduledAt,
+      source: 'Appointment Desk',
+    });
 
     return newApt;
   }
 
-  updateAppointmentStatus(id: string, status: string): Appointment | null {
+  updateAppointment(id: string, updates: Partial<Appointment>): Appointment | null {
     const apt = this.data.appointments.find((a) => a.id === id);
     if (!apt) return null;
-    apt.status = status as any;
+    Object.assign(apt, updates);
     this.persist();
 
-    if (isSupabaseConfigured()) {
-      supabase
-        .from('appointments')
-        .update({
-          status,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', id)
-        .then(({ error }) => {
-          if (error) console.warn('[API] Supabase updateAppointmentStatus error:', error.message);
-        });
+    if (typeof window !== 'undefined') {
+      const cust = this.data.customers.find((c) => c.id === apt.customerId);
+      fetch('/api/crm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          entity: 'appointment',
+          data: {
+            ...apt,
+            customerPhone: cust?.phone,
+            customerEmail: cust?.email,
+          },
+        }),
+      }).catch((err) => console.warn('[API] updateAppointment sync note:', err));
     }
 
     return apt;
+  }
+
+  /**
+   * Synchronizes a scheduled Appointment or Test Drive into the Sales Pipeline Kanban.
+   * Advances an existing customer lead to `targetStage` (or moves it explicitly when `forceStage` is true unless already converted),
+   * or creates a new lead directly in `targetStage`.
+   */
+  syncLeadStageForActivity(opts: {
+    customerId?: string;
+    customerName?: string;
+    customerPhone?: string;
+    customerEmail?: string;
+    vehicleMake?: string;
+    vehicleModel?: string;
+    vehicleName?: string;
+    targetStage: 'appointment_set' | 'test_drive';
+    forceStage?: boolean;
+    notes?: string;
+    nextActionAt?: string;
+    source?: string;
+  }): Lead | null {
+    const cleanPhone = (opts.customerPhone || '').replace(/[^0-9]/g, '');
+    const cleanName = (opts.customerName || '').trim().toLowerCase();
+    const cleanEmail = (opts.customerEmail || '').trim().toLowerCase();
+
+    if (!opts.customerId && !cleanName && !cleanPhone) return null;
+
+    const STAGE_RANK: Record<string, number> = {
+      new: 0,
+      assigned: 1,
+      nurture: 1,
+      lost: 1,
+      contacted: 2,
+      qualified: 3,
+      appointment_set: 4,
+      test_drive: 5,
+      negotiation: 6,
+      converted: 7,
+    };
+
+    // Derive make / model if only combined vehicleName is supplied
+    let prefMake = opts.vehicleMake || '';
+    let prefModel = opts.vehicleModel || '';
+    if (!prefMake && !prefModel && opts.vehicleName && opts.vehicleName !== 'Vehicle') {
+      const parts = opts.vehicleName.trim().split(/\s+/);
+      prefMake = parts[0] || '';
+      prefModel = parts.slice(1).join(' ');
+    }
+
+    // Match existing lead by customerId, linked customer phone/email, or name
+    const existingLead = this.data.leads.find((l) => {
+      if (opts.customerId && l.customerId === opts.customerId) return true;
+      const linkedCust = l.customerId
+        ? this.data.customers.find((c) => c.id === l.customerId)
+        : undefined;
+      const lPhone = (linkedCust?.phone || (l as any).customerPhone || '').replace(/[^0-9]/g, '');
+      if (cleanPhone && cleanPhone.length >= 7 && lPhone && lPhone.endsWith(cleanPhone.slice(-10))) return true;
+      const lEmail = (linkedCust?.email || (l as any).customerEmail || '').toLowerCase().trim();
+      if (cleanEmail && lEmail && lEmail === cleanEmail) return true;
+      if (cleanName && cleanName !== 'customer' && (l.customerName || '').trim().toLowerCase() === cleanName) return true;
+      return false;
+    });
+
+    const targetRank = STAGE_RANK[opts.targetStage] ?? 4;
+
+    if (existingLead) {
+      const currentRank = STAGE_RANK[existingLead.status] ?? 0;
+      let changed = false;
+
+      // Update stage: when forceStage is true (explicit booking), place directly in targetStage unless already converted;
+      // otherwise (reconciliation) only advance forward.
+      if (
+        (opts.forceStage && existingLead.status !== 'converted' && existingLead.status !== opts.targetStage) ||
+        (!opts.forceStage && currentRank < targetRank)
+      ) {
+        existingLead.status = opts.targetStage;
+        changed = true;
+      }
+
+      if (prefMake && !existingLead.preferredMake) {
+        existingLead.preferredMake = prefMake;
+        changed = true;
+      }
+      if (prefModel && !existingLead.preferredModel) {
+        existingLead.preferredModel = prefModel;
+        changed = true;
+      }
+      if (opts.nextActionAt && existingLead.nextActionAt !== opts.nextActionAt) {
+        existingLead.nextActionAt = opts.nextActionAt;
+        changed = true;
+      }
+      if (opts.notes && !(existingLead.notes || '').includes(opts.notes)) {
+        existingLead.notes = existingLead.notes ? `${existingLead.notes}\n${opts.notes}` : opts.notes;
+        changed = true;
+      }
+
+      if (changed) {
+        existingLead.updatedAt = new Date().toISOString();
+        this.persist();
+        if (typeof window !== 'undefined') {
+          fetch('/api/crm', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ entity: 'lead', data: existingLead }),
+          }).catch(() => {});
+        }
+      }
+      return existingLead;
+    }
+
+    // No existing lead — create one directly in targetStage
+    return this.addLead({
+      customerId: opts.customerId,
+      customerName: opts.customerName || 'Walk-in Client',
+      customerPhone: opts.customerPhone || '',
+      customerEmail: opts.customerEmail || '',
+      source: opts.source || (opts.targetStage === 'test_drive' ? 'Test Drive Desk' : 'Appointment Desk'),
+      status: opts.targetStage,
+      preferredMake: prefMake || 'Showroom',
+      preferredModel: prefModel || 'Enquiry',
+      notes: opts.notes || '',
+      nextActionAt: opts.nextActionAt,
+    });
+  }
+
+  /**
+   * Reconciles all active appointments and test drives into the Sales Pipeline
+   * so records created from /crm/appointments or /test-drives always appear in
+   * their corresponding Pipeline columns (`appointment_set` and `test_drive`).
+   */
+  reconcilePipelineFromActivities(testDrives: any[] = []): void {
+    // 1. Reconcile active Appointments -> appointment_set
+    for (const apt of this.data.appointments) {
+      if (apt.status === 'cancelled') continue;
+      const cust = this.data.customers.find((c) => c.id === apt.customerId);
+      const veh = this.data.vehicles.find((v) => v.id === apt.vehicleId);
+      this.syncLeadStageForActivity({
+        customerId: apt.customerId,
+        customerName: apt.customerName || (cust ? `${cust.firstName} ${cust.lastName}`.trim() : undefined),
+        customerPhone: cust?.phone,
+        customerEmail: cust?.email,
+        vehicleMake: veh?.make,
+        vehicleModel: veh?.model,
+        vehicleName: apt.vehicleName,
+        targetStage: 'appointment_set',
+        notes: apt.notes ? `Appointment: ${apt.notes}` : undefined,
+        nextActionAt: apt.scheduledAt,
+        source: 'Appointment Desk',
+      });
+    }
+
+    // 2. Reconcile active Test Drives -> test_drive
+    for (const td of testDrives) {
+      if (!td || td.status === 'cancelled') continue;
+      this.syncLeadStageForActivity({
+        customerName: td.customerName,
+        customerPhone: td.customerPhone,
+        customerEmail: td.customerEmail,
+        vehicleName: td.vehicleName,
+        targetStage: 'test_drive',
+        notes: td.driveCode ? `Test Drive (${td.driveCode}) — ${td.vehicleName || 'Showroom Stock'}` : undefined,
+        nextActionAt: td.date,
+        source: 'Test Drive Desk',
+      });
+    }
+  }
+
+  updateAppointmentStatus(id: string, status: string): Appointment | null {
+    return this.updateAppointment(id, { status: status as any });
   }
 
   // ==========================================

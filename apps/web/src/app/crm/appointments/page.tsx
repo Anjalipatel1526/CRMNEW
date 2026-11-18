@@ -1,10 +1,12 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { api } from '@/lib/api-client';
 import { Appointment, Customer, Vehicle } from '@crm/shared-types';
 import { Modal } from '@/components/ui/Modal';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { SearchableCarSelect } from '@/components/ui/SearchableCarSelect';
+import { getAllCarOptions } from '@/lib/car-catalog';
 import { APP_CARD_PALETTES } from '@/lib/theme-palettes';
 import {
   Calendar as CalendarIcon,
@@ -24,12 +26,38 @@ import { WordFadeIn } from '@/components/ui/WordFadeIn';
 
 export default function AppointmentsPage() {
   const [appointments, setAppointments] = useState<Appointment[]>(api.getAppointments());
-  const [customers] = useState<Customer[]>(api.getCustomers());
-  const [vehicles] = useState<Vehicle[]>(api.getVehicles());
+  const [customers, setCustomers] = useState<Customer[]>(api.getCustomers());
+  const [vehicles, setVehicles] = useState<Vehicle[]>(api.getVehicles());
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedApt, setSelectedApt] = useState<Appointment | null>(null);
   const [editingAptId, setEditingAptId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    setAppointments([...api.getAppointments()]);
+    setCustomers([...api.getCustomers()]);
+    setVehicles([...api.getVehicles()]);
+
+    // Fetch live appointments, customers, and vehicles from Supabase backend (/api/crm)
+    Promise.all([
+      api.fetchCustomers(),
+      api.fetchVehicles(),
+    ]).then(() => {
+      setCustomers([...api.getCustomers()]);
+      setVehicles([...api.getVehicles()]);
+      api.fetchAppointments().then((apts) => {
+        if (Array.isArray(apts)) setAppointments([...apts]);
+      });
+    });
+
+    const handleDataChanged = () => {
+      setAppointments([...api.getAppointments()]);
+      setCustomers([...api.getCustomers()]);
+      setVehicles([...api.getVehicles()]);
+    };
+    window.addEventListener('crm-data-changed', handleDataChanged);
+    return () => window.removeEventListener('crm-data-changed', handleDataChanged);
+  }, []);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -43,6 +71,7 @@ export default function AppointmentsPage() {
   const emptyFormData = {
     customerId: '',
     vehicleId: '',
+    vehicleName: '',
     appointmentType: '' as any,
     scheduledAt: '',
     durationMinutes: '',
@@ -51,10 +80,27 @@ export default function AppointmentsPage() {
 
   const [formData, setFormData] = useState(emptyFormData);
 
+  const inventoryCarOptions = useMemo(() => {
+    const defaultSet = new Set(getAllCarOptions().map((o) => o.toLowerCase()));
+    const extra: string[] = [];
+    for (const v of vehicles) {
+      const label = [v.year, v.make, v.model, v.variant].filter(Boolean).join(' ').trim();
+      if (label && !defaultSet.has(label.toLowerCase()) && !extra.includes(label)) {
+        extra.push(label);
+      }
+    }
+    return extra;
+  }, [vehicles]);
+
   const handleStartEdit = (apt: Appointment) => {
+    const matchedVeh = vehicles.find((v) => v.id === apt.vehicleId);
+    const displayVehName =
+      apt.vehicleName ||
+      (matchedVeh ? [matchedVeh.year, matchedVeh.make, matchedVeh.model].filter(Boolean).join(' ') : '');
     setFormData({
       customerId: apt.customerId,
-      vehicleId: apt.vehicleId || vehicles[0]?.id || '',
+      vehicleId: apt.vehicleId || '',
+      vehicleName: displayVehName,
       appointmentType: apt.appointmentType,
       scheduledAt: new Date(apt.scheduledAt).toISOString().slice(0, 16),
       durationMinutes: String(apt.durationMinutes || '45'),
@@ -67,21 +113,30 @@ export default function AppointmentsPage() {
 
   const handleCreateAppointment = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.vehicleName.trim() && !formData.vehicleId) {
+      showToast('Please select a vehicle for the appointment.');
+      return;
+    }
     if (editingAptId) {
-      // In-memory update
-      const existing = appointments.find((a) => a.id === editingAptId);
-      if (existing) {
-        const cust = customers.find((c) => c.id === formData.customerId);
-        const veh = vehicles.find((v) => v.id === formData.vehicleId);
-        Object.assign(existing, {
-          ...formData,
-          customerName: cust ? `${cust.firstName} ${cust.lastName}` : existing.customerName,
-          vehicleName: veh ? `${veh.year} ${veh.make} ${veh.model}` : existing.vehicleName,
-        });
-      }
+      const cust = customers.find((c) => c.id === formData.customerId);
+      const veh = vehicles.find((v) => v.id === formData.vehicleId);
+      api.updateAppointment(editingAptId, {
+        customerId: formData.customerId,
+        vehicleId: veh ? veh.id : (formData.vehicleName || undefined),
+        appointmentType: formData.appointmentType || 'showroom_visit',
+        scheduledAt: formData.scheduledAt,
+        durationMinutes: Number(formData.durationMinutes) || 45,
+        notes: formData.notes,
+        customerName: cust ? `${cust.firstName} ${cust.lastName}`.trim() : undefined,
+        vehicleName: veh
+          ? `${veh.year} ${veh.make} ${veh.model}`
+          : formData.vehicleName,
+      });
       setEditingAptId(null);
+      showToast('Appointment updated and saved to database.');
     } else {
       api.addAppointment(formData);
+      showToast('Appointment saved to database & synced to Pipeline!');
     }
     setAppointments([...api.getAppointments()]);
     setIsModalOpen(false);
@@ -425,19 +480,24 @@ export default function AppointmentsPage() {
             <label className="form-label">
               Vehicle for Test Drive <span className="req-star">*</span>
             </label>
-            <select
-              className="form-select"
-              value={formData.vehicleId}
-              onChange={(e) => setFormData({ ...formData, vehicleId: e.target.value })}
-              required
-            >
-              <option value="">Select Vehicle...</option>
-              {vehicles.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.year} {v.make} {v.model} ({v.variant}) — {v.color}
-                </option>
-              ))}
-            </select>
+            <SearchableCarSelect
+              value={formData.vehicleName}
+              onChange={(val) => {
+                const matchedVeh = vehicles.find((v) => {
+                  const full = [v.year, v.make, v.model, v.variant].filter(Boolean).join(' ').trim();
+                  const short = `${v.make} ${v.model}`.trim();
+                  return full === val || short === val;
+                });
+                setFormData({
+                  ...formData,
+                  vehicleName: val,
+                  vehicleId: matchedVeh ? matchedVeh.id : '',
+                });
+              }}
+              inventoryOptions={inventoryCarOptions}
+              placeholder="Search or select vehicle..."
+              openDirection="down"
+            />
           </div>
 
           <div className="form-grid-2">

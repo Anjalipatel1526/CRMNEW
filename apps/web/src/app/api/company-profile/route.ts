@@ -94,47 +94,72 @@ export async function GET(req: NextRequest) {
   }
 
   const { searchParams } = new URL(req.url);
-  const email = searchParams.get('email')?.toLowerCase().trim();
+  const queryEmail = searchParams.get('email')?.toLowerCase().trim();
   const rawTenantId = searchParams.get('tenantId');
 
   try {
     // Check if request is authenticated
     const authResult = await verifySession(req);
     const tenantId = authResult.success ? authResult.session.tenantId : rawTenantId;
-    // 1. If email is provided, strictly search for this user's profile
-    if (email) {
-      const cleanSlug = `t_${email.replace(/[^a-z0-9_-]/g, '_').slice(0, 36)}`;
-      const { data } = await supabaseAdmin
-        .from('company_profiles')
-        .select('*')
-        .or(`email.ilike.${email},tenant_id.eq.${cleanSlug}`)
-        .order('updated_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+    const email = queryEmail || (authResult.success ? authResult.session.user.email.toLowerCase().trim() : undefined);
 
-      if (data && Boolean(data.is_onboarded)) {
-        return NextResponse.json({ profile: data, isOnboarded: true });
-      }
-
-      // If no completed profile exists for this email, they are NOT onboarded yet
-      return NextResponse.json({ profile: data || null, isOnboarded: false });
-    }
-
-    // 2. If tenantId is provided and NOT default
+    // 1. Check by verified tenantId first (covers users whose login email != dealership contact email, staff, and memberships)
     if (tenantId && tenantId !== 't_default') {
-      const { data } = await supabaseAdmin
+      const { data: tenantProfiles } = await supabaseAdmin
         .from('company_profiles')
         .select('*')
         .eq('tenant_id', tenantId)
         .order('updated_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .limit(5);
 
-      if (data && data.is_onboarded) {
-        return NextResponse.json({ profile: data, isOnboarded: true });
+      const onboardedTenantProfile = tenantProfiles?.find((p) => Boolean(p.is_onboarded));
+      if (onboardedTenantProfile) {
+        return NextResponse.json({ profile: onboardedTenantProfile, isOnboarded: true });
+      }
+      if (!email) {
+        return NextResponse.json({ profile: tenantProfiles?.[0] || null, isOnboarded: false });
+      }
+    }
+
+    // 2. If email is provided, search by email, derived tenant slug, or user_credentials.tenant_id
+    if (email) {
+      const cleanSlug = `t_${email.replace(/[^a-z0-9_-]/g, '_').slice(0, 36)}`;
+      const { data: emailProfiles } = await supabaseAdmin
+        .from('company_profiles')
+        .select('*')
+        .or(`email.ilike.${email},tenant_id.eq.${cleanSlug}`)
+        .order('updated_at', { ascending: false })
+        .limit(5);
+
+      const onboardedEmailProfile = emailProfiles?.find((p) => Boolean(p.is_onboarded));
+      if (onboardedEmailProfile) {
+        return NextResponse.json({ profile: onboardedEmailProfile, isOnboarded: true });
       }
 
-      return NextResponse.json({ profile: null, isOnboarded: false });
+      // Check user_credentials to see if this email belongs to a tenant that is already onboarded
+      const { data: credRows } = await supabaseAdmin
+        .from('user_credentials')
+        .select('tenant_id')
+        .ilike('email', email)
+        .limit(1);
+
+      const credTenantId = credRows?.[0]?.tenant_id;
+      if (credTenantId) {
+        const { data: credProfiles } = await supabaseAdmin
+          .from('company_profiles')
+          .select('*')
+          .eq('tenant_id', credTenantId)
+          .order('updated_at', { ascending: false })
+          .limit(5);
+
+        const onboardedCredProfile = credProfiles?.find((p) => Boolean(p.is_onboarded));
+        if (onboardedCredProfile) {
+          return NextResponse.json({ profile: onboardedCredProfile, isOnboarded: true });
+        }
+      }
+
+      // If no completed profile exists for this email, they are NOT onboarded yet
+      return NextResponse.json({ profile: emailProfiles?.[0] || null, isOnboarded: false });
     }
 
     // 3. If neither email nor specific tenantId is provided, do NOT assume onboarded
@@ -190,7 +215,19 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. Upsert Company Profile into Supabase company_profiles
+    // Preserve existing is_onboarded=true so draft autosaves or settings edits never downgrade an onboarded dealership
     const profileId = profile.id && profile.id !== 'company_profile' ? profile.id : `company_${tenantId}`;
+    let alreadyOnboarded = false;
+    if (!body.explicitReset) {
+      const { data: existingRows } = await supabaseAdmin
+        .from('company_profiles')
+        .select('is_onboarded')
+        .eq('tenant_id', tenantId)
+        .limit(5);
+      alreadyOnboarded = Boolean(existingRows?.some((r) => Boolean(r.is_onboarded)));
+    }
+    const finalIsOnboarded = alreadyOnboarded || Boolean(profile.isOnboarded ?? profile.is_onboarded ?? false);
+
     const profilePayload = {
       id: profileId,
       tenant_id: tenantId,
@@ -222,7 +259,7 @@ export async function POST(req: NextRequest) {
       authorized_signatory_name: profile.authorizedSignatoryName || profile.authorized_signatory_name || '',
       authorized_signatory_designation: profile.authorizedSignatoryDesignation || profile.authorized_signatory_designation || '',
       signature_url: profile.signatureUrl || profile.signature_url || '',
-      is_onboarded: Boolean(profile.isOnboarded ?? profile.is_onboarded ?? false),
+      is_onboarded: finalIsOnboarded,
       updated_at: new Date().toISOString(),
     };
 
@@ -266,18 +303,45 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 4. Save User Credentials & App Users if provided
+    // 4. Save User Credentials, App Users, Memberships & sync password to Supabase Auth
     if (credentials?.userId || credentials?.email) {
-      const email = credentials.email || profile.email;
+      const email = String(credentials.email || profile.email || '').toLowerCase().trim();
       const fullName = credentials.fullName || profile.authorizedSignatoryName || 'Dealership Admin';
       const userId = credentials.userId || email.split('@')[0];
+      const rawPassword = credentials.password || '';
 
-      // Save to user_credentials
+      // Sync password directly into Supabase Auth (bcrypt-hashed by GoTrue)
+      if (email && rawPassword.length >= 6) {
+        try {
+          const { data: listed } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
+          const existingAuth = listed?.users?.find(
+            (u) => u.email?.toLowerCase().trim() === email
+          );
+          if (existingAuth) {
+            await supabaseAdmin.auth.admin.updateUserById(existingAuth.id, {
+              password: rawPassword,
+              email_confirm: true,
+              user_metadata: { ...(existingAuth.user_metadata || {}), full_name: fullName },
+            });
+          } else {
+            await supabaseAdmin.auth.admin.createUser({
+              email,
+              password: rawPassword,
+              email_confirm: true,
+              user_metadata: { full_name: fullName },
+            });
+          }
+        } catch (authSyncErr) {
+          console.warn('[API/company-profile] Supabase Auth password sync warning:', authSyncErr);
+        }
+      }
+
+      // Save metadata to user_credentials (never persist raw plaintext password)
       const { error: credErr } = await supabaseAdmin.from('user_credentials').upsert(
         {
           tenant_id: tenantId,
           user_id: userId,
-          password_hash: credentials.password || '',
+          password_hash: '[SUPABASE_AUTH_MANAGED]',
           full_name: fullName,
           email: email,
           created_at: new Date().toISOString(),
@@ -289,9 +353,10 @@ export async function POST(req: NextRequest) {
       }
 
       // Save to app_users
+      const defaultAppUserId = `usr_${tenantId}_admin`;
       const { error: userErr } = await supabaseAdmin.from('app_users').upsert(
         {
-          id: `usr_${tenantId}_admin`,
+          id: defaultAppUserId,
           email: email,
           full_name: fullName,
           phone: profile.phone || '',
@@ -302,6 +367,32 @@ export async function POST(req: NextRequest) {
       );
       if (userErr) {
         console.warn('[API/company-profile] App users upsert warning:', userErr.message);
+      }
+
+      // Ensure canonical tenant_admin membership exists for RLS & API access
+      if (email) {
+        try {
+          const { data: canonicalUser } = await supabaseAdmin
+            .from('app_users')
+            .select('id')
+            .ilike('email', email)
+            .limit(1);
+
+          const membershipUserId = canonicalUser?.[0]?.id || defaultAppUserId;
+          await supabaseAdmin.from('memberships').upsert(
+            {
+              tenant_id: tenantId,
+              user_id: membershipUserId,
+              role_key: 'tenant_admin',
+              branch_ids: [],
+              branch_scope: 'all',
+              is_active: true,
+            },
+            { onConflict: 'tenant_id,user_id' }
+          );
+        } catch (memErr) {
+          console.warn('[API/company-profile] Membership upsert warning:', memErr);
+        }
       }
     }
 

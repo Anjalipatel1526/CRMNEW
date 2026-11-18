@@ -3,6 +3,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { api } from '@/lib/api-client';
 import { getTestDrives } from '@/lib/test-drive-store';
+import { getAllCarOptions } from '@/lib/car-catalog';
+import { SearchableCarSelect } from '@/components/ui/SearchableCarSelect';
 import { Customer } from '@crm/shared-types';
 import { Modal } from '@/components/ui/Modal';
 import {
@@ -151,6 +153,20 @@ export default function CustomersPage() {
 
   const [formData, setFormData] = useState(emptyCustomerForm);
   const [editingCustomerId, setEditingCustomerId] = useState<string | null>(null);
+
+  // Merge dealership showroom inventory vehicles with the complete default car catalog
+  const inventoryCarOptions = useMemo(() => {
+    const vehicles = api.getVehicles();
+    const defaultSet = new Set(getAllCarOptions().map((o) => o.toLowerCase()));
+    const extra: string[] = [];
+    for (const v of vehicles) {
+      const label = [v.make, v.model, v.variant].filter(Boolean).join(' ').trim();
+      if (label && !defaultSet.has(label.toLowerCase()) && !extra.includes(label)) {
+        extra.push(label);
+      }
+    }
+    return extra;
+  }, []);
 
   const getCustomerCarPreference = (c: Customer) => {
     // 1. Check if customer has an active deal (matches deals in api-client)
@@ -928,12 +944,12 @@ export default function CustomersPage() {
           <div className="form-grid-2">
             <div className="form-group">
               <label className="form-label">Car Preference / Desired Model</label>
-              <input
-                type="text"
-                className="form-input"
+              <SearchableCarSelect
                 value={formData.preferredVehicle}
-                onChange={(e) => setFormData({ ...formData, preferredVehicle: e.target.value })}
-                placeholder="e.g. Mahindra XUV700 AX7L or Tata Nexon EV"
+                onChange={(val) => setFormData({ ...formData, preferredVehicle: val })}
+                inventoryOptions={inventoryCarOptions}
+                placeholder="Search or select car brand & model..."
+                openDirection="up"
               />
             </div>
             <div className="form-group">
