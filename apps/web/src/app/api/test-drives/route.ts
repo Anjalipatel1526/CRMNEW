@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin, isSupabaseConfigured } from '@/lib/supabase';
+import { isSupabaseConfigured } from '@/lib/supabase';
+import { supabaseAdmin, createServerClient } from '@/lib/supabase-server';
+import { requireAuth } from '@/lib/server-auth';
 
 export async function GET(req: NextRequest) {
+  const auth = await requireAuth(req);
+  if ('errorResponse' in auth) return auth.errorResponse;
+
   if (!isSupabaseConfigured()) {
     return NextResponse.json({ error: 'Supabase is not configured' }, { status: 503 });
   }
 
-  const { searchParams } = new URL(req.url);
-  const tenantId = searchParams.get('tenantId') || 't_default';
+  const tenantId = auth.session.tenantId; // Enforce caller's authentic tenant
 
   try {
     const { data, error } = await supabaseAdmin
@@ -27,6 +31,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAuth(req);
+  if ('errorResponse' in auth) return auth.errorResponse;
+
   if (!isSupabaseConfigured()) {
     return NextResponse.json({ error: 'Supabase is not configured' }, { status: 503 });
   }
@@ -39,9 +46,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing drive data' }, { status: 400 });
     }
 
-    const tenantId = drive.tenantId || drive.tenant_id || 't_default';
+    const tenantId = auth.session.tenantId; // Enforce caller's authentic tenant
 
-    // 1. Ensure tenant & branch exist so foreign key constraint passes
+    // 1. Ensure tenant exists
     await supabaseAdmin.from('tenants').upsert(
       {
         id: tenantId,
@@ -59,10 +66,11 @@ export async function POST(req: NextRequest) {
       { onConflict: 'id' }
     );
 
-    const branchId = `b_${tenantId}_main`;
+    // 2. Ensure default primary branch exists
+    const primaryBranchId = `b_${tenantId}_main`;
     await supabaseAdmin.from('branches').upsert(
       {
-        id: branchId,
+        id: primaryBranchId,
         tenant_id: tenantId,
         code: 'MAIN',
         name: 'Main Showroom',
@@ -73,73 +81,85 @@ export async function POST(req: NextRequest) {
       { onConflict: 'id' }
     );
 
-    // 2. Ensure customer exists if customerId is given or create walk-in customer
-    const customerId = drive.customerId || `cust_${Date.now()}`;
-    await supabaseAdmin.from('customers').upsert(
-      {
-        id: customerId,
-        tenant_id: tenantId,
-        branch_id: branchId,
-        first_name: drive.customerName || 'Test Drive Customer',
-        phone: drive.customerPhone || '+91 98000 00000',
-        email: drive.customerEmail || null,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'id' }
-    );
+    // 3. Ensure vehicle exists in DB if vehicle_id provided
+    let vehicleId = drive.vehicle_id || drive.vehicleId || 'veh_default';
+    const { data: existingVeh } = await supabaseAdmin
+      .from('vehicles')
+      .select('id')
+      .eq('id', vehicleId)
+      .eq('tenant_id', tenantId)
+      .limit(1);
 
-    // 3. Ensure vehicle exists if vehicleId is given or create vehicle placeholder
-    const vehicleId = drive.vehicleId || `veh_${Date.now()}`;
-    await supabaseAdmin.from('vehicles').upsert(
-      {
-        id: vehicleId,
-        tenant_id: tenantId,
-        branch_id: branchId,
-        stock_number: `STK-${Date.now().toString().slice(-4)}`,
-        vin: `VIN-${Date.now()}`,
-        registration_number: drive.vehicleReg || 'MH01TEST01',
-        make: drive.vehicleName?.split(' ')[0] || 'Showroom',
-        model: drive.vehicleName?.split(' ').slice(1).join(' ') || 'Stock',
-        variant: 'Demo',
-        year: 2024,
-        color: 'White',
-        asking_price: 1500000,
-        status: 'available',
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'id' }
-    );
+    if (!existingVeh || existingVeh.length === 0) {
+      vehicleId = `veh_${tenantId}_demo`;
+      await supabaseAdmin.from('vehicles').upsert(
+        {
+          id: vehicleId,
+          tenant_id: tenantId,
+          branch_id: primaryBranchId,
+          stock_number: 'DEMO-01',
+          vin: `VIN-${Date.now()}`,
+          make: drive.vehicleName?.split(' ')[0] || 'Showroom',
+          model: drive.vehicleName || 'Certified Vehicle',
+          year: 2024,
+          status: 'available',
+        },
+        { onConflict: 'id' }
+      );
+    }
 
-    // 4. Upsert test drive into Supabase backend
+    // 4. Ensure customer exists in DB if customer_id provided
+    let customerId = drive.customer_id || drive.customerId || 'cust_default';
+    const { data: existingCust } = await supabaseAdmin
+      .from('customers')
+      .select('id')
+      .eq('id', customerId)
+      .eq('tenant_id', tenantId)
+      .limit(1);
+
+    if (!existingCust || existingCust.length === 0) {
+      customerId = `cust_${tenantId}_demo`;
+      await supabaseAdmin.from('customers').upsert(
+        {
+          id: customerId,
+          tenant_id: tenantId,
+          branch_id: primaryBranchId,
+          first_name: drive.customerName || 'Test Drive Client',
+          phone: drive.customerPhone || '+91 98000 00000',
+          email: drive.customerEmail || null,
+        },
+        { onConflict: 'id' }
+      );
+    }
+
     const payload = {
       id: drive.id || `td_${Date.now()}`,
       tenant_id: tenantId,
-      branch_id: branchId,
-      customer_id: customerId,
+      branch_id: primaryBranchId,
       vehicle_id: vehicleId,
-      start_odometer: Number(drive.startOdo) || 5000,
+      customer_id: customerId,
+      route: drive.route || 'Dealership Circuit',
+      start_odometer: Number(drive.startOdo || drive.start_odometer) || 0,
       end_odometer: drive.endOdo ? Number(drive.endOdo) : null,
-      route: drive.route || 'Western Express Highway Sprint',
-      feedback: drive.feedback || null,
-      rating: drive.rating ? Number(drive.rating) : 5,
-      created_at: drive.createdAt || new Date().toISOString(),
+      feedback: drive.feedback || '',
+      rating: Number(drive.rating) || 5,
+      status: drive.status || 'scheduled',
+      created_at: new Date().toISOString(),
     };
 
-    const { data: savedDrive, error: driveErr } = await supabaseAdmin
+    const { data, error } = await supabaseAdmin
       .from('test_drives')
       .upsert(payload, { onConflict: 'id' })
-      .select()
-      .single();
+      .select();
 
-    if (driveErr) {
-      console.error('[API/test-drives] Save error:', driveErr.message);
-      return NextResponse.json({ error: driveErr.message }, { status: 400 });
+    if (error) {
+      console.error('[API/test-drives] Insert error:', error.message);
+      return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    return NextResponse.json({ success: true, drive: savedDrive });
+    return NextResponse.json({ success: true, testDrive: data?.[0] || payload });
   } catch (err: any) {
     console.error('[API/test-drives] Unexpected error:', err);
     return NextResponse.json({ error: err?.message || 'Server error' }, { status: 500 });
   }
 }
-

@@ -467,7 +467,9 @@ export function verifyEmployeeLogin(
   }
 
   const requiresPasswordChange = emp.mustChangePassword === true || emp.isTemporaryPassword === true;
-  return { success: true, employee: emp, requiresPasswordChange };
+  // Omit plaintext password before returning employee to client-side state
+  const { password: _, ...safeEmployee } = emp;
+  return { success: true, employee: safeEmployee as Employee, requiresPasswordChange };
 }
 
 export function updateEmployeeAccessControl(id: string, access: EmployeeAccessControl): boolean {

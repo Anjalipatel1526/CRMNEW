@@ -31,6 +31,12 @@ export default function ProcurementPage() {
   const [purchaseOrders, setPurchaseOrders] = useState<any[]>([]);
   const [tradeIns, setTradeIns] = useState<any[]>([]);
   const [inspections] = useState<any[]>([]);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3500);
+  };
 
   // Filtered datasets based on search
   const filteredOrders = useMemo(() => {
@@ -489,8 +495,23 @@ export default function ProcurementPage() {
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            alert('Purchase Order submitted for manager approval!');
+            const form = e.currentTarget;
+            const supplierInput = (form.elements[0] as HTMLInputElement)?.value;
+            const descInput = (form.elements[1] as HTMLTextAreaElement)?.value;
+            const costInput = Number((form.elements[2] as HTMLInputElement)?.value) || 0;
+            const newPo = {
+              id: 'po-' + Date.now(),
+              orderNumber: 'PO-' + Math.floor(1000 + Math.random() * 9000),
+              supplierName: supplierInput || 'Authorized Manufacturer Supplier',
+              vehicleDescription: descInput || 'Showroom Vehicle Allotment',
+              status: 'pending_approval',
+              expectedCost: costInput,
+              currency: 'INR',
+              createdAt: new Date().toISOString(),
+            };
+            setPurchaseOrders((prev) => [newPo, ...prev]);
             setIsOrderModalOpen(false);
+            showToast(`Purchase Order ${newPo.orderNumber} submitted for manager authorization.`);
           }}
           className="inspo-form-wrapper"
         >
@@ -558,8 +579,26 @@ export default function ProcurementPage() {
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            alert('Trade-in appraisal calculated and logged!');
+            const form = e.currentTarget;
+            const custName = (form.elements[0] as HTMLInputElement)?.value;
+            const vehDesc = (form.elements[1] as HTMLInputElement)?.value;
+            const regNo = (form.elements[2] as HTMLInputElement)?.value;
+            const odo = Number((form.elements[3] as HTMLInputElement)?.value) || 0;
+            const offer = Number((form.elements[4] as HTMLInputElement)?.value) || 0;
+            const newTradeIn = {
+              id: 'ti-' + Date.now(),
+              customerName: custName || 'Direct Customer',
+              vehicleDescription: vehDesc || 'Certified Vehicle',
+              registrationNumber: regNo || 'MH-02-APPRAISAL',
+              odometerKm: odo,
+              appraisalOffer: offer,
+              status: 'appraised',
+              currency: 'INR',
+              createdAt: new Date().toISOString(),
+            };
+            setTradeIns((prev) => [newTradeIn, ...prev]);
             setIsTradeInModalOpen(false);
+            showToast(`Trade-in appraisal for ${newTradeIn.customerName} (₹${offer.toLocaleString()}) logged successfully.`);
           }}
           className="inspo-form-wrapper"
         >

@@ -606,7 +606,7 @@ export default function DocumentsPage() {
             </div>
 
             {/* Document Preview Area */}
-            {selectedDoc.fileDataUrl && selectedDoc.mimeType.startsWith('image/') ? (
+            {selectedDoc.mimeType.startsWith('image/') ? (
               <div
                 style={{
                   maxHeight: '380px',
@@ -620,12 +620,12 @@ export default function DocumentsPage() {
                 }}
               >
                 <img
-                  src={selectedDoc.fileDataUrl}
+                  src={selectedDoc.fileDataUrl || `/api/documents/download?id=${encodeURIComponent(selectedDoc.id)}`}
                   alt={selectedDoc.title}
                   style={{ maxHeight: '380px', width: 'auto', objectFit: 'contain' }}
                 />
               </div>
-            ) : selectedDoc.fileDataUrl && selectedDoc.mimeType === 'application/pdf' ? (
+            ) : selectedDoc.mimeType === 'application/pdf' ? (
               <div
                 style={{
                   height: '340px',
@@ -635,7 +635,7 @@ export default function DocumentsPage() {
                 }}
               >
                 <iframe
-                  src={selectedDoc.fileDataUrl}
+                  src={selectedDoc.fileDataUrl || `/api/documents/download?id=${encodeURIComponent(selectedDoc.id)}`}
                   title={selectedDoc.title}
                   style={{ width: '100%', height: '100%', border: 'none' }}
                 />
@@ -685,23 +685,21 @@ export default function DocumentsPage() {
               </button>
 
               <div style={{ display: 'flex', gap: '8px' }}>
-                {selectedDoc.fileDataUrl && (
-                  <a
-                    href={selectedDoc.fileDataUrl}
-                    download={selectedDoc.fileName}
-                    className="btn btn-secondary"
-                    style={{
-                      borderRadius: '999px',
-                      padding: '0.45rem 1.15rem',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      textDecoration: 'none',
-                    }}
-                  >
-                    <Download size={14} /> Download
-                  </a>
-                )}
+                <a
+                  href={`/api/documents/download?id=${encodeURIComponent(selectedDoc.id)}`}
+                  download={selectedDoc.fileName}
+                  className="btn btn-secondary"
+                  style={{
+                    borderRadius: '999px',
+                    padding: '0.45rem 1.15rem',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    textDecoration: 'none',
+                  }}
+                >
+                  <Download size={14} /> Download
+                </a>
                 {selectedDoc.status !== 'verified' ? (
                   <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
                     <button

@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { api } from '@/lib/api-client';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { Deal, DealStage } from '@crm/shared-types';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { StatCard } from '@/components/ui/StatCard';
@@ -20,6 +21,7 @@ import {
   X,
   ChevronRight,
   Edit3,
+  AlertCircle,
 } from 'lucide-react';
 import { WordFadeIn } from '@/components/ui/WordFadeIn';
 
@@ -28,6 +30,50 @@ export default function DealsPage() {
   const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<string>('all');
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4500);
+  };
+
+  const handleAuthorizeHandover = async (deal: Deal) => {
+    try {
+      if (isSupabaseConfigured()) {
+        await supabase
+          .from('deals')
+          .update({
+            stage: 'ready',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', deal.id);
+
+        await supabase
+          .from('deliveries')
+          .upsert({
+            tenant_id: deal.tenantId,
+            deal_id: deal.id,
+            vehicle_id: deal.vehicleId,
+            customer_id: deal.customerId,
+            status: 'ready_for_handover',
+            payment_gate_passed: true,
+            document_gate_passed: true,
+            pdi_gate_passed: true,
+            finance_gate_passed: true,
+            handover_date: new Date().toISOString(),
+          });
+      }
+
+      setDeals((prev) =>
+        prev.map((d) => (d.id === deal.id ? { ...d, stage: 'ready' as DealStage } : d))
+      );
+      showToast(`Authorized handover gate pass generated for deal ${deal.dealNumber}!`, 'success');
+      setSelectedDeal(null);
+    } catch (err: any) {
+      console.error('Failed to authorize handover pass:', err);
+      showToast(err?.message || 'Failed to authorize handover pass', 'error');
+    }
+  };
 
   useEffect(() => {
     api.fetchDeals().then((data) => {
@@ -363,7 +409,7 @@ export default function DealsPage() {
                 type="button"
                 className="modal-header-btn-edit"
                 onClick={() => {
-                  alert('Deal edit mode activated for ' + selectedDeal.dealNumber);
+                  showToast(`Deal edit mode activated for ${selectedDeal.dealNumber}`, 'info');
                 }}
                 title="Edit deal"
               >
@@ -460,10 +506,7 @@ export default function DealsPage() {
               <button
                 type="button"
                 className="unique-lead-submit-btn"
-                onClick={() => {
-                  alert('Authorized handover gate pass generated for vehicle delivery!');
-                  setSelectedDeal(null);
-                }}
+                onClick={() => handleAuthorizeHandover(selectedDeal)}
               >
                 <span className="btn-text">Authorize Handover Pass</span>
                 <ArrowRight size={15} className="btn-arrow-icon" />
@@ -471,6 +514,54 @@ export default function DealsPage() {
             </div>
           </div>
         </Modal>
+      )}
+
+      {/* Toast Notification */}
+      {toast && (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            position: 'fixed',
+            bottom: '24px',
+            right: '24px',
+            zIndex: 9999,
+            backgroundColor: toast.type === 'error' ? '#FEF2F2' : toast.type === 'info' ? '#EFF6FF' : '#F0FDF4',
+            border: `1.5px solid ${toast.type === 'error' ? '#FECACA' : toast.type === 'info' ? '#BFDBFE' : '#BBF7D0'}`,
+            color: toast.type === 'error' ? '#991B1B' : toast.type === 'info' ? '#1E40AF' : '#166534',
+            borderRadius: '12px',
+            padding: '12px 18px',
+            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            fontSize: '0.86rem',
+            fontWeight: 600,
+          }}
+        >
+          {toast.type === 'error' ? (
+            <AlertCircle size={18} style={{ color: '#DC2626', flexShrink: 0 }} />
+          ) : toast.type === 'info' ? (
+            <Briefcase size={18} style={{ color: '#2563EB', flexShrink: 0 }} />
+          ) : (
+            <CheckCircle size={18} style={{ color: '#16A34A', flexShrink: 0 }} />
+          )}
+          <span>{toast.message}</span>
+          <button
+            type="button"
+            onClick={() => setToast(null)}
+            style={{
+              marginLeft: '8px',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: toast.type === 'error' ? '#991B1B' : toast.type === 'info' ? '#1E40AF' : '#166534',
+              padding: '2px',
+            }}
+          >
+            <X size={15} />
+          </button>
+        </div>
       )}
     </div>
   );

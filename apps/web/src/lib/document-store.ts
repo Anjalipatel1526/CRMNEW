@@ -86,7 +86,6 @@ function mapSupabaseRowToVaultDoc(row: any, localMap: Map<string, VaultDocument>
     status: row.status || existing?.status || 'uploaded',
     uploadedAt: uploadDate,
     verifiedAt: row.verified_at ? new Date(row.verified_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : existing?.verifiedAt,
-    fileDataUrl: metadata.fileDataUrl || existing?.fileDataUrl,
   };
 }
 
@@ -178,6 +177,19 @@ export function initDocumentsRealtime(): void {
   }
 }
 
+function dataUrlToBlob(dataUrl: string, fallbackMime: string = 'application/pdf'): Blob {
+  const parts = dataUrl.split(',');
+  const mimeMatch = parts[0]?.match(/:(.*?);/);
+  const mime = mimeMatch ? mimeMatch[1] : fallbackMime;
+  const b64 = parts[1] || parts[0];
+  const byteChars = atob(b64);
+  const byteNumbers = new Uint8Array(byteChars.length);
+  for (let i = 0; i < byteChars.length; i++) {
+    byteNumbers[i] = byteChars.charCodeAt(i);
+  }
+  return new Blob([byteNumbers], { type: mime });
+}
+
 export async function addDocument(docData: {
   title: string;
   type: string;
@@ -190,6 +202,33 @@ export async function addDocument(docData: {
 }): Promise<VaultDocument> {
   const current = getDocuments();
   const docId = 'doc-' + Date.now();
+  const tenantId = getActiveTenantId();
+  const category = docData.type === 'signature' ? 'signatures' : (docData.type || 'kyc');
+  const entityId = 'gen-' + Date.now();
+  const cleanFileName = docData.fileName.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/\.{2,}/g, '.');
+  const storageKey = `${tenantId}/${category}/${entityId}/${docId}/${cleanFileName}`;
+
+  // Direct binary upload to Supabase storage bucket via supabase.storage.from('dealership-documents').upload()
+  if (isSupabaseConfigured() && docData.fileDataUrl) {
+    try {
+      const blob = dataUrlToBlob(docData.fileDataUrl, docData.mimeType);
+      const bucket = docData.type === 'signature' ? 'signatures' : 'dealership-documents';
+      const { error: uploadError } = await supabase.storage
+        .from(bucket)
+        .upload(storageKey, blob, {
+          contentType: docData.mimeType || 'application/pdf',
+          upsert: true,
+        });
+
+      if (uploadError) {
+        console.warn('[DocumentStore] Direct Supabase storage upload warning:', uploadError.message);
+      } else {
+        console.log('[DocumentStore] Direct upload to Supabase storage succeeded:', storageKey);
+      }
+    } catch (e: any) {
+      console.warn('[DocumentStore] Storage upload exception:', e?.message);
+    }
+  }
 
   const labelMap: Record<string, string> = {
     kyc: 'Customer KYC (PAN / Aadhaar)',
@@ -199,27 +238,27 @@ export async function addDocument(docData: {
     gate_pass: 'Delivery Gate Pass & Handover',
   };
 
+  // Note: Omit fileDataUrl so base64 strings are NOT persisted into localStorage
   const newDoc: VaultDocument = {
     id: docId,
     title: docData.title.trim() || docData.fileName,
     type: docData.type,
     classificationLabel: labelMap[docData.type] || 'Compliance Document',
     entityType: docData.type === 'kyc' ? 'customer' : 'vehicle',
-    entityId: 'gen-' + Date.now(),
+    entityId: entityId,
     entityName: docData.entityName.trim() || 'Direct Compliance Upload',
     fileName: docData.fileName,
     fileSizeBytes: docData.fileSizeBytes,
     mimeType: docData.mimeType,
-    storageKey: `vault/${docId}/${docData.fileName.replace(/\s+/g, '_')}`,
+    storageKey: storageKey,
     status: docData.status || 'under_review',
     uploadedAt: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-    fileDataUrl: docData.fileDataUrl,
   };
 
   const updated = [newDoc, ...current];
   saveDocuments(updated);
 
-  // Sync to Supabase via /api/documents
+  // Sync to Supabase metadata via /api/documents
   if (typeof window !== 'undefined') {
     try {
       const res = await fetch('/api/documents', {
@@ -238,7 +277,7 @@ export async function addDocument(docData: {
           mimeType: newDoc.mimeType,
           storageKey: newDoc.storageKey,
           status: newDoc.status,
-          fileDataUrl: newDoc.fileDataUrl,
+          fileDataUrl: docData.fileDataUrl,
           metadata: {
             title: newDoc.title,
             entityName: newDoc.entityName,
@@ -250,7 +289,7 @@ export async function addDocument(docData: {
         const errJson = await res.json().catch(() => ({}));
         console.warn('[DocumentStore] API upload warning:', errJson);
       } else {
-        console.log('[DocumentStore] Document saved to Supabase successfully:', newDoc.fileName);
+        console.log('[DocumentStore] Document metadata saved to Supabase successfully:', newDoc.fileName);
       }
     } catch (err) {
       console.error('[DocumentStore] Failed to post document to /api/documents:', err);
@@ -280,6 +319,24 @@ export async function updateDocumentStatus(id: string, status: VaultDocument['st
   }
 
   return true;
+}
+
+export function getDocumentDownloadUrl(id: string): string {
+  return `/api/documents/download?id=${encodeURIComponent(id)}`;
+}
+
+export async function getDocumentSignedUrl(id: string): Promise<string | null> {
+  if (typeof window === 'undefined') return null;
+  try {
+    const res = await fetch(`/api/documents/signed-url?id=${encodeURIComponent(id)}`);
+    if (res.ok) {
+      const data = await res.json();
+      return data.signedUrl || null;
+    }
+  } catch (err) {
+    console.warn('[DocumentStore] Failed to obtain signed URL:', err);
+  }
+  return null;
 }
 
 export async function deleteDocument(id: string): Promise<boolean> {

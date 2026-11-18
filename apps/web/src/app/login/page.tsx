@@ -4,8 +4,9 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
+import { supabase } from '@/lib/supabase';
 import { Lock, User, ArrowRight, CheckCircle2, AlertCircle, Eye, EyeOff, ShieldCheck, ArrowLeft } from 'lucide-react';
-import { getCompanyProfile, DEFAULT_COMPANY_PROFILE, getUserCredentials, CompanyProfile, UserCredentials } from '@/lib/company-store';
+import { getCompanyProfile, DEFAULT_COMPANY_PROFILE, CompanyProfile } from '@/lib/company-store';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -15,35 +16,36 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [forgotNotice, setForgotNotice] = useState(false);
   const [onboardedBanner, setOnboardedBanner] = useState(false);
   const [company, setCompany] = useState<CompanyProfile>(DEFAULT_COMPANY_PROFILE);
   const [isMounted, setIsMounted] = useState(false);
-  const [savedCreds, setSavedCreds] = useState<UserCredentials | null>(null);
 
   useEffect(() => {
     setIsMounted(true);
     setCompany(getCompanyProfile());
-    const creds = getUserCredentials();
-    setSavedCreds(creds);
 
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       if (params.get('created') === 'true' || params.get('onboarded') === 'true') {
         setOnboardedBanner(true);
       }
-      if (creds?.userId) {
-        setUserIdOrEmail(creds.userId);
-      }
     }
   }, []);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    setLoading(true);
 
     const inputUser = userIdOrEmail.trim();
     const inputPass = password;
+
+    if (!inputUser || !inputPass) {
+      setError('Please enter both your Email / User ID and Password.');
+      return;
+    }
+
+    setLoading(true);
 
     const getRedirectTarget = () => {
       try {
@@ -53,42 +55,52 @@ export default function LoginPage() {
       return '/dashboard';
     };
 
-    // Check against saved onboarding credentials
-    if (savedCreds) {
-      const isUserMatch =
-        inputUser.toLowerCase() === savedCreds.userId.toLowerCase() ||
-        (savedCreds.email && inputUser.toLowerCase() === savedCreds.email.toLowerCase());
-      
-      const isPassMatch = !savedCreds.password || inputPass === savedCreds.password;
+    try {
+      // 1. Authenticate with server-verified Supabase endpoint
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: inputUser.includes('@') ? inputUser : `${inputUser.toLowerCase()}@apexmotors.com`,
+          password: inputPass,
+        }),
+      });
 
-      if (isUserMatch && isPassMatch) {
-        setTimeout(() => {
-          loginUser(savedCreds.userId, savedCreds.fullName, 'tenant_admin');
-          setLoading(false);
-          router.push(getRedirectTarget());
-        }, 350);
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        setLoading(false);
+        setError(data.error || 'Incorrect User ID or Password. Please verify your credentials.');
         return;
       }
-    }
 
-    // Default demo credentials or fallback
-    if (
-      (inputUser.toLowerCase() === 'admin' || inputUser.length > 0) &&
-      (inputPass === 'admin123' || inputPass.length >= 4)
-    ) {
-      setTimeout(() => {
-        loginUser(inputUser, company.authorizedSignatoryName || company.tradeName || 'Administrator', 'tenant_admin');
-        setLoading(false);
-        router.push(getRedirectTarget());
-      }, 350);
-      return;
-    }
+      // 2. Synchronize Supabase JS client session
+      if (data.token) {
+        try {
+          await supabase.auth.setSession({
+            access_token: data.token,
+            refresh_token: data.token,
+          });
+        } catch (e) {
+          console.warn('[Login] Client session sync note:', e);
+        }
+      }
 
-    // If invalid
-    setTimeout(() => {
+      // 3. Establish verified user session
+      loginUser(data.user.email, data.user.fullName, data.role, {
+        tenantId: data.tenantId,
+        isAdmin: data.role === 'tenant_admin',
+      });
+
       setLoading(false);
-      setError('Incorrect User ID or Password. Please verify your credentials.');
-    }, 300);
+      router.push(getRedirectTarget());
+    } catch (err: any) {
+      console.error('[Login] Unexpected authentication error:', err);
+      setLoading(false);
+      setError('Authentication service is currently unavailable. Please check your network or try again.');
+    }
   };
 
   return (
@@ -370,6 +382,7 @@ export default function LoginPage() {
             {/* Email / User ID Input */}
             <div style={{ marginBottom: '1.25rem' }}>
               <label
+                htmlFor="login-email"
                 style={{
                   display: 'block',
                   fontSize: '0.82rem',
@@ -393,7 +406,9 @@ export default function LoginPage() {
                   }}
                 />
                 <input
+                  id="login-email"
                   type="text"
+                  autoComplete="email"
                   value={userIdOrEmail}
                   onChange={(e) => setUserIdOrEmail(e.target.value)}
                   placeholder="Enter your email or user ID"
@@ -433,6 +448,7 @@ export default function LoginPage() {
                 }}
               >
                 <label
+                  htmlFor="login-password"
                   style={{
                     fontSize: '0.82rem',
                     fontWeight: 700,
@@ -448,11 +464,37 @@ export default function LoginPage() {
                     fontWeight: 600,
                     cursor: 'pointer',
                   }}
-                  onClick={() => alert('Default demo password is "admin123" or your onboarding password.')}
+                  onClick={() => setForgotNotice(true)}
                 >
                   Forgot password?
                 </span>
               </div>
+
+              {forgotNotice && (
+                <div
+                  style={{
+                    marginBottom: '0.75rem',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    backgroundColor: '#EFF6FF',
+                    border: '1px solid #BFDBFE',
+                    fontSize: '0.78rem',
+                    color: '#1E40AF',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                  }}
+                >
+                  <span>Please contact your dealership administrator to reset credentials.</span>
+                  <button
+                    type="button"
+                    onClick={() => setForgotNotice(false)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700, color: '#1E40AF', marginLeft: '8px' }}
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
 
               <div style={{ position: 'relative' }}>
                 <Lock
@@ -467,7 +509,9 @@ export default function LoginPage() {
                   }}
                 />
                 <input
+                  id="login-password"
                   type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter your password"
@@ -514,17 +558,6 @@ export default function LoginPage() {
                 >
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
-              </div>
-
-              {/* Helper text under password field as seen in Image 2 */}
-              <div
-                style={{
-                  fontSize: '0.75rem',
-                  color: '#64748B',
-                  marginTop: '6px',
-                }}
-              >
-                Must be at least 4 characters.
               </div>
             </div>
 

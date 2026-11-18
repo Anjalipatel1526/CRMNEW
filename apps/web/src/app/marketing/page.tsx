@@ -1,7 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { api } from '@/lib/api-client';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { getActiveTenantId } from '@/lib/tenant-context';
 import { Campaign } from '@crm/shared-types';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { StatCard } from '@/components/ui/StatCard';
@@ -17,13 +19,109 @@ import {
   Send,
   ChevronLeft,
   ChevronRight,
+  CheckCircle,
+  AlertCircle,
+  X,
 } from 'lucide-react';
 
 export default function MarketingPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>(api.getCampaigns());
   const [isCampaignModalOpen, setIsCampaignModalOpen] = useState(false);
-
   const [referrals, setReferrals] = useState<any[]>([]);
+  const [formData, setFormData] = useState({
+    title: '',
+    channel: 'whatsapp',
+    segment: 'leads',
+    template: '',
+  });
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4500);
+  };
+
+  useEffect(() => {
+    if (isSupabaseConfigured()) {
+      const tenantId = getActiveTenantId();
+      supabase
+        .from('campaigns')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .order('created_at', { ascending: false })
+        .then(({ data, error }) => {
+          if (!error && Array.isArray(data) && data.length > 0) {
+            const mapped: Campaign[] = data.map((r: any) => ({
+              id: r.id,
+              tenantId: r.tenant_id,
+              name: r.name,
+              campaignType: r.campaign_type,
+              status: r.status,
+              targetAudience: r.target_audience || {},
+              contentTemplate: r.content_template || {},
+              scheduledAt: r.scheduled_at,
+              budget: r.budget,
+              sentCount: r.sent_count || 0,
+              deliveredCount: r.delivered_count || 0,
+              responseCount: r.response_count || 0,
+              createdAt: r.created_at,
+            }));
+            setCampaigns(mapped);
+          }
+        });
+    }
+  }, []);
+
+  const handleLaunchCampaign = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const tenantId = getActiveTenantId();
+      const campaignId = 'cmp-' + Date.now();
+      const newCampaign: Campaign = {
+        id: campaignId,
+        tenantId,
+        name: formData.title.trim() || 'Festive Broadcast Campaign',
+        campaignType: (formData.channel as any) || 'whatsapp',
+        status: 'active',
+        targetAudience: { segment: formData.segment },
+        contentTemplate: { message: formData.template },
+        scheduledAt: new Date().toISOString(),
+        sentCount: 0,
+        deliveredCount: 0,
+        responseCount: 0,
+        createdAt: new Date().toISOString(),
+      };
+
+      if (isSupabaseConfigured()) {
+        const { error } = await supabase.from('campaigns').insert({
+          id: newCampaign.id,
+          tenant_id: tenantId,
+          name: newCampaign.name,
+          campaign_type: newCampaign.campaignType,
+          status: newCampaign.status,
+          target_audience: newCampaign.targetAudience,
+          content_template: newCampaign.contentTemplate,
+          scheduled_at: newCampaign.scheduledAt,
+          sent_count: 0,
+          delivered_count: 0,
+          response_count: 0,
+          created_at: newCampaign.createdAt,
+        });
+
+        if (error) {
+          console.error('[Marketing] Supabase campaign insert error:', error.message);
+        }
+      }
+
+      setCampaigns((prev) => [newCampaign, ...prev]);
+      showToast(`Campaign "${newCampaign.name}" launched across ${formData.channel.toUpperCase()} gateway!`, 'success');
+      setIsCampaignModalOpen(false);
+      setFormData({ title: '', channel: 'whatsapp', segment: 'leads', template: '' });
+    } catch (err: any) {
+      console.error('[Marketing] Campaign launch error:', err);
+      showToast(err?.message || 'Failed to launch campaign', 'error');
+    }
+  };
 
   return (
     <div>
@@ -188,22 +286,28 @@ export default function MarketingPage() {
         title="Launch Multi-Channel Dealership Campaign"
       >
         <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            alert('Campaign launched across WhatsApp & SMS gateway!');
-            setIsCampaignModalOpen(false);
-          }}
+          onSubmit={handleLaunchCampaign}
           className="inspo-form-wrapper"
         >
           <div className="form-group">
             <label className="form-label">Campaign Title</label>
-            <input type="text" className="form-input" placeholder="Enter campaign title" required />
+            <input
+              type="text"
+              className="form-input"
+              placeholder="Enter campaign title"
+              value={formData.title}
+              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              required
+            />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div className="form-group">
               <label className="form-label">Broadcast Channel</label>
-              <select className="form-select">
-                <option value="">Select Broadcast Channel...</option>
+              <select
+                className="form-select"
+                value={formData.channel}
+                onChange={(e) => setFormData({ ...formData, channel: e.target.value })}
+              >
                 <option value="whatsapp">WhatsApp Business API</option>
                 <option value="sms">Transactional SMS (DLT Approved)</option>
                 <option value="email">Rich Email HTML Newsletter</option>
@@ -211,8 +315,11 @@ export default function MarketingPage() {
             </div>
             <div className="form-group">
               <label className="form-label">Audience Segment</label>
-              <select className="form-select">
-                <option value="">Select Target Segment...</option>
+              <select
+                className="form-select"
+                value={formData.segment}
+                onChange={(e) => setFormData({ ...formData, segment: e.target.value })}
+              >
                 <option value="leads">Unconverted Enquiries (Last 60 Days)</option>
                 <option value="owners">Existing Owners 3+ Years Old (Upgrade)</option>
                 <option value="all">Entire Dealership Database</option>
@@ -225,6 +332,8 @@ export default function MarketingPage() {
               className="form-textarea"
               rows={3}
               placeholder="Enter campaign message template..."
+              value={formData.template}
+              onChange={(e) => setFormData({ ...formData, template: e.target.value })}
               required
             />
           </div>
@@ -243,6 +352,52 @@ export default function MarketingPage() {
           </div>
         </form>
       </Modal>
+
+      {/* Toast Notification */}
+      {toast && (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            position: 'fixed',
+            bottom: '24px',
+            right: '24px',
+            zIndex: 9999,
+            backgroundColor: toast.type === 'error' ? '#FEF2F2' : '#F0FDF4',
+            border: `1.5px solid ${toast.type === 'error' ? '#FECACA' : '#BBF7D0'}`,
+            color: toast.type === 'error' ? '#991B1B' : '#166534',
+            borderRadius: '12px',
+            padding: '12px 18px',
+            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            fontSize: '0.86rem',
+            fontWeight: 600,
+          }}
+        >
+          {toast.type === 'error' ? (
+            <AlertCircle size={18} style={{ color: '#DC2626', flexShrink: 0 }} />
+          ) : (
+            <CheckCircle size={18} style={{ color: '#16A34A', flexShrink: 0 }} />
+          )}
+          <span>{toast.message}</span>
+          <button
+            type="button"
+            onClick={() => setToast(null)}
+            style={{
+              marginLeft: '8px',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: toast.type === 'error' ? '#991B1B' : '#166534',
+              padding: '2px',
+            }}
+          >
+            <X size={15} />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

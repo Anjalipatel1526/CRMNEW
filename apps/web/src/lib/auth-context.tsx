@@ -151,10 +151,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
+    // Listen to Supabase Auth state changes to keep token and cookies in sync
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, currentSession) => {
+      if (event === 'SIGNED_OUT') {
+        clearUserSession();
+        setIsLoggedIn(false);
+        setSession(null);
+        if (typeof document !== 'undefined') {
+          document.cookie = 'sb-access-token=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+          document.cookie = 'crm-role=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+          document.cookie = 'crm-tenant=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+        }
+      } else if (currentSession?.access_token && typeof document !== 'undefined') {
+        document.cookie = `sb-access-token=${currentSession.access_token}; path=/; max-age=604800; SameSite=Lax`;
+      }
+    });
+
     window.addEventListener('crm-session-changed', handleSessionChanged);
     window.addEventListener('crm-user-profile-changed', handleProfileChanged);
     window.addEventListener('storage', handleStorage);
     return () => {
+      authListener?.subscription?.unsubscribe();
       window.removeEventListener('crm-session-changed', handleSessionChanged);
       window.removeEventListener('crm-user-profile-changed', handleProfileChanged);
       window.removeEventListener('storage', handleStorage);
@@ -224,6 +241,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     saveUserSession(newSession);
     setSession(newSession);
 
+    if (typeof document !== 'undefined') {
+      document.cookie = `crm-role=${role}; path=/; max-age=604800; SameSite=Lax`;
+      document.cookie = `crm-tenant=${resolvedTenantId}; path=/; max-age=604800; SameSite=Lax`;
+    }
+
     setActiveRole(role);
     setIsLoggedIn(true);
     setUserContext((prev) => ({
@@ -289,6 +311,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setSession(null);
     setIsLoggedIn(false);
     setUserContext(initialContext);
+
+    if (typeof document !== 'undefined') {
+      document.cookie = 'sb-access-token=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      document.cookie = 'crm-token=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      document.cookie = 'crm-role=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      document.cookie = 'crm-tenant=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+    }
+
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch {}
 
     try {
       await supabase.auth.signOut();

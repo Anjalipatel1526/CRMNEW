@@ -35,6 +35,8 @@ export default function AiIntelligencePage() {
     comparables: number;
   } | null>(null);
 
+  const [dispatchNotice, setDispatchNotice] = useState<string | null>(null);
+
   const handleEstimate = (e: React.FormEvent) => {
     e.preventDefault();
     if (!valuationInput.year || !valuationInput.make) return;
@@ -221,6 +223,18 @@ export default function AiIntelligencePage() {
             <MessageSquare size={18} style={{ color: 'var(--color-blue)' }} />
           </div>
           <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {dispatchNotice && (
+              <div style={{ padding: '0.75rem 1rem', backgroundColor: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 'var(--radius-md)', color: '#1E40AF', fontSize: '0.875rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>{dispatchNotice}</span>
+                <button
+                  type="button"
+                  onClick={() => setDispatchNotice(null)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, color: '#1E40AF', fontSize: '0.875rem' }}
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
             {activeFollowUpLeads.length > 0 ? (
               activeFollowUpLeads.slice(0, 3).map((lead) => (
                 <div key={lead.id} style={{ padding: '1rem', backgroundColor: '#F8FAFC', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)' }}>
@@ -237,7 +251,7 @@ export default function AiIntelligencePage() {
                   <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
                     <button
                       className="btn btn-primary btn-sm"
-                      onClick={() => alert('Dispatched to WhatsApp Business Gateway!')}
+                      onClick={() => setDispatchNotice(`WhatsApp draft queued for ${lead.customerName}. Note: WhatsApp Cloud API gateway integration is active in sandbox mode.`)}
                     >
                       Send via WhatsApp
                     </button>

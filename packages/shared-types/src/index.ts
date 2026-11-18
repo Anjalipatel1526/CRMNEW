@@ -436,6 +436,16 @@ export interface QuotationTotals {
   taxTotal: number;
   feesTotal: number;
   grandTotal: number;
+  // Financial integrity breakdown (authoritative audit fields)
+  basePrice?: number;
+  accessoriesTotal?: number;
+  warrantyTotal?: number;
+  insuranceTotal?: number;
+  servicesTotal?: number;
+  grossTotal?: number;
+  taxableAmount?: number;
+  tradeInCredit?: number;
+  roundOff?: number;
 }
 
 export interface Quotation {

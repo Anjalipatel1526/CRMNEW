@@ -21,8 +21,6 @@ import {
   Briefcase,
 } from 'lucide-react';
 import {
-  getEmployees,
-  fetchEmployees,
   verifyEmployeeLogin,
   setEmployeePermanentPassword,
   Employee,
@@ -34,7 +32,6 @@ export default function EmployeeLoginPage() {
   const { loginUser } = useAuth();
 
   const [company, setCompany] = useState<CompanyProfile>(DEFAULT_COMPANY_PROFILE);
-  const [employeesList, setEmployeesList] = useState<Employee[]>([]);
   const [isMounted, setIsMounted] = useState(false);
 
   // Form states
@@ -57,14 +54,6 @@ export default function EmployeeLoginPage() {
   useEffect(() => {
     setIsMounted(true);
     setCompany(getCompanyProfile());
-    const initial = getEmployees();
-    setEmployeesList(initial);
-
-    fetchEmployees().then((data) => {
-      if (Array.isArray(data) && data.length > 0) {
-        setEmployeesList(data);
-      }
-    });
 
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
@@ -74,13 +63,6 @@ export default function EmployeeLoginPage() {
       }
     }
   }, []);
-
-  // Quick fill helper for demo/testing
-  const handleQuickFill = (emp: Employee) => {
-    setEmployeeIdOrEmail(emp.employeeCode || emp.email);
-    setPassword(emp.password || '');
-    setError(null);
-  };
 
   // Step 1: Handle initial Employee ID + Password submission
   const handleLoginSubmit = (e: React.FormEvent) => {
@@ -172,7 +154,7 @@ export default function EmployeeLoginPage() {
       return;
     }
 
-    if (newPassword === activeEmployee.password) {
+    if (newPassword === password) {
       setPasswordError('New password cannot be the same as your temporary password. Please choose a new secure password.');
       return;
     }
@@ -191,7 +173,6 @@ export default function EmployeeLoginPage() {
       if (success) {
         const updated = {
           ...activeEmployee,
-          password: newPassword,
           mustChangePassword: false,
           isTemporaryPassword: false,
         };
@@ -363,6 +344,7 @@ export default function EmployeeLoginPage() {
               {/* Employee ID or Email Input */}
               <div>
                 <label
+                  htmlFor="emp-login-identifier"
                   style={{
                     display: 'block',
                     fontSize: '0.84rem',
@@ -385,6 +367,7 @@ export default function EmployeeLoginPage() {
                     }}
                   />
                   <input
+                    id="emp-login-identifier"
                     type="text"
                     value={employeeIdOrEmail}
                     onChange={(e) => setEmployeeIdOrEmail(e.target.value)}
@@ -413,7 +396,7 @@ export default function EmployeeLoginPage() {
               {/* Password Input */}
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                  <label style={{ fontSize: '0.84rem', fontWeight: 700, color: '#1E293B' }}>
+                  <label htmlFor="emp-login-password" style={{ fontSize: '0.84rem', fontWeight: 700, color: '#1E293B' }}>
                     Password <span style={{ color: '#EF4444' }}>*</span>
                   </label>
                   <span style={{ fontSize: '0.72rem', color: '#4F46E5', fontWeight: 600 }}>
@@ -432,6 +415,7 @@ export default function EmployeeLoginPage() {
                     }}
                   />
                   <input
+                    id="emp-login-password"
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -503,95 +487,6 @@ export default function EmployeeLoginPage() {
                   </>
                 )}
               </button>
-
-              {/* Demo Staff Accounts Quick-Fill Section */}
-              {employeesList.length > 0 && (
-                <div
-                  style={{
-                    marginTop: '16px',
-                    paddingTop: '16px',
-                    borderTop: '1px dashed #E2E8F0',
-                  }}
-                >
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      marginBottom: '8px',
-                    }}
-                  >
-                    <span style={{ fontSize: '0.74rem', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>
-                      Active Staff Members ({employeesList.length})
-                    </span>
-                    <span style={{ fontSize: '0.7rem', color: '#4F46E5', fontWeight: 600 }}>Click to auto-fill</span>
-                  </div>
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '160px', overflowY: 'auto' }}>
-                    {employeesList.map((emp) => (
-                      <button
-                        key={emp.id}
-                        type="button"
-                        onClick={() => handleQuickFill(emp)}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          padding: '8px 12px',
-                          borderRadius: '10px',
-                          border: '1px solid #E2E8F0',
-                          backgroundColor: '#F8FAFC',
-                          textAlign: 'left',
-                          cursor: 'pointer',
-                          transition: 'all 0.15s ease',
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-                          <div
-                            style={{
-                              width: '26px',
-                              height: '26px',
-                              borderRadius: '8px',
-                              backgroundColor: emp.isAdmin ? '#FEF3C7' : '#EEF2FF',
-                              color: emp.isAdmin ? '#D97706' : '#4F46E5',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              fontSize: '0.7rem',
-                              fontWeight: 800,
-                              flexShrink: 0,
-                            }}
-                          >
-                            {emp.employeeCode.slice(-3)}
-                          </div>
-                          <div style={{ minWidth: 0 }}>
-                            <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {emp.fullName}
-                            </div>
-                            <div style={{ fontSize: '0.68rem', color: '#64748B' }}>
-                              {emp.employeeCode} • {emp.designation}
-                            </div>
-                          </div>
-                        </div>
-
-                        <span
-                          style={{
-                            fontSize: '0.68rem',
-                            padding: '3px 7px',
-                            borderRadius: '6px',
-                            backgroundColor: emp.mustChangePassword ? '#FEF3C7' : '#DCFCE7',
-                            color: emp.mustChangePassword ? '#92400E' : '#166534',
-                            fontWeight: 700,
-                            flexShrink: 0,
-                          }}
-                        >
-                          {emp.mustChangePassword ? '1st Login' : 'Password Set'}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
             </form>
           )}
 
@@ -693,7 +588,7 @@ export default function EmployeeLoginPage() {
 
               {/* New Password Input */}
               <div>
-                <label style={{ display: 'block', fontSize: '0.84rem', fontWeight: 700, color: '#1E293B', marginBottom: '6px' }}>
+                <label htmlFor="emp-new-password" style={{ display: 'block', fontSize: '0.84rem', fontWeight: 700, color: '#1E293B', marginBottom: '6px' }}>
                   Create New Password <span style={{ color: '#EF4444' }}>*</span>
                 </label>
                 <div style={{ position: 'relative' }}>
@@ -708,6 +603,7 @@ export default function EmployeeLoginPage() {
                     }}
                   />
                   <input
+                    id="emp-new-password"
                     type={showNewPassword ? 'text' : 'password'}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
@@ -751,7 +647,7 @@ export default function EmployeeLoginPage() {
 
               {/* Confirm Password Input */}
               <div>
-                <label style={{ display: 'block', fontSize: '0.84rem', fontWeight: 700, color: '#1E293B', marginBottom: '6px' }}>
+                <label htmlFor="emp-confirm-password" style={{ display: 'block', fontSize: '0.84rem', fontWeight: 700, color: '#1E293B', marginBottom: '6px' }}>
                   Confirm New Password <span style={{ color: '#EF4444' }}>*</span>
                 </label>
                 <div style={{ position: 'relative' }}>
@@ -766,6 +662,7 @@ export default function EmployeeLoginPage() {
                     }}
                   />
                   <input
+                    id="emp-confirm-password"
                     type={showNewPassword ? 'text' : 'password'}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}

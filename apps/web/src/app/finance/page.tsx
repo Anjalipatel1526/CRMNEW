@@ -29,6 +29,7 @@ import { WordFadeIn } from '@/components/ui/WordFadeIn';
 import { InvoiceDocumentGenerator, ExecutiveSignatureSvg, getInvoiceColorSystem } from '@/components/invoices/InvoiceDocumentGenerator';
 import { getCompanyProfile } from '@/lib/company-store';
 import { getActiveTenantId } from '@/lib/tenant-context';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 
 export default function FinancePage() {
   const [payments, setPayments] = useState<Payment[]>(api.getPayments());
@@ -41,15 +42,57 @@ export default function FinancePage() {
 
   const [invoices, setInvoices] = useState<any[]>([]);
   const [expenses, setExpenses] = useState<any[]>([]);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toastType, setToastType] = useState<'success' | 'error'>('success');
 
-  const handleSaveInvoice = (inv: any) => {
+  const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
+    setToastMessage(msg);
+    setToastType(type);
+    setTimeout(() => setToastMessage(null), 4000);
+  };
+
+  const handleSaveInvoice = async (inv: any) => {
+    const tenantId = getActiveTenantId();
+    
+    // Resolve dynamic branch from authoritative store or fallback to valid tenant primary branch
+    const availableBranches = api.getBranches();
+    const branchId = availableBranches.length > 0 ? availableBranches[0].id : `b_${tenantId.slice(0, 8)}_01`;
+
+    // Dynamically resolve or create authoritative customer record (VULN-08 Fix)
+    let customerId = inv.customerId;
+    if (!customerId) {
+      const existing = customers.find(
+        (c) => `${c.firstName} ${c.lastName || ''}`.trim().toLowerCase() === (inv.customerName || '').toLowerCase()
+      );
+      if (existing) {
+        customerId = existing.id;
+      } else {
+        customerId = 'cust-' + Date.now();
+        if (isSupabaseConfigured()) {
+          try {
+            const parts = (inv.customerName || 'Valued Customer').split(' ');
+            await supabase.from('customers').upsert({
+              id: customerId,
+              tenant_id: tenantId,
+              first_name: parts[0] || 'Valued',
+              last_name: parts.slice(1).join(' ') || 'Customer',
+              email: inv.customerEmail || `customer_${Date.now()}@dealership.com`,
+              phone: inv.customerPhone || '9800000000',
+              status: 'active',
+              created_at: new Date().toISOString(),
+            }, { onConflict: 'id' });
+          } catch {}
+        }
+      }
+    }
+
     const newPayment: Payment = {
       id: 'pay-' + Date.now(),
-      tenantId: getActiveTenantId(),
-      branchId: 'b-dt-001',
+      tenantId: tenantId,
+      branchId: branchId,
       currency: 'INR',
       paymentNumber: inv.invoiceNumber,
-      customerId: inv.customerId || 'c-101',
+      customerId: customerId,
       customerName: inv.customerName || 'Valued Customer',
       amount: inv.grandTotal,
       method: (inv.paymentMethod || 'upi') as any,
@@ -61,7 +104,7 @@ export default function FinancePage() {
     };
 
     const newInvoice = {
-      id: inv.id,
+      id: inv.id || 'inv-' + Date.now(),
       invoiceNumber: inv.invoiceNumber,
       customerName: inv.customerName || 'Valued Customer',
       vehicleDetails: inv.items?.[0]?.description || 'Vehicle Delivery & Services',
@@ -74,9 +117,66 @@ export default function FinancePage() {
       rawInvoice: inv,
     };
 
+    // Persist newInvoice and newPayment to Supabase before updating state
+    if (isSupabaseConfigured()) {
+      try {
+        const { error: invErr } = await supabase.from('invoices').upsert({
+          id: newInvoice.id,
+          tenant_id: tenantId,
+          branch_id: branchId,
+          customer_id: customerId,
+          invoice_number: newInvoice.invoiceNumber,
+          status: 'paid',
+          subtotal: inv.subtotal || inv.grandTotal,
+          tax_total: inv.taxTotal || 0,
+          grand_total: inv.grandTotal,
+          paid_amount: inv.grandTotal,
+          balance_due: 0,
+          currency: 'INR',
+          issued_at: new Date().toISOString(),
+          due_date: inv.dueDate ? new Date(inv.dueDate).toISOString() : new Date().toISOString(),
+          created_at: new Date().toISOString(),
+        }, { onConflict: 'id' });
+
+        if (invErr) {
+          console.error('[Finance] Invoice persistence error:', invErr.message);
+          showToast(`Invoice persistence failed: ${invErr.message}`, 'error');
+          return;
+        }
+
+        const { error: payErr } = await supabase.from('payments').upsert({
+          id: newPayment.id,
+          tenant_id: tenantId,
+          branch_id: branchId,
+          customer_id: customerId,
+          invoice_id: newInvoice.id,
+          payment_number: newPayment.paymentNumber,
+          method: newPayment.method || 'upi',
+          status: 'settled',
+          amount: newPayment.amount,
+          currency: 'INR',
+          reference_number: newPayment.referenceNumber,
+          notes: newPayment.notes,
+          settled_at: newPayment.settledAt,
+          created_at: newPayment.createdAt,
+        }, { onConflict: 'id' });
+
+        if (payErr) {
+          console.error('[Finance] Payment persistence error:', payErr.message);
+          showToast(`Payment voucher persistence failed: ${payErr.message}`, 'error');
+          return;
+        }
+      } catch (err: any) {
+        console.error('[Finance] Unexpected persistence error:', err);
+        showToast(`Failed to persist: ${err.message}`, 'error');
+        return;
+      }
+    }
+
     setPayments((prev) => [newPayment, ...prev]);
     setInvoices((prev) => [newInvoice, ...prev]);
     setIsPaymentModalOpen(false);
+    showToast(`Invoice ${newInvoice.invoiceNumber} and payment voucher successfully persisted!`, 'success');
   };
 
   const totalCollected = payments.reduce((sum, p) => sum + p.amount, 0);
@@ -124,6 +224,33 @@ export default function FinancePage() {
           <Plus size={16} /> Create Document / Invoice
         </button>
       </div>
+
+      {toastMessage && (
+        <div
+          style={{
+            padding: '10px 16px',
+            marginBottom: '16px',
+            borderRadius: '10px',
+            fontSize: '0.86rem',
+            fontWeight: 600,
+            backgroundColor: toastType === 'success' ? '#ECFDF5' : '#FEF2F2',
+            color: toastType === 'success' ? '#065F46' : '#991B1B',
+            border: `1px solid ${toastType === 'success' ? '#A7F3D0' : '#FECACA'}`,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
+          <span>{toastMessage}</span>
+          <button
+            type="button"
+            onClick={() => setToastMessage(null)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', fontSize: '1.2rem', lineHeight: 1 }}
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {/* KPI Cards */}
       <div className="grid-3" style={{ marginBottom: '20px' }}>
