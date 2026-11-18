@@ -25,7 +25,6 @@ const PROTECTED_PREFIXES = [
   '/service',
   '/marketing',
   '/test-drives',
-  '/ai',
   '/empportal',
   '/employees',
 ];

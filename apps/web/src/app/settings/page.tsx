@@ -1550,7 +1550,7 @@ export default function SettingsPage() {
                 No Dealership Branches Configured
               </h3>
               <p style={{ margin: '0 0 18px 0', fontSize: '0.84rem', color: '#64748B', maxWidth: '420px' }}>
-                The initial mock branches have been removed. Add your first dealership showroom or branch office to begin.
+                No dealership branches configured yet. Add your first dealership showroom or branch office to begin.
               </p>
               <button
                 type="button"
@@ -1785,13 +1785,9 @@ export default function SettingsPage() {
                   <span>Branch Outlets:</span>
                   <strong>{branches.length} / 5 Branches Configured</strong>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #E2E8F0', paddingBottom: '0.5rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span>Vehicle Inventory Capacity:</span>
                   <strong>6 / 250 Vehicles Live</strong>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span>AI Copilot & Valuations:</span>
-                  <span style={{ color: '#16A34A', fontWeight: 700 }}>Unlimited Enabled</span>
                 </div>
               </div>
             </div>

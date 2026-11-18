@@ -16,8 +16,6 @@ import {
   Plan,
   Subscription,
   UserContext,
-  LeadScore,
-  ValuationEstimate,
 } from '@crm/shared-types';
 import { PricingEngine } from '@crm/business-rules';
 import { supabase, isSupabaseConfigured } from './supabase';
