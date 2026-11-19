@@ -33,7 +33,7 @@ export async function seedDatabase(): Promise<void> {
       JSON.stringify({
         taxRates: { defaultGst: 18, luxuryCess: 22 },
         documentChecklist: ['pan', 'aadhaar', 'address_proof', 'form20', 'insurance'],
-        featuresEnabled: ['ai_scoring', 'copilot', 'marketing', 'service_workshop'],
+        featuresEnabled: ['marketing', 'service_workshop'],
       }),
     ]
   );

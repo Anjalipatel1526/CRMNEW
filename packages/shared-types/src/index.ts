@@ -848,50 +848,7 @@ export interface Referral {
 }
 
 // ------------------------------------------------------------
-// 9. AI & INTELLIGENCE
-// ------------------------------------------------------------
-export interface LeadScore {
-  leadId: UUID;
-  score: number; // 0-100
-  confidence: number;
-  factors: string[];
-}
-
-export interface ValuationEstimate {
-  estimatedLow: number;
-  estimatedMid: number;
-  estimatedHigh: number;
-  confidence: number;
-  comparablesCount: number;
-  summary: string;
-}
-
-export interface CopilotAdvice {
-  summary: string;
-  recommendedAction: string;
-  draftMessage: string;
-  suggestedVehicles: Array<{
-    id: UUID;
-    make: string;
-    model: string;
-    price: number;
-  }>;
-}
-
-export interface StockRecommendation {
-  vehicleId: UUID;
-  stockNumber: string;
-  make: string;
-  model: string;
-  daysInStock: number;
-  currentAskingPrice: number;
-  suggestedAction: 'discount' | 'feature_campaign' | 'transfer' | 'wholesale';
-  suggestedPrice?: number;
-  reason: string;
-}
-
-// ------------------------------------------------------------
-// 10. SAAS CONTROL PLANE
+// 9. SAAS CONTROL PLANE
 // ------------------------------------------------------------
 export interface Plan {
   id: UUID;

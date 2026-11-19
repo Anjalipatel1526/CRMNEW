@@ -8,6 +8,9 @@ import {
   ADMIN_ALLOWED_ROLES,
 } from '@/config/routes';
 
+/**
+ * Basic JWT payload parser without external crypto dependencies (runs cleanly in Edge runtime)
+ */
 function isTokenValid(token: string): boolean {
   try {
     const parts = token.split('.');
