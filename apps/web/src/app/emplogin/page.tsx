@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/lib/auth-context';
+import { useAuth } from '@/lib/client/auth-context';
 import {
   Lock,
   User,
@@ -24,8 +24,8 @@ import {
   verifyEmployeeLogin,
   setEmployeePermanentPassword,
   Employee,
-} from '@/lib/employee-store';
-import { getCompanyProfile, DEFAULT_COMPANY_PROFILE, CompanyProfile } from '@/lib/company-store';
+} from '@/lib/client/stores/employee-store';
+import { getCompanyProfile, DEFAULT_COMPANY_PROFILE, CompanyProfile } from '@/lib/client/stores/company-store';
 
 export default function EmployeeLoginPage() {
   const router = useRouter();

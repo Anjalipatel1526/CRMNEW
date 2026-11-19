@@ -3,8 +3,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { getUserSession } from '@/lib/auth-context';
-import { api } from '@/lib/api-client';
+import { getUserSession } from '@/lib/client/auth-context';
+import { api } from '@/lib/client/api-client';
 import { Modal } from '@/components/ui/Modal';
 import { CalendarPicker } from '@/components/ui/CalendarPicker';
 import {
@@ -28,8 +28,9 @@ import {
 import { Customer, Lead, Vehicle, Deal, Appointment, JobCard } from '@crm/shared-types';
 
 import { WordFadeIn } from '@/components/ui/WordFadeIn';
-import { getCompanyProfile, DEFAULT_COMPANY_PROFILE, CompanyProfile } from '@/lib/company-store';
-import { supabase } from '@/lib/supabase';
+import { getCompanyProfile, hydrateCompanyProfileFromApi, clearLocalCompanyProfile, DEFAULT_COMPANY_PROFILE, CompanyProfile } from '@/lib/client/stores/company-store';
+import { hydrateModulesFromApi } from '@/lib/client/stores/modules-registry';
+import { supabase } from '@/lib/client/supabase';
 
 export interface HotDeal {
   id: string;
@@ -72,15 +73,6 @@ const REVENUE_DATA_12M = [
   { month: 'Feb', revenue: 0, target: 0 },
   { month: 'Mar', revenue: 0, target: 0 },
   { month: 'Apr', revenue: 0, target: 0 },
-  { month: 'May', revenue: 0, target: 0 },
-  { month: 'Jun', revenue: 0, target: 0 },
-  { month: 'Jul', revenue: 0, target: 0 },
-  { month: 'Aug', revenue: 0, target: 0 },
-  { month: 'Sep', revenue: 0, target: 0 },
-  { month: 'Oct', revenue: 0, target: 0 },
-];
-
-const REVENUE_DATA_6M = [
   { month: 'May', revenue: 0, target: 0 },
   { month: 'Jun', revenue: 0, target: 0 },
   { month: 'Jul', revenue: 0, target: 0 },
@@ -147,30 +139,52 @@ export default function DashboardPage() {
         }
       }
 
-      // 3. Verify that THIS account has actually completed onboarding
-      if (userEmail || resolvedTenantId) {
-        try {
-          const qs = new URLSearchParams();
-          if (userEmail) qs.set('email', userEmail);
-          if (resolvedTenantId) qs.set('tenantId', resolvedTenantId);
-          const res = await fetch(`/api/company-profile?${qs.toString()}`);
-          if (res.ok) {
-            const json = await res.json();
-            if (json?.isOnboarded === false) {
-              // Not onboarded yet! Redirect to onboarding form
-              router.replace('/onboarding');
-              return;
-            }
-          }
-        } catch (err) {
-          console.warn('[Dashboard] Onboarding verification note:', err);
+      // 3. Strictly verify that THIS account has actually completed onboarding (fail-closed)
+      if (!userEmail && !resolvedTenantId) {
+        router.replace('/onboarding');
+        return;
+      }
+
+      let hydratedCompany: CompanyProfile | null = null;
+      try {
+        const qs = new URLSearchParams();
+        if (userEmail) qs.set('email', userEmail);
+        if (resolvedTenantId && resolvedTenantId !== 't_default') qs.set('tenantId', resolvedTenantId);
+        const res = await fetch(`/api/company-profile?${qs.toString()}`, {
+          headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined,
+        });
+        if (res.status === 401) {
+          clearLocalCompanyProfile();
+          router.replace('/login');
+          return;
         }
+        if (!res.ok) {
+          clearLocalCompanyProfile();
+          router.replace('/onboarding');
+          return;
+        }
+        const json = await res.json();
+        if (json?.isOnboarded !== true) {
+          clearLocalCompanyProfile();
+          router.replace('/onboarding');
+          return;
+        }
+        if (Array.isArray(json?.modules) && json.modules.length > 0) {
+          hydrateModulesFromApi(json.modules);
+        }
+        if (json?.profile) {
+          hydratedCompany = hydrateCompanyProfileFromApi(json.profile, resolvedTenantId);
+        }
+      } catch (err) {
+        console.warn('[Dashboard] Onboarding verification failed:', err);
+        router.replace('/onboarding');
+        return;
       }
 
       if (isMounted) {
         setIsMounted(true);
         refreshData();
-        setCompany(getCompanyProfile());
+        setCompany(hydratedCompany || getCompanyProfile());
       }
     };
 
@@ -231,9 +245,9 @@ export default function DashboardPage() {
         transmission: veh?.transmission || 'Manual',
         color: veh?.color || 'White',
         customer: custName,
-        phone: cust?.phone || '+91 98000 00000',
+        phone: cust?.phone || '',
         email: cust?.email || '',
-        city: cust?.address?.city || 'Mumbai',
+        city: cust?.address?.city || '—',
         advisor: 'Senior Sales Executive',
         branch: 'Main Showroom',
         value: d.grandTotal || d.vehiclePrice || 0,
@@ -277,6 +291,36 @@ export default function DashboardPage() {
 
   const targetMetCount = activeRevenueData.filter(d => d.target > 0 && d.revenue >= d.target).length;
   const brandDisplayName = isMounted ? (company.tradeName || company.legalName || 'UNAI CRM') : 'UNAI CRM';
+
+  if (!isMounted) {
+    return (
+      <div
+        style={{
+          minHeight: '60vh',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '12px',
+          color: '#64748B',
+          fontSize: '0.92rem',
+          fontWeight: 600,
+        }}
+      >
+        <div
+          style={{
+            width: '32px',
+            height: '32px',
+            borderRadius: '50%',
+            border: '3px solid #E2E8F0',
+            borderTopColor: '#6253F8',
+            animation: 'spin 0.8s linear infinite',
+          }}
+        />
+        <span>Verifying dealership workspace...</span>
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -1051,15 +1095,15 @@ export default function DashboardPage() {
                 <div style={{ fontSize: '0.8rem', color: '#64748B', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                     <Phone size={13} style={{ color: '#0284C7' }} />
-                    {selectedLeadCustomer.customer?.phone || '+91 98201 12345'}
+                    {selectedLeadCustomer.customer?.phone || '—'}
                   </span>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                     <Mail size={13} style={{ color: '#0284C7' }} />
-                    {selectedLeadCustomer.customer?.email || `${(selectedLeadCustomer.lead.customerName || 'customer').toLowerCase().replace(/\s+/g, '.')}@example.com`}
+                    {selectedLeadCustomer.customer?.email || '—'}
                   </span>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                     <MapPin size={13} style={{ color: '#0284C7' }} />
-                    {selectedLeadCustomer.customer?.address?.city || 'Mumbai'}, MH
+                    {selectedLeadCustomer.customer?.address?.city || 'Showroom'}
                   </span>
                 </div>
               </div>
@@ -1112,7 +1156,7 @@ export default function DashboardPage() {
                   {selectedLeadCustomer.lead.source || 'Walk-in Showroom'}
                 </div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--muted)', marginTop: '2px' }}>
-                  Branch: Apex Downtown Flagship
+                  Branch: Main Showroom
                 </div>
               </div>
             </div>
@@ -1140,7 +1184,7 @@ export default function DashboardPage() {
                   Assigned Consultant
                 </span>
                 <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text)', marginTop: '2px' }}>
-                  {selectedLeadCustomer.lead.assigneeName || 'Rajesh Patil'}
+                  {selectedLeadCustomer.lead.assigneeName || 'Unassigned Consultant'}
                 </div>
               </div>
             </div>

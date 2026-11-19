@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { supabase, isSupabaseConfigured } from '@/lib/supabase';
-import { supabaseAdmin } from '@/lib/supabase-server';
-import { VALID_ROLES, resolveTrustedTenantRole } from '@/lib/server-auth';
+import {
+  supabaseAdmin,
+  createAnonServerClient,
+  isServerSupabaseConfigured,
+} from '@/lib/server/supabase';
+import { VALID_ROLES, resolveTrustedTenantRole } from '@/lib/server/auth';
+import { syncSupabaseAuthPassword } from '@/lib/server/auth-admin';
+import { checkAccountOnboardingStatus } from '@/lib/server/tenant';
+import { setSessionCookies } from '@/lib/server/session-cookies';
 import { UserRole } from '@crm/shared-types';
-import { signSessionPayload } from '@/lib/session-signature';
 import { LoginSchema } from '@crm/validators';
 
 function safeStringEqual(a: string, b: string): boolean {
@@ -27,15 +32,14 @@ async function tryMigrateLegacyOnboardingCredential(
   try {
     const { data: credRows } = await supabaseAdmin
       .from('user_credentials')
-      .select('user_id, email, full_name, password_hash, tenant_id')
+      .select('id, user_id, email, full_name, password_hash, tenant_id')
       .or(`email.ilike.${email},user_id.ilike.${rawIdentifier}`)
       .limit(5);
 
     const matchedCred = credRows?.find(
       (c) =>
         c.password_hash &&
-        c.password_hash !== '[SUPABASE_AUTH_MANAGED]' &&
-        safeStringEqual(String(c.password_hash), password)
+        (c.password_hash === password || safeStringEqual(String(c.password_hash), password))
     );
 
     if (!matchedCred) {
@@ -45,42 +49,10 @@ async function tryMigrateLegacyOnboardingCredential(
     const targetEmail = (matchedCred.email || email).toLowerCase().trim();
     const fullName = matchedCred.full_name || targetEmail.split('@')[0];
 
-    // Check if user already exists in Supabase Auth (e.g., via Google OAuth)
-    const { data: listed } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
-    const existingAuthUser = listed?.users?.find(
-      (u) => u.email?.toLowerCase().trim() === targetEmail
-    );
-
-    if (existingAuthUser) {
-      const { error: updateErr } = await supabaseAdmin.auth.admin.updateUserById(
-        existingAuthUser.id,
-        {
-          password,
-          email_confirm: true,
-        }
-      );
-      if (updateErr) {
-        console.error('[API/auth/login] Failed syncing password to auth.users:', updateErr.message);
-        return null;
-      }
-    } else {
-      const { error: createErr } = await supabaseAdmin.auth.admin.createUser({
-        email: targetEmail,
-        password,
-        email_confirm: true,
-        user_metadata: { full_name: fullName },
-      });
-      if (createErr) {
-        console.error('[API/auth/login] Failed creating auth.users record:', createErr.message);
-        return null;
-      }
+    const synced = await syncSupabaseAuthPassword({ email: targetEmail, password, fullName });
+    if (!synced) {
+      return null;
     }
-
-    // Scrub plaintext password from user_credentials now that Supabase Auth holds the bcrypt hash
-    await supabaseAdmin
-      .from('user_credentials')
-      .update({ password_hash: '[SUPABASE_AUTH_MANAGED]' })
-      .eq('user_id', matchedCred.user_id);
 
     return targetEmail;
   } catch (err) {
@@ -90,7 +62,7 @@ async function tryMigrateLegacyOnboardingCredential(
 }
 
 export async function POST(req: NextRequest) {
-  if (!isSupabaseConfigured()) {
+  if (!isServerSupabaseConfigured()) {
     return NextResponse.json(
       { error: 'Authentication service unavailable: Supabase credentials not configured' },
       { status: 503 }
@@ -102,17 +74,35 @@ export async function POST(req: NextRequest) {
     const rawIdentifier = String(body.email || body.identifier || '').trim();
     let resolvedInputEmail = rawIdentifier.toLowerCase();
 
-    // If caller supplied a User ID (without @), resolve its email from user_credentials
+    // If caller supplied a User ID (without @), resolve its email from user_credentials or employees table
     if (resolvedInputEmail && !resolvedInputEmail.includes('@')) {
       const { data: idRows } = await supabaseAdmin
         .from('user_credentials')
         .select('email')
         .ilike('user_id', resolvedInputEmail)
+        .order('created_at', { ascending: false })
         .limit(1);
 
       if (idRows && idRows[0]?.email) {
         resolvedInputEmail = idRows[0].email.toLowerCase().trim();
+      } else {
+        const { data: empRows } = await supabaseAdmin
+          .from('employees')
+          .select('email')
+          .or(`username.ilike.${resolvedInputEmail},employee_id.ilike.${resolvedInputEmail}`)
+          .limit(1);
+
+        if (empRows && empRows[0]?.email) {
+          resolvedInputEmail = empRows[0].email.toLowerCase().trim();
+        }
       }
+    }
+
+    if (!resolvedInputEmail.includes('@')) {
+      return NextResponse.json(
+        { error: `User ID '${rawIdentifier}' was not found. Please verify your User ID or enter your registered email address.` },
+        { status: 401 }
+      );
     }
 
     const validation = LoginSchema.safeParse({
@@ -131,9 +121,10 @@ export async function POST(req: NextRequest) {
     }
 
     let { email, password } = validation.data;
+    const authClient = createAnonServerClient();
 
-    // 1. Authenticate with Supabase Auth (verifies cryptographic hash)
-    let { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+    // 1. Authenticate with Supabase Auth (stateless per-request client)
+    let { data: authData, error: authError } = await authClient.auth.signInWithPassword({
       email,
       password,
     });
@@ -144,7 +135,7 @@ export async function POST(req: NextRequest) {
       const migratedEmail = await tryMigrateLegacyOnboardingCredential(email, rawIdentifier, password);
       if (migratedEmail) {
         email = migratedEmail;
-        const retry = await supabase.auth.signInWithPassword({ email, password });
+        const retry = await authClient.auth.signInWithPassword({ email, password });
         authData = retry.data;
         authError = retry.error;
       }
@@ -168,8 +159,6 @@ export async function POST(req: NextRequest) {
 
     const appUser = appUsers && appUsers.length > 0 ? appUsers[0] : null;
     if (appUser && appUser.is_active === false) {
-      // Sign out immediately
-      await supabase.auth.signOut();
       return NextResponse.json(
         { error: 'Account is disabled. Please contact your dealership administrator.' },
         { status: 403 }
@@ -184,7 +173,6 @@ export async function POST(req: NextRequest) {
 
     // 4. Reject if no valid tenant association
     if (!resolvedTenantId) {
-      await supabase.auth.signOut();
       return NextResponse.json(
         { error: 'Account has no active dealership membership. Contact your administrator.' },
         { status: 403 }
@@ -193,7 +181,6 @@ export async function POST(req: NextRequest) {
 
     // 5. Reject if role is unauthorized or unrecognized
     if (!resolvedRoleKey || !VALID_ROLES.includes(resolvedRoleKey as UserRole)) {
-      await supabase.auth.signOut();
       return NextResponse.json(
         { error: 'User has an invalid or unauthorized role assignment.' },
         { status: 403 }
@@ -206,20 +193,18 @@ export async function POST(req: NextRequest) {
       authUser.user_metadata?.name ||
       email.split('@')[0];
 
-    // 6. Generate cryptographically signed session token for Edge Middleware & Server validation
-    const exp = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 7; // 7 days
-    const signedSessionToken = await signSessionPayload({
-      userId: authUser.id,
+    const isOnboarded = await checkAccountOnboardingStatus({
       tenantId: resolvedTenantId,
+      email,
       role: resolvedRoleKey,
-      exp,
     });
 
-    // 7. Build response and set secure session cookies
+    // 6. Build response and set all canonical server session cookies
     const response = NextResponse.json({
       success: true,
       token: sessionToken,
       refreshToken: authData.session.refresh_token,
+      isOnboarded,
       user: {
         id: authUser.id,
         email: authUser.email,
@@ -230,39 +215,12 @@ export async function POST(req: NextRequest) {
       branchIds,
     });
 
-    const isProd = process.env.NODE_ENV === 'production';
-
-    // Set HttpOnly cookie for Supabase session bearer token
-    response.cookies.set('sb-access-token', sessionToken, {
-      path: '/',
-      httpOnly: true, // Protected against client-side XSS exfiltration
-      sameSite: 'lax',
-      secure: isProd,
-      maxAge: 60 * 60 * 24 * 7, // 7 days
-    });
-
-    // Set HttpOnly cryptographically signed session cookie (tamper-proof)
-    response.cookies.set('crm-session', signedSessionToken, {
-      path: '/',
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: isProd,
-      maxAge: 60 * 60 * 24 * 7,
-    });
-
-    // Client-side non-authoritative display cookie
-    response.cookies.set('crm-role', resolvedRoleKey, {
-      path: '/',
-      sameSite: 'lax',
-      secure: isProd,
-      maxAge: 60 * 60 * 24 * 7,
-    });
-
-    response.cookies.set('crm-tenant', resolvedTenantId, {
-      path: '/',
-      sameSite: 'lax',
-      secure: isProd,
-      maxAge: 60 * 60 * 24 * 7,
+    await setSessionCookies(response, {
+      accessToken: sessionToken,
+      userId: authUser.id,
+      tenantId: resolvedTenantId,
+      role: resolvedRoleKey,
+      isOnboarded,
     });
 
     return response;

@@ -1,11 +1,11 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { api } from '@/lib/api-client';
-import { getEmployees, fetchEmployees, Employee } from '@/lib/employee-store';
-import { getCompanyProfile } from '@/lib/company-store';
+import { api } from '@/lib/client/api-client';
+import { getEmployees, fetchEmployees, Employee } from '@/lib/client/stores/employee-store';
+import { getCompanyProfile } from '@/lib/client/stores/company-store';
 import { StatCard } from '@/components/ui/StatCard';
-import { APP_CARD_PALETTES } from '@/lib/theme-palettes';
+import { APP_CARD_PALETTES } from '@/lib/data/theme-palettes';
 import {
   BarChart3,
   TrendingUp,

@@ -1,17 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { NextResponse } from 'next/server';
+import { clearSessionCookies } from '@/lib/server/session-cookies';
 
-export async function POST(req: NextRequest) {
-  try {
-    await supabase.auth.signOut();
-  } catch {}
-
+export async function POST() {
   const response = NextResponse.json({ success: true, message: 'Logged out successfully' });
-
-  response.cookies.delete('sb-access-token');
-  response.cookies.delete('crm-token');
-  response.cookies.delete('crm-role');
-  response.cookies.delete('crm-tenant');
-
+  clearSessionCookies(response);
   return response;
 }

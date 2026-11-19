@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { StatCard } from '@/components/ui/StatCard';
 import { Modal } from '@/components/ui/Modal';
-import { APP_CARD_PALETTES } from '@/lib/theme-palettes';
+import { APP_CARD_PALETTES } from '@/lib/data/theme-palettes';
 import {
   getDocuments,
   fetchDocuments,
@@ -13,7 +13,7 @@ import {
   deleteDocument,
   initDocumentsRealtime,
   VaultDocument,
-} from '@/lib/document-store';
+} from '@/lib/client/stores/document-store';
 import {
   ShieldCheck,
   UploadCloud,

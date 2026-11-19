@@ -3,10 +3,10 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/lib/auth-context';
-import { supabase } from '@/lib/supabase';
-import { Lock, User, ArrowRight, CheckCircle2, AlertCircle, Eye, EyeOff, ShieldCheck, ArrowLeft } from 'lucide-react';
-import { getCompanyProfile, DEFAULT_COMPANY_PROFILE, CompanyProfile } from '@/lib/company-store';
+import { useAuth } from '@/lib/client/auth-context';
+import { supabase } from '@/lib/client/supabase';
+import { syncServerSession } from '@/lib/client/session-sync';
+import { Lock, User, ArrowRight, CheckCircle2, AlertCircle, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -18,12 +18,10 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [forgotNotice, setForgotNotice] = useState(false);
   const [onboardedBanner, setOnboardedBanner] = useState(false);
-  const [company, setCompany] = useState<CompanyProfile>(DEFAULT_COMPANY_PROFILE);
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
-    setCompany(getCompanyProfile());
 
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
@@ -102,7 +100,11 @@ export default function LoginPage() {
       });
 
       setLoading(false);
-      router.push(getRedirectTarget());
+      if (data.isOnboarded === false && data.role === 'tenant_admin') {
+        router.push('/onboarding');
+      } else {
+        router.push(getRedirectTarget());
+      }
     } catch (err: any) {
       console.error('[Login] Unexpected authentication error:', err);
       setLoading(false);
@@ -313,18 +315,14 @@ export default function LoginPage() {
                     try {
                       const { data: { session } } = await supabase.auth.getSession();
                       if (session?.access_token) {
-                        const syncRes = await fetch('/api/auth/session', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ accessToken: session.access_token }),
-                        });
-                        if (syncRes.ok) {
-                          router.push('/dashboard');
+                        const syncResult = await syncServerSession(session.access_token);
+                        if (syncResult.ok) {
+                          router.push(syncResult.isOnboarded ? '/dashboard' : '/onboarding');
                           return;
                         }
                       }
                     } catch {}
-                    router.push('/dashboard');
+                    router.push('/onboarding');
                   }}
                   className="btn btn-primary"
                   style={{

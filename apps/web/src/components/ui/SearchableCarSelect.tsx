@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Search, ChevronDown, X, Check, Car } from 'lucide-react';
-import { DEFAULT_CAR_CATALOG } from '@/lib/car-catalog';
+import { DEFAULT_CAR_CATALOG } from '@/lib/data/car-catalog';
 
 interface SearchableCarSelectProps {
   value: string;
@@ -43,11 +43,12 @@ export function SearchableCarSelect({
   }, []);
 
   useEffect(() => {
-    if (isOpen) {
-      setTimeout(() => searchInputRef.current?.focus(), 20);
-    } else {
+    if (!isOpen) {
       setQuery('');
+      return;
     }
+    const timer = window.setTimeout(() => searchInputRef.current?.focus(), 20);
+    return () => window.clearTimeout(timer);
   }, [isOpen]);
 
   const normalizedQuery = query.trim().toLowerCase();

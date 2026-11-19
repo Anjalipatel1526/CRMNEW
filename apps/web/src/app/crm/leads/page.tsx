@@ -1,9 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
-import { api } from '@/lib/api-client';
-import { getTestDrives, fetchTestDrives } from '@/lib/test-drive-store';
-import { ALL_CAR_BRANDS, getModelsForBrand } from '@/lib/car-catalog';
+import { api } from '@/lib/client/api-client';
+import { getTestDrives, fetchTestDrives } from '@/lib/client/stores/test-drive-store';
+import { ALL_CAR_BRANDS, getModelsForBrand } from '@/lib/data/car-catalog';
 import { Lead, LeadStatus, Customer } from '@crm/shared-types';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Modal } from '@/components/ui/Modal';
@@ -28,6 +28,7 @@ import {
   X,
   MessageSquare,
   AlertCircle,
+  User,
 } from 'lucide-react';
 import { WordFadeIn } from '@/components/ui/WordFadeIn';
 
@@ -202,9 +203,9 @@ const STAGE_QUESTION_MAP: Partial<Record<LeadStatus, StageQuestionConfig>> = {
         label: 'Assigned Showroom Consultant',
         type: 'select',
         options: [
-          'Rajesh Patil (Senior Sales Desk)',
-          'Kavita Chawla',
-          'John Fernandes',
+          'Assigned Sales Consultant',
+          'Showroom Host',
+          'Senior Relationship Manager',
         ],
       },
       {
@@ -332,8 +333,40 @@ export default function LeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [branches, setBranches] = useState<any[]>([]);
+  const [employees, setEmployees] = useState<any[]>([]);
+  const [appointments, setAppointments] = useState<any[]>([]);
   const [isNewLeadModalOpen, setIsNewLeadModalOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+
+  const formatAptDate = (dateStr: string) => {
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      return d.toLocaleString('en-IN', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+      });
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const formatAptType = (typeStr: string) => {
+    if (!typeStr) return 'Showroom Appointment';
+    const map: Record<string, string> = {
+      showroom_visit: 'Showroom Consultation',
+      test_drive: 'Test Drive Demo',
+      document_pickup: 'Document Signing',
+      delivery: 'Vehicle Delivery',
+      service: 'Service Booking',
+      other: 'Showroom Visit',
+    };
+    return map[typeStr] || typeStr.replace(/_/g, ' ');
+  };
 
   // Drag and drop states
   const [draggedLeadId, setDraggedLeadId] = useState<string | null>(null);
@@ -352,9 +385,12 @@ export default function LeadsPage() {
 
     const syncFromActivities = (drivesList = getTestDrives()) => {
       api.reconcilePipelineFromActivities(drivesList);
+      api.ensureCustomerLeads();
       setLeads([...api.getLeads()]);
       setCustomers([...api.getCustomers()]);
       setBranches([...api.getBranches()]);
+      setEmployees([...api.getEmployees()]);
+      setAppointments([...api.getAppointments()]);
     };
 
     syncFromActivities();
@@ -364,15 +400,25 @@ export default function LeadsPage() {
       api.fetchLeads(),
       api.fetchAppointments(),
       api.fetchBranches(),
+      api.fetchEmployees(),
       fetchTestDrives(),
-    ]).then(([, , , , remoteDrives]) => {
+    ]).then(([remoteCusts, , remoteApts, remoteBranches, remoteEmployees, remoteDrives]) => {
+      if (Array.isArray(remoteEmployees)) setEmployees(remoteEmployees);
+      if (Array.isArray(remoteApts)) setAppointments(remoteApts);
+      if (Array.isArray(remoteBranches)) setBranches(remoteBranches);
+      if (Array.isArray(remoteCusts) && remoteCusts.length > 0) setCustomers(remoteCusts);
+      api.ensureCustomerLeads();
       syncFromActivities(Array.isArray(remoteDrives) ? remoteDrives : getTestDrives());
+      setLeads([...api.getLeads()]);
+      setCustomers([...api.getCustomers()]);
     });
 
     const handleDataChanged = () => {
       setLeads([...api.getLeads()]);
       setCustomers([...api.getCustomers()]);
       setBranches([...api.getBranches()]);
+      setEmployees([...api.getEmployees()]);
+      setAppointments([...api.getAppointments()]);
     };
     const handleTestDrivesChanged = () => {
       syncFromActivities(getTestDrives());
@@ -395,6 +441,8 @@ export default function LeadsPage() {
     budgetMin: '',
     budgetMax: '',
     notes: '',
+    assignedTo: '',
+    assignedToName: '',
   };
 
   // Form state & stage questionnaire
@@ -424,6 +472,8 @@ export default function LeadsPage() {
       budgetMin: lead.budgetMin ? String(lead.budgetMin) : '',
       budgetMax: lead.budgetMax ? String(lead.budgetMax) : '',
       notes: lead.notes || '',
+      assignedTo: lead.assignedTo || '',
+      assignedToName: lead.assigneeName || '',
     });
     setStageQuestions({});
     setSelectedLead(null);
@@ -457,6 +507,8 @@ export default function LeadsPage() {
         budgetMax: formData.budgetMax ? Number(formData.budgetMax) : undefined,
         status: formStage,
         notes: combinedNotes || formData.notes,
+        assignedTo: formData.assignedTo || undefined,
+        assigneeName: formData.assignedToName || undefined,
       });
       setEditingLeadId(null);
     } else {
@@ -464,6 +516,8 @@ export default function LeadsPage() {
         ...formData,
         status: formStage,
         notes: combinedNotes,
+        assignedTo: formData.assignedTo,
+        assigneeName: formData.assignedToName,
       });
       setRecentlyMovedId(created.id);
       setTimeout(() => setRecentlyMovedId(null), 1500);
@@ -733,6 +787,9 @@ export default function LeadsPage() {
                   {stageLeads.map((lead) => {
                     const isDragging = draggedLeadId === lead.id;
                     const wasRecentlyMoved = recentlyMovedId === lead.id;
+                    const leadApt = (lead as any).appointment || appointments.find(
+                      (a) => (a.leadId && a.leadId === lead.id) || (lead.customerId && a.customerId === lead.customerId)
+                    );
 
                     return (
                       <div
@@ -785,12 +842,31 @@ export default function LeadsPage() {
                         </div>
 
                         {/* Footer: Budget & Sales Exec */}
-                        <div className="kanban-card-footer">
+                        <div className="kanban-card-footer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
                           <span className="kanban-budget-label">
-                            Budget: ₹{(lead.budgetMin! / 100000).toFixed(0)}-{(lead.budgetMax! / 100000).toFixed(0)}L
+                            Budget: ₹{((lead.budgetMin || 0) / 100000).toFixed(0)}-{((lead.budgetMax || 0) / 100000).toFixed(0)}L
                           </span>
-                          <span className="kanban-assignee-pill">
-                            {lead.assigneeName?.split(' ')[0]}
+                          <span
+                            className="kanban-assignee-pill"
+                            title={`Assigned Consultant: ${lead.assigneeName || 'Unassigned'}`}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              fontSize: '0.72rem',
+                              fontWeight: 600,
+                              color: lead.assigneeName && lead.assigneeName !== 'Unassigned Consultant' ? '#3730A3' : '#64748B',
+                              backgroundColor: lead.assigneeName && lead.assigneeName !== 'Unassigned Consultant' ? '#EEF2FF' : '#F1F5F9',
+                              border: lead.assigneeName && lead.assigneeName !== 'Unassigned Consultant' ? '1px solid #C7D2FE' : '1px solid #E2E8F0',
+                              padding: '2px 8px',
+                              borderRadius: '999px',
+                              maxWidth: '145px',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            👤 {lead.assigneeName || 'Unassigned'}
                           </span>
                         </div>
 
@@ -1372,6 +1448,47 @@ export default function LeadsPage() {
                 </div>
               </div>
 
+              {/* Assigned Consultant & Source */}
+              <div className="form-grid-2">
+                <div className="form-group">
+                  <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <User size={14} style={{ color: '#4F46E5' }} />
+                    Assigned Showroom Consultant
+                  </label>
+                  <select
+                    className="form-select"
+                    value={formData.assignedTo}
+                    onChange={(e) => {
+                      const empId = e.target.value;
+                      const emp = employees.find((em) => em.id === empId);
+                      setFormData({
+                        ...formData,
+                        assignedTo: empId,
+                        assignedToName: emp ? `${emp.full_name} (${(emp.role || 'Staff').replace(/_/g, ' ')})` : '',
+                      });
+                    }}
+                  >
+                    <option value="">Unassigned (Select Consultant)</option>
+                    {employees.map((emp) => (
+                      <option key={emp.id} value={emp.id}>
+                        👤 {emp.full_name} — {(emp.role || 'Sales').replace(/_/g, ' ')} ({emp.department || 'Sales Desk'})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Inbound Source Channel</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={formData.source}
+                    onChange={(e) => setFormData({ ...formData, source: e.target.value })}
+                    placeholder="e.g. Showroom Walk-in, Direct Inbound"
+                  />
+                </div>
+              </div>
+
               {/* Pipeline Stage Intake & Specific Questions Container */}
               {currentStageQuestions && (
                 <div
@@ -1593,7 +1710,7 @@ export default function LeadsPage() {
               </div>
               <div>
                 <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Assigned Sales Exec:</span>
-                <div style={{ fontWeight: 600 }}>{selectedLead.assigneeName}</div>
+                <div style={{ fontWeight: 600 }}>{selectedLead.assigneeName || 'Unassigned Consultant'}</div>
               </div>
               <div>
                 <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Lead Source:</span>
@@ -1608,6 +1725,91 @@ export default function LeadsPage() {
                 <div style={{ fontSize: '0.8125rem', marginTop: '0.2rem' }}>{selectedLead.notes}</div>
               </div>
             )}
+
+            {/* Scheduled Showroom Appointment Full Details */}
+            {(() => {
+              const activeAppointment = (selectedLead as any).appointment || appointments.find(
+                (a) => (a.leadId && a.leadId === selectedLead.id) || (selectedLead.customerId && a.customerId === selectedLead.customerId)
+              );
+              if (!activeAppointment) return null;
+
+              return (
+                <div
+                  style={{
+                    backgroundColor: '#FFFBEB',
+                    borderRadius: '10px',
+                    border: '1.5px solid #FDE047',
+                    padding: '14px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '9px',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Calendar size={16} style={{ color: '#D97706' }} />
+                      <span style={{ fontWeight: 700, fontSize: '0.88rem', color: '#92400E' }}>
+                        Scheduled Showroom Appointment Details
+                      </span>
+                    </div>
+                    <span
+                      style={{
+                        fontSize: '0.72rem',
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        padding: '2px 8px',
+                        borderRadius: '999px',
+                        backgroundColor: (activeAppointment.status === 'confirmed' || activeAppointment.status === 'completed') ? '#DCFCE7' : '#FEF3C7',
+                        color: (activeAppointment.status === 'confirmed' || activeAppointment.status === 'completed') ? '#15803D' : '#B45309',
+                      }}
+                    >
+                      {activeAppointment.status || 'Confirmed'}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '0.8rem', marginTop: '2px' }}>
+                    <div>
+                      <span style={{ fontSize: '0.72rem', color: '#78350F', display: 'block' }}>Date & Time:</span>
+                      <strong style={{ color: '#1E293B' }}>{formatAptDate(activeAppointment.scheduled_at || activeAppointment.scheduledAt)}</strong>
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '0.72rem', color: '#78350F', display: 'block' }}>Duration:</span>
+                      <strong style={{ color: '#1E293B' }}>{activeAppointment.duration_minutes || activeAppointment.durationMinutes || 45} Minutes</strong>
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '0.72rem', color: '#78350F', display: 'block' }}>Format / Type:</span>
+                      <strong style={{ color: '#1E293B' }}>{formatAptType(activeAppointment.appointment_type || activeAppointment.appointmentType)}</strong>
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '0.72rem', color: '#78350F', display: 'block' }}>Demo Vehicle:</span>
+                      <strong style={{ color: '#1E293B' }}>{activeAppointment.vehicle_name || activeAppointment.vehicleName || `${selectedLead.preferredMake} ${selectedLead.preferredModel}`}</strong>
+                    </div>
+                    <div style={{ gridColumn: 'span 2' }}>
+                      <span style={{ fontSize: '0.72rem', color: '#78350F', display: 'block' }}>Assigned Host / Showroom Consultant:</span>
+                      <strong style={{ color: '#4338CA' }}>👤 {activeAppointment.assignee_name || activeAppointment.assignedToName || selectedLead.assigneeName || 'Assigned Consultant'}</strong>
+                    </div>
+                  </div>
+
+                  {activeAppointment.notes && (
+                    <div
+                      style={{
+                        marginTop: '4px',
+                        padding: '8px 10px',
+                        borderRadius: '6px',
+                        backgroundColor: '#FFFFFF',
+                        border: '1px dashed #FCD34D',
+                        fontSize: '0.78rem',
+                        color: '#78350F',
+                        lineHeight: 1.45,
+                      }}
+                    >
+                      <span style={{ fontWeight: 600, display: 'block', marginBottom: '2px' }}>Appointment Notes & Instructions:</span>
+                      {activeAppointment.notes}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
 
           </div>

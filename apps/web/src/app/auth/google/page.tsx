@@ -3,7 +3,8 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/lib/client/supabase';
+import { syncServerSession } from '@/lib/client/session-sync';
 import { ArrowLeft, AlertCircle, Loader2, ShieldCheck, Sparkles } from 'lucide-react';
 
 function GoogleAuthContent() {
@@ -23,28 +24,18 @@ function GoogleAuthContent() {
         const { data: { session } } = await supabase.auth.getSession();
         if (isMounted) {
           if (session?.user && session?.access_token) {
-            // Bridge Supabase OAuth token to server HttpOnly cookies AND check onboarding status
-            try {
-              const syncRes = await fetch('/api/auth/session', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ accessToken: session.access_token }),
-              });
-              if (syncRes.ok) {
-                const syncJson = await syncRes.json();
-                if (syncJson?.isOnboarded) {
-                  router.replace('/dashboard');
-                  return;
-                }
-                // Authenticated but not yet onboarded -> go to onboarding
-                router.replace('/onboarding');
-                return;
-              }
-            } catch (syncErr) {
-              console.warn('[GoogleAuth] Session sync note:', syncErr);
+            const syncResult = await syncServerSession(session.access_token);
+            if (!isMounted) return;
+            if (syncResult.unauthorized) {
+              setIsCheckingInitialSession(false);
+              return;
+            }
+            if (syncResult.ok) {
+              router.replace(syncResult.isOnboarded ? '/dashboard' : '/onboarding');
+              return;
             }
 
-            // Fallback check using company-profile if session sync failed
+            // Fallback check using company-profile if session sync had a transient error
             const userEmail = (session.user.email || '').toLowerCase().trim();
             if (userEmail) {
               try {
@@ -53,11 +44,7 @@ function GoogleAuthContent() {
                 });
                 if (checkRes.ok) {
                   const checkJson = await checkRes.json();
-                  if (checkJson?.isOnboarded) {
-                    router.replace('/dashboard');
-                    return;
-                  }
-                  router.replace('/onboarding');
+                  router.replace(checkJson?.isOnboarded === true ? '/dashboard' : '/onboarding');
                   return;
                 }
               } catch (checkErr) {
@@ -96,18 +83,10 @@ function GoogleAuthContent() {
     setError(null);
 
     try {
-      // Determine the exact authorized redirect callback URL
-      let callbackUrl = 'https://crmnew-navy.vercel.app/auth/callback';
-      if (typeof window !== 'undefined') {
-        const host = window.location.hostname;
-        if (host === 'localhost' || host === '127.0.0.1') {
-          callbackUrl = `${window.location.origin}/auth/callback`;
-        } else if (window.location.origin.includes('crmnew-navy.vercel.app')) {
-          callbackUrl = 'https://crmnew-navy.vercel.app/auth/callback';
-        } else {
-          callbackUrl = `${window.location.origin}/auth/callback`;
-        }
-      }
+      const callbackUrl =
+        typeof window !== 'undefined'
+          ? `${window.location.origin}/auth/callback`
+          : 'https://crmnew-navy.vercel.app/auth/callback';
 
       const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: 'google',

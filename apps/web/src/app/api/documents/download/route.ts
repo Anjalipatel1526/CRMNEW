@@ -1,23 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { isSupabaseConfigured } from '@/lib/supabase';
-import { supabaseAdmin } from '@/lib/supabase-server';
-import { requireAuth } from '@/lib/server-auth';
+import { supabaseAdmin, isServerSupabaseConfigured } from '@/lib/server/supabase';
+import { requireAuth } from '@/lib/server/auth';
+import { fetchAuthorizedDocument } from '@/lib/server/documents';
 
 /**
  * GET /api/documents/download?id=<documentId>
  * Streams a private document directly to authorized clients with non-cacheable security headers.
- *
- * Mandatory Security Checks:
- * 1. User must be authenticated with a valid session.
- * 2. Document must belong to the caller's tenant (tenant isolation).
- * 3. Prevents caching with `Cache-Control: private, no-store`.
  */
 export async function GET(req: NextRequest) {
   const auth = await requireAuth(req);
   if ('errorResponse' in auth) return auth.errorResponse;
 
-  if (!isSupabaseConfigured()) {
-    return NextResponse.json({ error: 'Supabase not configured' }, { status: 400 });
+  if (!isServerSupabaseConfigured()) {
+    return NextResponse.json({ error: 'Supabase not configured' }, { status: 503 });
   }
 
   const { searchParams } = new URL(req.url);
@@ -28,44 +23,11 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const callerTenantId = auth.session.tenantId;
+    const authDoc = await fetchAuthorizedDocument(id, auth.session.tenantId);
+    if ('errorResponse' in authDoc) return authDoc.errorResponse;
 
-    // 1. Fetch document record
-    const { data: doc, error: fetchError } = await supabaseAdmin
-      .from('documents')
-      .select('*')
-      .eq('id', id)
-      .maybeSingle();
+    const { document: doc, bucket, storageKey } = authDoc;
 
-    if (fetchError || !doc) {
-      return NextResponse.json(
-        { error: 'Document not found' },
-        { status: 404 }
-      );
-    }
-
-    // 2. Strict Tenant Authorization
-    if (doc.tenant_id !== callerTenantId) {
-      return NextResponse.json(
-        { error: 'Cross-tenant document access forbidden' },
-        { status: 403 }
-      );
-    }
-
-    // 3. Determine bucket
-    const bucket = doc.document_type === 'signature' || doc.metadata?.bucket === 'signatures'
-      ? 'signatures'
-      : 'dealership-documents';
-
-    const storageKey = doc.storage_key;
-    if (!storageKey) {
-      return NextResponse.json(
-        { error: 'Document has no associated storage object' },
-        { status: 404 }
-      );
-    }
-
-    // 4. Download file binary from private bucket
     const { data: blob, error: downloadError } = await supabaseAdmin.storage
       .from(bucket)
       .download(storageKey);
@@ -80,7 +42,6 @@ export async function GET(req: NextRequest) {
 
     const arrayBuffer = await blob.arrayBuffer();
 
-    // 5. Stream response with anti-caching and security headers
     return new NextResponse(arrayBuffer, {
       status: 200,
       headers: {
@@ -88,8 +49,8 @@ export async function GET(req: NextRequest) {
         'Content-Disposition': `inline; filename="${encodeURIComponent(doc.file_name)}"`,
         'Content-Length': arrayBuffer.byteLength.toString(),
         'Cache-Control': 'private, no-cache, no-store, max-age=0, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0',
+        Pragma: 'no-cache',
+        Expires: '0',
         'X-Content-Type-Options': 'nosniff',
         'X-Frame-Options': 'SAMEORIGIN',
       },

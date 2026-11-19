@@ -1,9 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { api } from '@/lib/api-client';
-import { supabase, isSupabaseConfigured } from '@/lib/supabase';
-import { getActiveTenantId } from '@/lib/tenant-context';
+import { api } from '@/lib/client/api-client';
+import { supabase, isSupabaseConfigured } from '@/lib/client/supabase';
+import { getActiveTenantId } from '@/lib/client/tenant-context';
 import { Campaign } from '@crm/shared-types';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { StatCard } from '@/components/ui/StatCard';

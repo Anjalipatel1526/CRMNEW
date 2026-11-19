@@ -17,10 +17,10 @@ import {
   initEmployeesRealtime,
   Employee,
   EmployeeAccessControl,
-} from '@/lib/employee-store';
+} from '@/lib/client/stores/employee-store';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { getUserSession } from '@/lib/auth-context';
+import { getUserSession } from '@/lib/client/auth-context';
 import {
   Users,
   Plus,
@@ -149,7 +149,7 @@ export default function EmployeesPage() {
     salaryCategory: 'Annual CTC',
     isAdmin: false,
     department: 'Sales' as any,
-    branch: 'Apex Downtown Flagship',
+    branch: 'Main Showroom',
     employeeCode: '',
     password: '',
     avatarUrl: '',
@@ -183,7 +183,7 @@ export default function EmployeesPage() {
       salaryCategory: 'Annual CTC',
       isAdmin: false,
       department: 'Sales',
-      branch: 'Apex Downtown Flagship',
+      branch: 'Main Showroom',
       employeeCode: nextCode,
       password: generatedPass,
       avatarUrl: '',
@@ -294,6 +294,196 @@ export default function EmployeesPage() {
     }
   };
 
+  // Automatically assign default role permissions & department when a designation is selected
+  const handleRoleChange = (role: string) => {
+    let department: 'Sales' | 'Finance' | 'Operations' | 'Service' | 'Management' = 'Sales';
+    let isAdmin = false;
+    let accessControl: EmployeeAccessControl = {
+      pipeline: true,
+      customers: true,
+      inventory: true,
+      procurement: false,
+      deals: true,
+      finance: false,
+      testDrives: true,
+      documents: false,
+      reports: false,
+      settings: false,
+    };
+
+    switch (role) {
+      case 'Accountant':
+        department = 'Finance';
+        isAdmin = false;
+        accessControl = {
+          pipeline: false,
+          customers: true,
+          inventory: false,
+          procurement: true,
+          deals: true,
+          finance: true,
+          testDrives: false,
+          documents: true,
+          reports: true,
+          settings: false,
+        };
+        break;
+      case 'Sales Executive':
+        department = 'Sales';
+        isAdmin = false;
+        accessControl = {
+          pipeline: true,
+          customers: true,
+          inventory: true,
+          procurement: false,
+          deals: true,
+          finance: false,
+          testDrives: true,
+          documents: false,
+          reports: false,
+          settings: false,
+        };
+        break;
+      case 'Sales Manager':
+        department = 'Sales';
+        isAdmin = false;
+        accessControl = {
+          pipeline: true,
+          customers: true,
+          inventory: true,
+          procurement: true,
+          deals: true,
+          finance: false,
+          testDrives: true,
+          documents: true,
+          reports: true,
+          settings: false,
+        };
+        break;
+      case 'Finance Manager':
+        department = 'Finance';
+        isAdmin = false;
+        accessControl = {
+          pipeline: false,
+          customers: true,
+          inventory: false,
+          procurement: true,
+          deals: true,
+          finance: true,
+          testDrives: false,
+          documents: true,
+          reports: true,
+          settings: false,
+        };
+        break;
+      case 'Inventory Manager':
+        department = 'Operations';
+        isAdmin = false;
+        accessControl = {
+          pipeline: false,
+          customers: false,
+          inventory: true,
+          procurement: true,
+          deals: false,
+          finance: false,
+          testDrives: true,
+          documents: true,
+          reports: true,
+          settings: false,
+        };
+        break;
+      case 'Service Advisor':
+        department = 'Service';
+        isAdmin = false;
+        accessControl = {
+          pipeline: false,
+          customers: true,
+          inventory: true,
+          procurement: false,
+          deals: false,
+          finance: false,
+          testDrives: true,
+          documents: true,
+          reports: false,
+          settings: false,
+        };
+        break;
+      case 'Technician':
+        department = 'Service';
+        isAdmin = false;
+        accessControl = {
+          pipeline: false,
+          customers: false,
+          inventory: true,
+          procurement: false,
+          deals: false,
+          finance: false,
+          testDrives: true,
+          documents: false,
+          reports: false,
+          settings: false,
+        };
+        break;
+      case 'Receptionist':
+      case 'Telecaller':
+        department = 'Sales';
+        isAdmin = false;
+        accessControl = {
+          pipeline: true,
+          customers: true,
+          inventory: true,
+          procurement: false,
+          deals: false,
+          finance: false,
+          testDrives: true,
+          documents: false,
+          reports: false,
+          settings: false,
+        };
+        break;
+      case 'General Manager':
+        department = 'Management';
+        isAdmin = true;
+        accessControl = {
+          pipeline: true,
+          customers: true,
+          inventory: true,
+          procurement: true,
+          deals: true,
+          finance: true,
+          testDrives: true,
+          documents: true,
+          reports: true,
+          settings: true,
+        };
+        break;
+      default:
+        department = 'Sales';
+        isAdmin = false;
+        accessControl = {
+          pipeline: true,
+          customers: true,
+          inventory: true,
+          procurement: false,
+          deals: true,
+          finance: false,
+          testDrives: true,
+          documents: false,
+          reports: false,
+          settings: false,
+        };
+        break;
+    }
+
+    setNewEmpForm((prev) => ({
+      ...prev,
+      designation: role,
+      department,
+      isAdmin,
+      accessControl,
+    }));
+  };
+
   // Leave Form
   const [newLeaveForm, setNewLeaveForm] = useState({
     leaveType: 'casual' as any,
@@ -370,7 +560,7 @@ export default function EmployeesPage() {
     const created = addEmployee({
       fullName: newEmpForm.fullName.trim(),
       email: newEmpForm.email.trim() || `${empCode.toLowerCase()}@dealership.com`,
-      phone: newEmpForm.phone.trim() || '+91 98000 00000',
+      phone: newEmpForm.phone.trim() || '',
       designation: resolvedRole,
       department: resolvedDept as any,
       branch: newEmpForm.branch,
@@ -1094,7 +1284,7 @@ export default function EmployeesPage() {
                       />
                       <select
                         value={newEmpForm.designation}
-                        onChange={(e) => setNewEmpForm({ ...newEmpForm, designation: e.target.value })}
+                        onChange={(e) => handleRoleChange(e.target.value)}
                         style={{
                           width: '100%',
                           height: '44px',
@@ -1362,111 +1552,139 @@ export default function EmployeesPage() {
                   />
                 </div>
 
-                {/* Row 5: Access Roles for Employee */}
-                {!newEmpForm.isAdmin && (
+                {/* Row 5: Access Roles for Employee (Always visible & customizable, auto-assigned from role) */}
+                <div
+                  style={{
+                    backgroundColor: '#F8FAFC',
+                    border: '1.5px solid #E2E8F0',
+                    borderRadius: '14px',
+                    padding: '14px 16px',
+                  }}
+                >
                   <div
                     style={{
-                      backgroundColor: '#F8FAFC',
-                      border: '1.5px solid #E2E8F0',
-                      borderRadius: '14px',
-                      padding: '14px 16px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      marginBottom: '10px',
+                      flexWrap: 'wrap',
+                      gap: '8px',
                     }}
                   >
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        marginBottom: '10px',
-                      }}
-                    >
+                    <div>
                       <div style={{ fontSize: '0.8rem', fontWeight: 800, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                        Module Access Roles
+                        Module Access Roles &amp; Permissions
                       </div>
-                      <div style={{ display: 'flex', gap: '4px' }}>
-                        <button
-                          type="button"
-                          onClick={() => handleRolePreset('all')}
-                          style={{ fontSize: '0.68rem', padding: '2px 8px', borderRadius: '6px', border: '1px solid #CBD5E1', background: '#FFFFFF', cursor: 'pointer', fontWeight: 700 }}
-                        >
-                          All
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleRolePreset('sales')}
-                          style={{ fontSize: '0.68rem', padding: '2px 8px', borderRadius: '6px', border: '1px solid #CBD5E1', background: '#FFFFFF', cursor: 'pointer', fontWeight: 700 }}
-                        >
-                          Sales
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleRolePreset('finance')}
-                          style={{ fontSize: '0.68rem', padding: '2px 8px', borderRadius: '6px', border: '1px solid #CBD5E1', background: '#FFFFFF', cursor: 'pointer', fontWeight: 700 }}
-                        >
-                          Finance
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleRolePreset('service')}
-                          style={{ fontSize: '0.68rem', padding: '2px 8px', borderRadius: '6px', border: '1px solid #CBD5E1', background: '#FFFFFF', cursor: 'pointer', fontWeight: 700 }}
-                        >
-                          Service
-                        </button>
+                      <div style={{ fontSize: '0.72rem', color: '#64748B', marginTop: '2px' }}>
+                        {newEmpForm.designation ? (
+                          <span>
+                            Auto-configured for <strong>{newEmpForm.designation}</strong> ({newEmpForm.department}) • Customize permissions below
+                          </span>
+                        ) : (
+                          <span>Select a Designation above to auto-assign, or customize permissions directly</span>
+                        )}
                       </div>
                     </div>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px' }}>
-                      {[
-                        { key: 'pipeline', label: 'Pipeline & Leads' },
-                        { key: 'customers', label: 'Customers' },
-                        { key: 'inventory', label: 'Inventory' },
-                        { key: 'deals', label: 'Deals & Quotes' },
-                        { key: 'testDrives', label: 'Test Drives' },
-                        { key: 'procurement', label: 'Procurement' },
-                        { key: 'finance', label: 'Finance & Accounts' },
-                        { key: 'documents', label: 'Invoices & Docs' },
-                        { key: 'reports', label: 'Reports / BI' },
-                        { key: 'settings', label: 'Settings' },
-                      ].map((item) => {
-                        const isChecked = !!(newEmpForm.accessControl as any)[item.key];
-                        return (
-                          <label
-                            key={item.key}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '6px',
-                              padding: '6px 8px',
-                              borderRadius: '8px',
-                              border: isChecked ? '1px solid #C7D2FE' : '1px solid #E2E8F0',
-                              backgroundColor: isChecked ? '#EEF2FF' : '#FFFFFF',
-                              cursor: 'pointer',
-                              fontSize: '0.76rem',
-                              fontWeight: 600,
-                              color: isChecked ? '#4338CA' : '#475569',
-                            }}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              onChange={(e) => {
-                                setNewEmpForm({
-                                  ...newEmpForm,
-                                  accessControl: {
-                                    ...newEmpForm.accessControl,
-                                    [item.key]: e.target.checked,
-                                  },
-                                });
-                              }}
-                              style={{ width: '14px', height: '14px', accentColor: '#4F46E5', cursor: 'pointer' }}
-                            />
-                            <span>{item.label}</span>
-                          </label>
-                        );
-                      })}
+                    <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                      {newEmpForm.designation && (
+                        <button
+                          type="button"
+                          onClick={() => handleRoleChange(newEmpForm.designation)}
+                          style={{ fontSize: '0.68rem', padding: '2px 8px', borderRadius: '6px', border: '1px solid #C7D2FE', background: '#EEF2FF', color: '#4338CA', cursor: 'pointer', fontWeight: 700 }}
+                          title="Reset to default permissions for selected designation"
+                        >
+                          Reset Role Default
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleRolePreset('all')}
+                        style={{ fontSize: '0.68rem', padding: '2px 8px', borderRadius: '6px', border: '1px solid #CBD5E1', background: '#FFFFFF', cursor: 'pointer', fontWeight: 700 }}
+                      >
+                        All
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRolePreset('sales')}
+                        style={{ fontSize: '0.68rem', padding: '2px 8px', borderRadius: '6px', border: '1px solid #CBD5E1', background: '#FFFFFF', cursor: 'pointer', fontWeight: 700 }}
+                      >
+                        Sales
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRolePreset('finance')}
+                        style={{ fontSize: '0.68rem', padding: '2px 8px', borderRadius: '6px', border: '1px solid #CBD5E1', background: '#FFFFFF', cursor: 'pointer', fontWeight: 700 }}
+                      >
+                        Finance
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRolePreset('service')}
+                        style={{ fontSize: '0.68rem', padding: '2px 8px', borderRadius: '6px', border: '1px solid #CBD5E1', background: '#FFFFFF', cursor: 'pointer', fontWeight: 700 }}
+                      >
+                        Service
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRolePreset('clear')}
+                        style={{ fontSize: '0.68rem', padding: '2px 8px', borderRadius: '6px', border: '1px solid #CBD5E1', background: '#FFFFFF', cursor: 'pointer', fontWeight: 700, color: '#94A3B8' }}
+                      >
+                        Clear
+                      </button>
                     </div>
                   </div>
-                )}
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px' }}>
+                    {[
+                      { key: 'pipeline', label: 'Pipeline & Leads' },
+                      { key: 'customers', label: 'Customers' },
+                      { key: 'inventory', label: 'Inventory' },
+                      { key: 'deals', label: 'Deals & Quotes' },
+                      { key: 'testDrives', label: 'Test Drives' },
+                      { key: 'procurement', label: 'Procurement' },
+                      { key: 'finance', label: 'Finance & Accounts' },
+                      { key: 'documents', label: 'Invoices & Docs' },
+                      { key: 'reports', label: 'Reports / BI' },
+                      { key: 'settings', label: 'Settings' },
+                    ].map((item) => {
+                      const isChecked = !!(newEmpForm.accessControl as any)[item.key];
+                      return (
+                        <label
+                          key={item.key}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            padding: '6px 8px',
+                            borderRadius: '8px',
+                            border: isChecked ? '1px solid #C7D2FE' : '1px solid #E2E8F0',
+                            backgroundColor: isChecked ? '#EEF2FF' : '#FFFFFF',
+                            cursor: 'pointer',
+                            fontSize: '0.76rem',
+                            fontWeight: 600,
+                            color: isChecked ? '#4338CA' : '#475569',
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) => {
+                              setNewEmpForm({
+                                ...newEmpForm,
+                                accessControl: {
+                                  ...newEmpForm.accessControl,
+                                  [item.key]: e.target.checked,
+                                },
+                              });
+                            }}
+                            style={{ width: '14px', height: '14px', accentColor: '#4F46E5', cursor: 'pointer' }}
+                          />
+                          <span>{item.label}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
 
                 {/* Section: LOGIN CREDENTIALS */}
                 <div>

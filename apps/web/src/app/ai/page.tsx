@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { api } from '@/lib/api-client';
+import { api } from '@/lib/client/api-client';
 import { StatCard } from '@/components/ui/StatCard';
 import {
   Sparkles,

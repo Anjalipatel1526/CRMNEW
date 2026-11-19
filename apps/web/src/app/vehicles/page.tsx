@@ -1,12 +1,12 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { api } from '@/lib/api-client';
+import { api } from '@/lib/client/api-client';
 import { Vehicle, VehicleStatus } from '@crm/shared-types';
 import { Modal } from '@/components/ui/Modal';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { StatCard } from '@/components/ui/StatCard';
-import { APP_CARD_PALETTES } from '@/lib/theme-palettes';
+import { APP_CARD_PALETTES } from '@/lib/data/theme-palettes';
 import {
   Car,
   Plus,

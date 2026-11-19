@@ -1,13 +1,13 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { api } from '@/lib/api-client';
-import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { api } from '@/lib/client/api-client';
+import { supabase, isSupabaseConfigured } from '@/lib/client/supabase';
 import { Deal, DealStage } from '@crm/shared-types';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { StatCard } from '@/components/ui/StatCard';
 import { Modal } from '@/components/ui/Modal';
-import { APP_CARD_PALETTES } from '@/lib/theme-palettes';
+import { APP_CARD_PALETTES } from '@/lib/data/theme-palettes';
 import {
   Briefcase,
   CheckCircle,

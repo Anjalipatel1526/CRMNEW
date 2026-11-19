@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { api } from '@/lib/api-client';
+import { api } from '@/lib/client/api-client';
 import { Deal, Quotation } from '@crm/shared-types';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { StatCard } from '@/components/ui/StatCard';

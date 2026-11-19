@@ -1,4 +1,4 @@
-import { signSessionPayload, verifySignedSession } from '../apps/web/src/lib/session-signature.ts';
+import { signSessionPayload, verifySignedSession } from '../apps/web/src/lib/shared/session-signature.ts';
 
 async function runSessionSecurityTests() {
   console.log('='.repeat(80));

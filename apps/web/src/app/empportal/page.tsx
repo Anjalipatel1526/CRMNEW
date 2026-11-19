@@ -3,16 +3,16 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useAuth, getUserSession } from '@/lib/auth-context';
+import { useAuth, getUserSession } from '@/lib/client/auth-context';
 import {
   getEmployees,
   fetchEmployees,
   addLeaveRecord,
   Employee,
   LeaveRecord,
-} from '@/lib/employee-store';
-import { api } from '@/lib/api-client';
-import { getTestDrives, TestDrive } from '@/lib/test-drive-store';
+} from '@/lib/client/stores/employee-store';
+import { api } from '@/lib/client/api-client';
+import { getTestDrives, TestDrive } from '@/lib/client/stores/test-drive-store';
 import { Modal } from '@/components/ui/Modal';
 import {
   Filter,
@@ -101,10 +101,10 @@ export default function EmployeePortalPage() {
         employeeCode: 'EMP-001',
         fullName: session?.fullName || 'Staff Member',
         email: session?.email || 'staff@dealership.com',
-        phone: session?.phone || '+91 98000 00000',
+        phone: session?.phone || '',
         designation: 'Sales Consultant',
         department: 'Sales',
-        branch: 'Apex Downtown Flagship',
+        branch: 'Main Showroom',
         joiningDate: new Date().toISOString().split('T')[0],
         salary: '₹6,00,000',
         status: 'active',
@@ -144,10 +144,10 @@ export default function EmployeePortalPage() {
       employeeCode: session.employeeCode || 'EMP-001',
       fullName: session.fullName || 'Staff Member',
       email: session.email || 'staff@dealership.com',
-      phone: session.phone || '+91 98000 00000',
+      phone: session.phone || '',
       designation: 'Sales Executive',
       department: 'Sales',
-      branch: 'Apex Downtown Flagship',
+      branch: 'Main Showroom',
       joiningDate: new Date().toISOString().split('T')[0],
       salary: '',
       status: 'active',

@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { api } from '@/lib/api-client';
-import { getTestDrives } from '@/lib/test-drive-store';
-import { getAllCarOptions } from '@/lib/car-catalog';
+import { api } from '@/lib/client/api-client';
+import { getTestDrives } from '@/lib/client/stores/test-drive-store';
+import { buildInventoryCarOptions } from '@/lib/data/car-catalog';
+import { APP_CARD_PALETTES } from '@/lib/data/theme-palettes';
 import { SearchableCarSelect } from '@/components/ui/SearchableCarSelect';
 import { Customer } from '@crm/shared-types';
 import { Modal } from '@/components/ui/Modal';
@@ -32,79 +33,13 @@ import {
 } from 'lucide-react';
 import { WordFadeIn } from '@/components/ui/WordFadeIn';
 
-// Distinctive color palettes matching Lead Management themes
-const CUSTOMER_CARD_PALETTES = [
-  {
-    accent: '#0284C7',
-    lightBg: '#F0F9FF',
-    border: 'rgba(2, 132, 199, 0.28)',
-    badgeBg: '#E0F2FE',
-    badgeText: '#0369A1',
-    glow: 'rgba(2, 132, 199, 0.18)',
-    themeName: 'Sky Blue',
-  },
-  {
-    accent: '#4F46E5',
-    lightBg: '#EEF2FF',
-    border: 'rgba(79, 70, 229, 0.28)',
-    badgeBg: '#EEF2FF',
-    badgeText: '#4338CA',
-    glow: 'rgba(79, 70, 229, 0.18)',
-    themeName: 'Royal Indigo',
-  },
-  {
-    accent: '#16A34A',
-    lightBg: '#F0FDF4',
-    border: 'rgba(22, 163, 74, 0.28)',
-    badgeBg: '#DCFCE7',
-    badgeText: '#15803D',
-    glow: 'rgba(22, 163, 74, 0.18)',
-    themeName: 'Emerald Pearl',
-  },
-  {
-    accent: '#7C3AED',
-    lightBg: '#F5F3FF',
-    border: 'rgba(124, 58, 237, 0.28)',
-    badgeBg: '#F5F3FF',
-    badgeText: '#6D28D9',
-    glow: 'rgba(124, 58, 237, 0.18)',
-    themeName: 'Imperial Violet',
-  },
-  {
-    accent: '#0D9488',
-    lightBg: '#F0FDFA',
-    border: 'rgba(13, 148, 136, 0.28)',
-    badgeBg: '#CCFBF1',
-    badgeText: '#0F766E',
-    glow: 'rgba(13, 148, 136, 0.18)',
-    themeName: 'Oceanic Teal',
-  },
-  {
-    accent: '#D97706',
-    lightBg: '#FFFBEB',
-    border: 'rgba(217, 119, 6, 0.28)',
-    badgeBg: '#FEF3C7',
-    badgeText: '#B45309',
-    glow: 'rgba(217, 119, 6, 0.18)',
-    themeName: 'Warm Amber',
-  },
-  {
-    accent: '#E11D48',
-    lightBg: '#FFF1F2',
-    border: 'rgba(225, 29, 72, 0.28)',
-    badgeBg: '#FFE4E6',
-    badgeText: '#BE123C',
-    glow: 'rgba(225, 29, 72, 0.18)',
-    themeName: 'Crimson Rose',
-  },
-];
-
 type FilterCategory = 'all' | 'individual' | 'business' | 'kyc_verified' | 'kyc_pending';
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [leads, setLeads] = useState<any[]>([]);
   const [deals, setDeals] = useState<any[]>([]);
+  const [employees, setEmployees] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [customerToDelete, setCustomerToDelete] = useState<{ id: string; name: string } | null>(null);
@@ -113,6 +48,7 @@ export default function CustomersPage() {
     setCustomers([...api.getCustomers()]);
     setLeads([...api.getLeads()]);
     setDeals([...api.getDeals()]);
+    setEmployees([...api.getEmployees()]);
 
     // Fetch directly from Supabase backend on mount
     api.fetchCustomers().then((data) => {
@@ -124,11 +60,15 @@ export default function CustomersPage() {
     api.fetchDeals().then((data) => {
       if (Array.isArray(data)) setDeals([...data]);
     });
+    api.fetchEmployees().then((data) => {
+      if (Array.isArray(data)) setEmployees([...data]);
+    });
 
     const handleDataChanged = () => {
       setCustomers([...api.getCustomers()]);
       setLeads([...api.getLeads()]);
       setDeals([...api.getDeals()]);
+      setEmployees([...api.getEmployees()]);
     };
     window.addEventListener('crm-data-changed', handleDataChanged);
     return () => window.removeEventListener('crm-data-changed', handleDataChanged);
@@ -149,24 +89,14 @@ export default function CustomersPage() {
     city: '',
     preferredVehicle: '',
     budget: '',
+    assignedTo: '',
+    assignedToName: '',
   };
 
   const [formData, setFormData] = useState(emptyCustomerForm);
   const [editingCustomerId, setEditingCustomerId] = useState<string | null>(null);
 
-  // Merge dealership showroom inventory vehicles with the complete default car catalog
-  const inventoryCarOptions = useMemo(() => {
-    const vehicles = api.getVehicles();
-    const defaultSet = new Set(getAllCarOptions().map((o) => o.toLowerCase()));
-    const extra: string[] = [];
-    for (const v of vehicles) {
-      const label = [v.make, v.model, v.variant].filter(Boolean).join(' ').trim();
-      if (label && !defaultSet.has(label.toLowerCase()) && !extra.includes(label)) {
-        extra.push(label);
-      }
-    }
-    return extra;
-  }, []);
+  const inventoryCarOptions = useMemo(() => buildInventoryCarOptions(api.getVehicles()), []);
 
   const getCustomerCarPreference = (c: Customer) => {
     // 1. Check if customer has an active deal (matches deals in api-client)
@@ -323,6 +253,8 @@ export default function CustomersPage() {
       city: customer.address?.city || '',
       preferredVehicle: rawCar === 'Not specified' ? '' : rawCar,
       budget: rawBudget === '—' ? '' : rawBudget,
+      assignedTo: (customer as any).assignedTo || '',
+      assignedToName: (customer as any).assignedToName || '',
     });
     setEditingCustomerId(customer.id);
     setSelectedCustomer(null);
@@ -337,6 +269,8 @@ export default function CustomersPage() {
         address: { city: formData.city },
         preferredVehicle: formData.preferredVehicle,
         budget: formData.budget,
+        assignedTo: formData.assignedTo,
+        assignedToName: formData.assignedToName,
       } as any);
       setEditingCustomerId(null);
     } else {
@@ -345,6 +279,8 @@ export default function CustomersPage() {
         address: { city: formData.city },
         preferredVehicle: formData.preferredVehicle,
         budget: formData.budget,
+        assignedTo: formData.assignedTo,
+        assignedToName: formData.assignedToName,
       } as any);
     }
     setCustomers([...api.getCustomers()]);
@@ -583,7 +519,7 @@ export default function CustomersPage() {
           {/* Table-Wise Cards Stack */}
           <div className="customer-cards-list">
             {filteredCustomers.map((customer, index) => {
-              const palette = CUSTOMER_CARD_PALETTES[index % CUSTOMER_CARD_PALETTES.length];
+              const palette = APP_CARD_PALETTES[index % APP_CARD_PALETTES.length];
               const isBusiness = customer.type === 'business';
               const hasKyc = Boolean(customer.panNumber || customer.gstin);
               const initials = getInitials(customer.firstName, customer.lastName);
@@ -611,6 +547,28 @@ export default function CustomersPage() {
                       <span className="customer-row-subtext">
                         {customer.companyName ? `🏢 ${customer.companyName}` : 'Individual Retail Client'}
                       </span>
+                      {(() => {
+                        const linkedLead = leads.find((l) => l.customerId === customer.id);
+                        const staffName =
+                          (customer as any).assignedToName ||
+                          linkedLead?.assigneeName ||
+                          (employees.find((e) => e.id === (customer as any).assignedTo || e.id === linkedLead?.assignedTo)?.full_name);
+                        return (
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              fontSize: '0.72rem',
+                              fontWeight: 500,
+                              color: staffName ? '#4F46E5' : '#94A3B8',
+                              marginTop: '2px',
+                            }}
+                          >
+                            <User size={11} /> {staffName || 'Unassigned Consultant'}
+                          </span>
+                        );
+                      })()}
                     </div>
                   </div>
 
@@ -637,7 +595,7 @@ export default function CustomersPage() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.73rem', color: '#94A3B8' }}>
                       <MapPin size={11} />
                       <span>
-                        {customer.address?.city || 'Mumbai'}
+                        {customer.address?.city || '—'}
                         {customer.address?.pincode ? `, ${customer.address.pincode}` : ''}
                       </span>
                     </div>
@@ -962,6 +920,37 @@ export default function CustomersPage() {
                 placeholder="e.g. ₹22.0L - ₹26.0L"
               />
             </div>
+          </div>
+
+          <div className="form-group" style={{ marginTop: '4px' }}>
+            <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <User size={14} style={{ color: '#4F46E5' }} />
+              Assign Dealership Team Member / Sales Consultant
+            </label>
+            <select
+              className="form-input"
+              value={formData.assignedTo}
+              onChange={(e) => {
+                const empId = e.target.value;
+                const emp = employees.find((em) => em.id === empId);
+                setFormData({
+                  ...formData,
+                  assignedTo: empId,
+                  assignedToName: emp ? `${emp.full_name} (${(emp.role || 'Staff').replace(/_/g, ' ')})` : '',
+                });
+              }}
+              style={{ cursor: 'pointer' }}
+            >
+              <option value="">Unassigned (Assign on Intake)</option>
+              {employees.map((emp) => (
+                <option key={emp.id} value={emp.id}>
+                  👤 {emp.full_name} — {(emp.role || 'Sales').replace(/_/g, ' ')} ({emp.department || 'Sales Desk'})
+                </option>
+              ))}
+            </select>
+            <span style={{ fontSize: '0.75rem', color: '#64748B', marginTop: '4px', display: 'block' }}>
+              This consultant will be assigned to the enquiry and shown in the Sales Pipeline.
+            </span>
           </div>
 
           <div className="unique-modal-footer-bar" style={{ marginTop: '12px', paddingTop: '16px', borderTop: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

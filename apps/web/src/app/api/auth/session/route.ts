@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { isSupabaseConfigured } from '@/lib/supabase';
-import { supabaseAdmin, createServerClient } from '@/lib/supabase-server';
-import { VALID_ROLES, resolveTrustedTenantRole } from '@/lib/server-auth';
+import {
+  supabaseAdmin,
+  createServerClient,
+  isServerSupabaseConfigured,
+} from '@/lib/server/supabase';
+import { VALID_ROLES, resolveTrustedTenantRole } from '@/lib/server/auth';
+import { checkAccountOnboardingStatus } from '@/lib/server/tenant';
+import { setSessionCookies } from '@/lib/server/session-cookies';
+import { deriveTenantIdFromEmail } from '@/lib/shared/tenant-slug';
 import { UserRole } from '@crm/shared-types';
-import { signSessionPayload } from '@/lib/session-signature';
 
 /**
  * POST /api/auth/session
@@ -11,7 +16,7 @@ import { signSessionPayload } from '@/lib/session-signature';
  * so Next.js Edge Middleware and protected BFF APIs recognize Google OAuth logins cleanly.
  */
 export async function POST(req: NextRequest) {
-  if (!isSupabaseConfigured()) {
+  if (!isServerSupabaseConfigured()) {
     return NextResponse.json(
       { error: 'Authentication service unavailable: Supabase credentials not configured' },
       { status: 503 }
@@ -26,7 +31,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing access token' }, { status: 400 });
     }
 
-    // 1. Cryptographically verify the token with Supabase Auth
     const serverClient = createServerClient(accessToken);
     const { data: authData, error: authErr } = await serverClient.auth.getUser(accessToken);
     if (authErr || !authData?.user) {
@@ -39,7 +43,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Authenticated user has no email address' }, { status: 401 });
     }
 
-    // 2. Check active status in app_users
     const { data: appUsers } = await supabaseAdmin
       .from('app_users')
       .select('id, email, full_name, is_active')
@@ -53,12 +56,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 3. Resolve tenant membership & role from database
     const resolved = await resolveTrustedTenantRole(authUser.id, email, appUser, authUser.user_metadata);
-    const resolvedTenantId = resolved.tenantId || `t_${email.replace(/[^a-z0-9]/g, '_')}`;
-    const resolvedRoleKey = (resolved.roleKey && VALID_ROLES.includes(resolved.roleKey as UserRole))
-      ? resolved.roleKey
-      : 'tenant_admin';
+    const resolvedTenantId = resolved.tenantId || deriveTenantIdFromEmail(email);
+    const resolvedRoleKey =
+      resolved.roleKey && VALID_ROLES.includes(resolved.roleKey as UserRole)
+        ? resolved.roleKey
+        : 'tenant_admin';
 
     const fullName =
       appUser?.full_name ||
@@ -66,23 +69,10 @@ export async function POST(req: NextRequest) {
       authUser.user_metadata?.name ||
       email.split('@')[0];
 
-    // 4. Check onboarding status across both resolved tenant_id and user email
-    const { data: profileRows } = await supabaseAdmin
-      .from('company_profiles')
-      .select('is_onboarded, tenant_id, email')
-      .or(`tenant_id.eq.${resolvedTenantId},email.ilike.${email}`)
-      .order('updated_at', { ascending: false })
-      .limit(5);
-
-    const isOnboarded = Boolean(profileRows?.some((p) => Boolean(p.is_onboarded)));
-
-    // 5. Mint signed session cookie
-    const exp = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 7;
-    const signedSessionToken = await signSessionPayload({
-      userId: authUser.id,
+    const isOnboarded = await checkAccountOnboardingStatus({
       tenantId: resolvedTenantId,
+      email,
       role: resolvedRoleKey,
-      exp,
     });
 
     const response = NextResponse.json({
@@ -98,36 +88,12 @@ export async function POST(req: NextRequest) {
       isOnboarded,
     });
 
-    const isProd = process.env.NODE_ENV === 'production';
-
-    response.cookies.set('sb-access-token', accessToken, {
-      path: '/',
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: isProd,
-      maxAge: 60 * 60 * 24 * 7,
-    });
-
-    response.cookies.set('crm-session', signedSessionToken, {
-      path: '/',
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: isProd,
-      maxAge: 60 * 60 * 24 * 7,
-    });
-
-    response.cookies.set('crm-role', resolvedRoleKey, {
-      path: '/',
-      sameSite: 'lax',
-      secure: isProd,
-      maxAge: 60 * 60 * 24 * 7,
-    });
-
-    response.cookies.set('crm-tenant', resolvedTenantId, {
-      path: '/',
-      sameSite: 'lax',
-      secure: isProd,
-      maxAge: 60 * 60 * 24 * 7,
+    await setSessionCookies(response, {
+      accessToken,
+      userId: authUser.id,
+      tenantId: resolvedTenantId,
+      role: resolvedRoleKey,
+      isOnboarded,
     });
 
     return response;
@@ -136,4 +102,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to establish session' }, { status: 500 });
   }
 }
-

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { isSupabaseConfigured } from '@/lib/supabase';
-import { supabaseAdmin, createServerClient } from '@/lib/supabase-server';
-import { requireAuth } from '@/lib/server-auth';
+import { supabaseAdmin, isServerSupabaseConfigured } from '@/lib/server/supabase';
+import { requireAuth } from '@/lib/server/auth';
+import { resolveDocumentBucket } from '@/lib/server/documents';
 import { DocumentUploadMetadataSchema } from '@crm/validators';
 
 // Strict file validation constants
@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
   const auth = await requireAuth(req);
   if ('errorResponse' in auth) return auth.errorResponse;
 
-  if (!isSupabaseConfigured()) {
+  if (!isServerSupabaseConfigured()) {
     return NextResponse.json({ data: [], error: 'Supabase not configured' });
   }
 
@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
   const auth = await requireAuth(req);
   if ('errorResponse' in auth) return auth.errorResponse;
 
-  if (!isSupabaseConfigured()) {
+  if (!isServerSupabaseConfigured()) {
     return NextResponse.json({ error: 'Supabase not configured' }, { status: 400 });
   }
 
@@ -247,7 +247,7 @@ export async function PATCH(req: NextRequest) {
   const auth = await requireAuth(req);
   if ('errorResponse' in auth) return auth.errorResponse;
 
-  if (!isSupabaseConfigured()) {
+  if (!isServerSupabaseConfigured()) {
     return NextResponse.json({ error: 'Supabase not configured' }, { status: 400 });
   }
 
@@ -294,7 +294,7 @@ export async function DELETE(req: NextRequest) {
   const auth = await requireAuth(req, ['tenant_admin', 'branch_manager']);
   if ('errorResponse' in auth) return auth.errorResponse;
 
-  if (!isSupabaseConfigured()) {
+  if (!isServerSupabaseConfigured()) {
     return NextResponse.json({ error: 'Supabase not configured' }, { status: 400 });
   }
 
@@ -323,7 +323,7 @@ export async function DELETE(req: NextRequest) {
 
     // 2. Remove file from private storage bucket
     if (doc.storage_key) {
-      const bucket = doc.document_type === 'signature' ? 'signatures' : 'dealership-documents';
+      const bucket = resolveDocumentBucket(doc);
       try {
         await supabaseAdmin.storage.from(bucket).remove([doc.storage_key]);
       } catch (storageErr) {

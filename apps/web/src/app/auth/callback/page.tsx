@@ -2,8 +2,10 @@
 
 import React, { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/lib/auth-context';
+import { supabase } from '@/lib/client/supabase';
+import { useAuth } from '@/lib/client/auth-context';
+import { clearLocalCompanyProfile } from '@/lib/client/stores/company-store';
+import { syncServerSession } from '@/lib/client/session-sync';
 import { Loader2, AlertCircle, ArrowLeft, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 
@@ -16,21 +18,69 @@ function AuthCallbackContent() {
 
   useEffect(() => {
     let isMounted = true;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let authSubscription: { unsubscribe: () => void } | null = null;
+
+    const completeAuthentication = async (session: any) => {
+      const user = session.user;
+      const fullName =
+        user.user_metadata?.full_name ||
+        user.user_metadata?.name ||
+        user.email?.split('@')[0] ||
+        'Administrator';
+
+      const serverSessionData = session?.access_token
+        ? await syncServerSession(session.access_token)
+        : null;
+
+      try {
+        loginUser(user.email || user.id, fullName, (serverSessionData?.role as any) || 'tenant_admin', {
+          avatarUrl: user.user_metadata?.avatar_url,
+          tenantId: serverSessionData?.tenantId,
+          isAdmin: (serverSessionData?.role || 'tenant_admin') === 'tenant_admin',
+        });
+      } catch (e) {
+        console.warn('[AuthCallback] Session sync info:', e);
+      }
+
+      if (serverSessionData?.ok) {
+        router.replace(serverSessionData.isOnboarded ? '/dashboard' : '/onboarding');
+        return;
+      }
+
+      // Fallback check if session sync failed due to transient network error
+      try {
+        const userEmail = (user.email || '').toLowerCase().trim();
+        if (userEmail) {
+          const res = await fetch(`/api/company-profile?email=${encodeURIComponent(userEmail)}`, {
+            headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined,
+          });
+          if (res.ok) {
+            const json = await res.json();
+            if (json?.isOnboarded === true) {
+              router.replace('/dashboard');
+              return;
+            }
+          }
+        }
+      } catch (checkErr) {
+        console.warn('[AuthCallback] Profile check note:', checkErr);
+      }
+
+      clearLocalCompanyProfile();
+      router.replace('/onboarding');
+    };
 
     const handleCallback = async () => {
       try {
-        // 1. Check for error parameters in query string (e.g. user cancelled Google OAuth)
         const errorParam = searchParams.get('error');
         const errorDescription = searchParams.get('error_description');
         if (errorParam || errorDescription) {
           const msg = errorDescription || errorParam || 'Google authentication was cancelled or could not be completed.';
-          if (isMounted) {
-            setErrorMessage(msg);
-          }
+          if (isMounted) setErrorMessage(msg);
           return;
         }
 
-        // 2. Check for PKCE authorization code in query params
         const code = searchParams.get('code');
         if (code) {
           const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
@@ -42,7 +92,6 @@ function AuthCallbackContent() {
           }
         }
 
-        // 2b. Check for implicit hash tokens in URL fragment (#access_token=...&refresh_token=...)
         if (typeof window !== 'undefined' && window.location.hash.includes('access_token=')) {
           const rawHash = window.location.hash.startsWith('#')
             ? window.location.hash.substring(1)
@@ -64,7 +113,6 @@ function AuthCallbackContent() {
           }
         }
 
-        // 3. Verify the Supabase authentication session
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         if (sessionError) {
           if (isMounted) {
@@ -74,31 +122,22 @@ function AuthCallbackContent() {
         }
 
         if (session && session.user) {
-          // Valid session established!
-          if (isMounted) {
-            completeAuthentication(session);
-          }
+          if (isMounted) completeAuthentication(session);
           return;
         }
 
-        // 4. In case of implicit hash tokens, listen for auth state change
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
           if (newSession && newSession.user && isMounted) {
             completeAuthentication(newSession);
           }
         });
+        authSubscription = subscription;
 
-        // 5. Timeout safeguard if no session arrives within 6 seconds
-        const timer = setTimeout(() => {
-          if (isMounted && !errorMessage) {
-            setErrorMessage('Unable to verify Google authentication session. Please try again.');
+        timeoutId = setTimeout(() => {
+          if (isMounted) {
+            setErrorMessage((prev) => prev || 'Unable to verify Google authentication session. Please try again.');
           }
         }, 6000);
-
-        return () => {
-          clearTimeout(timer);
-          subscription?.unsubscribe();
-        };
       } catch (err: any) {
         if (isMounted) {
           setErrorMessage(err?.message || 'An unexpected error occurred while processing authentication.');
@@ -106,74 +145,14 @@ function AuthCallbackContent() {
       }
     };
 
-    const completeAuthentication = async (session: any) => {
-      const user = session.user;
-      const fullName =
-        user.user_metadata?.full_name ||
-        user.user_metadata?.name ||
-        user.email?.split('@')[0] ||
-        'Administrator';
-
-      // Bridge Supabase OAuth token to server HttpOnly session cookies for Edge Middleware & API routes
-      let serverSessionData: any = null;
-      if (session?.access_token) {
-        try {
-          const syncRes = await fetch('/api/auth/session', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ accessToken: session.access_token }),
-          });
-          if (syncRes.ok) {
-            serverSessionData = await syncRes.json();
-          }
-        } catch (syncErr) {
-          console.warn('[AuthCallback] Server session cookie sync warning:', syncErr);
-        }
-      }
-
-      // Sync user into application auth context
-      try {
-        loginUser(user.email || user.id, fullName, serverSessionData?.role || 'tenant_admin', {
-          avatarUrl: user.user_metadata?.avatar_url,
-          tenantId: serverSessionData?.tenantId,
-          isAdmin: (serverSessionData?.role || 'tenant_admin') === 'tenant_admin',
-        });
-      } catch (e) {
-        console.warn('[AuthCallback] Session sync info:', e);
-      }
-
-      if (serverSessionData?.isOnboarded) {
-        router.replace('/dashboard');
-        return;
-      }
-
-      // Check if this specific email has already completed onboarding
-      try {
-        const userEmail = (user.email || '').toLowerCase().trim();
-        if (userEmail) {
-          const res = await fetch(`/api/company-profile?email=${encodeURIComponent(userEmail)}`);
-          if (res.ok) {
-            const json = await res.json();
-            if (json?.isOnboarded) {
-              router.replace('/dashboard');
-              return;
-            }
-          }
-        }
-      } catch (checkErr) {
-        console.warn('[AuthCallback] Profile check note:', checkErr);
-      }
-
-      // First time user or not yet onboarded: MUST route to onboarding
-      router.replace('/onboarding');
-    };
-
     handleCallback();
 
     return () => {
       isMounted = false;
+      if (timeoutId) clearTimeout(timeoutId);
+      authSubscription?.unsubscribe();
     };
-  }, [router, searchParams, loginUser, errorMessage]);
+  }, [router, searchParams, loginUser]);
 
   // If authentication failed or was cancelled, display clean error with recovery actions
   if (errorMessage) {

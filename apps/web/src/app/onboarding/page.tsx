@@ -3,30 +3,33 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { WordFadeIn } from '@/components/ui/WordFadeIn';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/lib/client/supabase';
+import { useAuth } from '@/lib/client/auth-context';
+import { syncServerSession } from '@/lib/client/session-sync';
 import {
   getCompanyProfile,
   saveCompanyProfile,
   resetCompanyProfile,
+  clearLocalCompanyProfile,
   saveUserCredentials,
   getUserCredentials,
   CompanyProfile,
   DEFAULT_COMPANY_PROFILE,
-} from '@/lib/company-store';
+} from '@/lib/client/stores/company-store';
 import {
   getModules,
   saveModules,
   DealershipModule,
   DEFAULT_MODULES,
-} from '@/lib/modules-registry';
-import { api } from '@/lib/api-client';
+} from '@/lib/client/stores/modules-registry';
+import { api } from '@/lib/client/api-client';
 import {
   INDIAN_STATES,
   POPULAR_CITIES,
   lookupPincode,
   fetchPincodeDetails,
   getStateAndPincodeForCity,
-} from '@/lib/location-data';
+} from '@/lib/data/location-data';
 import {
   Building2,
   CreditCard,
@@ -57,6 +60,7 @@ import {
 
 export default function OnboardingPage() {
   const router = useRouter();
+  const { loginUser } = useAuth();
 
   // Active Wizard Step: 1 to 5
   const [activeStep, setActiveStep] = useState<1 | 2 | 3 | 4 | 5>(1);
@@ -113,45 +117,32 @@ export default function OnboardingPage() {
         setIsAuthenticated(true);
         setIsVerifyingAuth(false);
 
-        // Pre-fill email and name from verified Google account if not already filled
         const googleEmail = session.user.email;
-        const googleName =
-          session.user.user_metadata?.full_name ||
-          session.user.user_metadata?.name ||
-          '';
-
-        if (googleEmail) {
-          setFormData((prev) => ({
-            ...prev,
-            email: prev.email || googleEmail,
-          }));
-          setCredentials((prev) => ({
-            ...prev,
-            fullName: prev.fullName || googleName,
-            userId: prev.userId || googleEmail.split('@')[0],
-          }));
-        }
 
         // Ensure server session cookie is synced & check if user is ALREADY onboarded
         const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
         const allowRevisit = urlParams?.get('edit') === 'true' || urlParams?.get('reset') === 'true';
 
         if (session?.access_token) {
-          try {
-            const syncRes = await fetch('/api/auth/session', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ accessToken: session.access_token }),
-            });
-            if (syncRes.ok) {
-              const syncJson = await syncRes.json();
-              if (syncJson?.isOnboarded && !allowRevisit) {
-                router.replace('/dashboard');
-                return;
-              }
+          const syncResult = await syncServerSession(session.access_token);
+          if (!isMounted) return;
+          if (syncResult.unauthorized) {
+            router.replace('/auth/google');
+            return;
+          }
+          if (syncResult.ok && syncResult.isOnboarded && !allowRevisit) {
+            router.replace('/dashboard');
+            return;
+          }
+          if (syncResult.ok && !syncResult.isOnboarded && !allowRevisit) {
+            const localCached = getCompanyProfile();
+            if (localCached?.isOnboarded) {
+              clearLocalCompanyProfile();
+              setFormData({
+                ...DEFAULT_COMPANY_PROFILE,
+                isOnboarded: false,
+              });
             }
-          } catch (syncErr) {
-            console.warn('[Onboarding] Session sync note:', syncErr);
           }
         }
 
@@ -225,10 +216,11 @@ export default function OnboardingPage() {
         resetCompanyProfile();
         setFormData(DEFAULT_COMPANY_PROFILE);
       } else {
-        // Keep existing filled data so form remains completely editable
+        // Keep only non-onboarded in-progress draft data so stale onboarded localStorage never auto-submits
         const existing = getCompanyProfile();
-        if (existing && (existing.legalName || existing.tradeName || existing.gstin || existing.email || existing.phone || existing.isOnboarded)) {
-          setFormData(existing);
+        const allowRevisit = params.get('edit') === 'true';
+        if (existing && (!existing.isOnboarded || allowRevisit) && (existing.legalName || existing.tradeName || existing.gstin || existing.email || existing.phone)) {
+          setFormData({ ...existing, isOnboarded: false });
           if (existing.pincode && existing.pincode.length === 6) {
             fetchPincodeDetails(existing.pincode).then((res) => {
               if (res?.localities && res.localities.length > 0) {
@@ -240,24 +232,26 @@ export default function OnboardingPage() {
             }).catch(() => {});
           }
         }
-        const savedCreds = getUserCredentials();
-        if (savedCreds) {
-          setCredentials((prev) => ({
-            ...prev,
-            fullName: savedCreds.fullName || prev.fullName,
-            userId: savedCreds.userId || prev.userId,
-          }));
+        if (allowRevisit) {
+          const savedCreds = getUserCredentials();
+          if (savedCreds) {
+            setCredentials((prev) => ({
+              ...prev,
+              fullName: savedCreds.fullName || prev.fullName,
+              userId: savedCreds.userId || prev.userId,
+            }));
+          }
         }
       }
     }
     setModulesList(getModules());
   }, []);
 
-  // Auto-save form progress so filled fields are always retained and editable (only after auth check finishes)
+  // Auto-save form draft progress locally ONLY (never trigger remote Supabase save until final Step 5 submission)
   useEffect(() => {
     if (isVerifyingAuth || !isAuthenticated) return;
     if (formData.legalName || formData.tradeName || formData.gstin || formData.email || formData.phone) {
-      saveCompanyProfile(formData);
+      saveCompanyProfile({ ...formData, isOnboarded: false }, { skipRemoteSync: true });
     }
   }, [formData, isVerifyingAuth, isAuthenticated]);
 
@@ -609,10 +603,10 @@ export default function OnboardingPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  // Navigation handlers with mandatory checks and continuous draft saving
+  // Navigation handlers with mandatory checks and local-only draft saving
   const handleNextFromStep1 = () => {
     if (validateStep1()) {
-      saveCompanyProfile(formData);
+      saveCompanyProfile({ ...formData, isOnboarded: false }, { skipRemoteSync: true });
       setActiveStep(2);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -620,7 +614,7 @@ export default function OnboardingPage() {
 
   const handleNextFromStep2 = () => {
     if (validateStep2()) {
-      saveCompanyProfile(formData);
+      saveCompanyProfile({ ...formData, isOnboarded: false }, { skipRemoteSync: true });
       setActiveStep(3);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -628,7 +622,7 @@ export default function OnboardingPage() {
 
   const handleNextFromStep3 = () => {
     if (validateStep3()) {
-      saveCompanyProfile(formData);
+      saveCompanyProfile({ ...formData, isOnboarded: false }, { skipRemoteSync: true });
       setActiveStep(4);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -636,14 +630,7 @@ export default function OnboardingPage() {
 
   const handleNextFromStep4 = () => {
     saveModules(modulesList);
-    saveCompanyProfile(formData);
-    if (!credentials.fullName && formData.authorizedSignatoryName) {
-      setCredentials((prev) => ({
-        ...prev,
-        fullName: formData.authorizedSignatoryName,
-        userId: prev.userId || (formData.email ? formData.email.split('@')[0] : 'admin'),
-      }));
-    }
+    saveCompanyProfile({ ...formData, isOnboarded: false }, { skipRemoteSync: true });
     setActiveStep(5);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -657,10 +644,33 @@ export default function OnboardingPage() {
     setSubmitError(null);
 
     // 1. Direct Server Sync to Supabase Backend API route (creates tenant, branch, company profile, modules, and admin user)
+    let savedTenantId: string | undefined;
+    let savedProfileId: string | undefined;
+    let activeAuthSession: any = null;
+    const adminFullName =
+      credentials.fullName.trim() ||
+      formData.authorizedSignatoryName ||
+      formData.tradeName ||
+      'Dealership Administrator';
+
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      activeAuthSession = session;
+      const { data: authUserData } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
+      const accountEmail =
+        activeAuthSession?.user?.email ||
+        authUserData?.user?.email ||
+        formData.email.trim() ||
+        '';
+
+      const requestHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (activeAuthSession?.access_token) {
+        requestHeaders.Authorization = `Bearer ${activeAuthSession.access_token}`;
+      }
+
       const res = await fetch('/api/company-profile', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: requestHeaders,
         body: JSON.stringify({
           profile: {
             ...formData,
@@ -670,8 +680,8 @@ export default function OnboardingPage() {
           credentials: {
             userId: credentials.userId.trim(),
             password: credentials.password,
-            fullName: credentials.fullName.trim() || formData.authorizedSignatoryName || formData.tradeName || 'Dealership Administrator',
-            email: formData.email.trim(),
+            fullName: adminFullName,
+            accountEmail: accountEmail,
           },
         }),
       });
@@ -685,6 +695,9 @@ export default function OnboardingPage() {
         setIsSubmitting(false);
         return;
       }
+
+      savedTenantId = resJson?.profile?.tenant_id || resJson?.tenantId;
+      savedProfileId = resJson?.profile?.id;
     } catch (apiErr: any) {
       console.error('[Onboarding] Backend API error:', apiErr);
       setSubmitError(apiErr?.message || 'Network error communicating with Supabase database. Please try again.');
@@ -692,34 +705,51 @@ export default function OnboardingPage() {
       return;
     }
 
-    // 2. Save company profile with isOnboarded: true and logoUrl
-    const updatedCompany = saveCompanyProfile({
-      ...formData,
-      isOnboarded: true,
-    });
+    // 2. Bind client auth session to the newly created tenant FIRST so localStorage keys match the real tenant
+    try {
+      const sessionEmail = activeAuthSession?.user?.email || formData.email.trim();
+      loginUser(sessionEmail, adminFullName, 'tenant_admin', {
+        tenantId: savedTenantId,
+        isAdmin: true,
+        avatarUrl: activeAuthSession?.user?.user_metadata?.avatar_url,
+      });
+    } catch (authCtxErr) {
+      console.warn('[Onboarding] Auth context sync note:', authCtxErr);
+    }
 
-    // 3. Save modules with plugin states
+    // 3. Save company profile locally under the active tenant with isOnboarded: true (already persisted to Supabase above)
+    const updatedCompany = saveCompanyProfile(
+      {
+        ...formData,
+        ...(savedProfileId ? { id: savedProfileId } : {}),
+        isOnboarded: true,
+      },
+      { skipRemoteSync: true }
+    );
+
+    // 4. Save modules with plugin states
     saveModules(modulesList);
 
-    // 4. Save User ID and Password credentials
+    // 5. Save User ID and Password credentials
     saveUserCredentials({
       userId: credentials.userId.trim(),
       password: credentials.password,
-      fullName: credentials.fullName.trim() || formData.authorizedSignatoryName || formData.tradeName || 'Dealership Administrator',
-      email: formData.email.trim(),
+      fullName: adminFullName,
+      email: activeAuthSession?.user?.email || formData.email.trim(),
     });
 
-    // 5. Update in-memory userContext tenant name
+    // 6. Update in-memory userContext tenant name
     try {
       const ctx = api.getUserContext();
       if (ctx?.tenant) {
+        if (savedTenantId) ctx.tenant.id = savedTenantId;
         ctx.tenant.name = updatedCompany.tradeName || updatedCompany.legalName;
       }
     } catch (err) {}
 
     setIsSubmitting(false);
 
-    // 6. Open success modal then redirect to login page
+    // 7. Open success modal with direct "Continue to Dashboard" action
     setIsSuccessModalOpen(true);
   };
 
@@ -1289,7 +1319,7 @@ export default function OnboardingPage() {
             <div>
               <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', fontWeight: 800, color: '#17191A', marginBottom: '8px' }}>
                 <Mail size={14} style={{ color: '#6253F8' }} />
-                <span>Corporate Email / Gmail ID</span>
+                <span>Dealership Contact Email (Informational)</span>
                 <span style={{ color: '#DC2626' }}>*</span>
               </label>
               <input
@@ -1312,6 +1342,9 @@ export default function OnboardingPage() {
                 }}
                 placeholder="dealership@gmail.com"
               />
+              <div style={{ fontSize: '0.72rem', color: '#64748B', marginTop: '4px', fontWeight: 500 }}>
+                Used strictly for customer invoices and showroom contact details. Not saved in authentication.
+              </div>
               {errors.email && (
                 <div style={{ color: '#DC2626', fontSize: '0.74rem', fontWeight: 600, marginTop: '5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <AlertCircle size={12} /> {errors.email}
@@ -2580,7 +2613,7 @@ export default function OnboardingPage() {
 
       {/* ================= STEP 5: CREATE USER ID & PASSWORD (LAST STAGE) ================= */}
       {activeStep === 5 && (
-        <form onSubmit={handleFinalSubmit}>
+        <form onSubmit={handleFinalSubmit} autoComplete="off">
           <div className="onboarding-card">
             <div style={{ marginBottom: '24px' }}>
               <div
@@ -2636,6 +2669,8 @@ export default function OnboardingPage() {
                   />
                   <input
                     type="text"
+                    name="onboarding_admin_fullname"
+                    autoComplete="off"
                     className="form-input"
                     style={{
                       width: '100%',
@@ -2651,7 +2686,7 @@ export default function OnboardingPage() {
                     }}
                     value={credentials.fullName}
                     onChange={(e) => setCredentials({ ...credentials, fullName: e.target.value })}
-                    placeholder={formData.authorizedSignatoryName || 'Dealership Administrator'}
+                    placeholder="Enter administrator full name"
                   />
                 </div>
               </div>
@@ -2674,6 +2709,10 @@ export default function OnboardingPage() {
                   />
                   <input
                     type="text"
+                    name="onboarding_admin_userid"
+                    autoComplete="off"
+                    readOnly
+                    onFocus={(e) => e.currentTarget.removeAttribute('readonly')}
                     className="form-input"
                     style={{
                       width: '100%',
@@ -2726,6 +2765,10 @@ export default function OnboardingPage() {
                     />
                     <input
                       type={showPassword ? 'text' : 'password'}
+                      name="onboarding_new_password"
+                      autoComplete="new-password"
+                      readOnly
+                      onFocus={(e) => e.currentTarget.removeAttribute('readonly')}
                       className="form-input"
                       style={{
                         width: '100%',
@@ -2921,6 +2964,10 @@ export default function OnboardingPage() {
                     />
                     <input
                       type={showConfirmPassword ? 'text' : 'password'}
+                      name="onboarding_confirm_password"
+                      autoComplete="new-password"
+                      readOnly
+                      onFocus={(e) => e.currentTarget.removeAttribute('readonly')}
                       className="form-input"
                       style={{
                         width: '100%',
@@ -3126,7 +3173,7 @@ export default function OnboardingPage() {
             </h2>
 
             <p style={{ fontSize: '0.84rem', color: '#5E6360', lineHeight: 1.55, marginBottom: '22px' }}>
-              Your brand logo, statutory GSTIN details, digital signature, and administrator User ID (<strong>{credentials.userId}</strong>) have been configured. Sign in to access your customized dashboard.
+              Your brand logo, statutory GSTIN details, digital signature, and administrator User ID (<strong>{credentials.userId}</strong>) have been configured. Your dealership dashboard is now ready.
             </p>
 
             <div
@@ -3163,9 +3210,20 @@ export default function OnboardingPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <button
                 type="button"
-                onClick={() => {
+                onClick={async () => {
                   setIsSuccessModalOpen(false);
-                  router.push('/login?created=true');
+                  try {
+                    const { data: { session } } = await supabase.auth.getSession();
+                    if (session?.access_token) {
+                      await fetch('/api/auth/session', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ accessToken: session.access_token }),
+                      });
+                    }
+                  } catch {}
+                  // Full navigation guarantees Edge Middleware, Shell, and Dashboard read the freshly updated cookies & onboarding profile
+                  window.location.assign('/dashboard');
                 }}
                 style={{
                   width: '100%',
@@ -3184,7 +3242,7 @@ export default function OnboardingPage() {
                   cursor: 'pointer',
                 }}
               >
-                <span>Sign In to Workspace with New Credentials</span>
+                <span>Continue to Dashboard</span>
                 <ArrowRight size={16} />
               </button>
 

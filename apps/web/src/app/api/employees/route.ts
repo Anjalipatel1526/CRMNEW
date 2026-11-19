@@ -1,55 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { isSupabaseConfigured } from '@/lib/supabase';
-import { supabaseAdmin, createServerClient } from '@/lib/supabase-server';
-import { requireAuth } from '@/lib/server-auth';
+import { supabaseAdmin, isServerSupabaseConfigured } from '@/lib/server/supabase';
+import { requireAuth } from '@/lib/server/auth';
+import { ensureTenantAndBranch } from '@/lib/server/tenant';
 import { EmployeeCreateSchema } from '@crm/validators';
 
-// Helper to ensure tenant and primary branch exist in Supabase
-async function getOrCreateTenantAndBranch(requestedTenantId?: string): Promise<{ tenantId: string; branchId: string }> {
-  const tenantId = requestedTenantId || 't_default';
-
-  try {
-    await supabaseAdmin.from('tenants').upsert(
-      {
-        id: tenantId,
-        name: 'Dealership Workspace',
-        slug: (tenantId.replace(/^t_/, '').toLowerCase().replace(/[^a-z0-9_-]/g, '_') || 'dealership').slice(0, 48),
-        status: 'active',
-        dealer_model: 'mixed',
-        primary_contact_name: 'Dealership Admin',
-        currency: 'INR',
-        timezone: 'Asia/Kolkata',
-      },
-      { onConflict: 'id' }
-    );
-
-    const { data: existingBranches } = await supabaseAdmin
-      .from('branches')
-      .select('id')
-      .eq('tenant_id', tenantId)
-      .limit(1);
-
-    let branchId = existingBranches?.[0]?.id;
-
-    if (!branchId) {
-      branchId = `b_${tenantId.slice(0, 8)}_01`;
-      await supabaseAdmin.from('branches').upsert(
-        {
-          id: branchId,
-          tenant_id: tenantId,
-          code: 'BR-01',
-          name: 'Main Showroom',
-          is_active: true,
-        },
-        { onConflict: 'id' }
-      );
-    }
-
-    return { tenantId, branchId };
-  } catch (err) {
-    console.warn('[API/employees] Tenant/Branch resolution warning:', err);
-    return { tenantId: requestedTenantId || 't_default', branchId: 'b_default' };
-  }
+async function getOrCreateTenantAndBranch(requestedTenantId: string): Promise<{ tenantId: string; branchId: string }> {
+  const { primaryBranchId } = await ensureTenantAndBranch(requestedTenantId);
+  const { data: existingBranches } = await supabaseAdmin
+    .from('branches')
+    .select('id')
+    .eq('tenant_id', requestedTenantId)
+    .limit(1);
+  return { tenantId: requestedTenantId, branchId: existingBranches?.[0]?.id || primaryBranchId };
 }
 
 // GET /api/employees - Fetch all employees scoped to caller's authentic tenant
@@ -57,7 +19,7 @@ export async function GET(req: NextRequest) {
   const auth = await requireAuth(req);
   if ('errorResponse' in auth) return auth.errorResponse;
 
-  if (!isSupabaseConfigured()) {
+  if (!isServerSupabaseConfigured()) {
     return NextResponse.json({ data: [], error: 'Supabase not configured' });
   }
 
@@ -100,7 +62,7 @@ export async function POST(req: NextRequest) {
   const auth = await requireAuth(req, ['tenant_admin', 'branch_manager']);
   if ('errorResponse' in auth) return auth.errorResponse;
 
-  if (!isSupabaseConfigured()) {
+  if (!isServerSupabaseConfigured()) {
     return NextResponse.json({ error: 'Supabase credentials not configured' }, { status: 400 });
   }
 
@@ -197,7 +159,7 @@ export async function DELETE(req: NextRequest) {
   const auth = await requireAuth(req, ['tenant_admin']);
   if ('errorResponse' in auth) return auth.errorResponse;
 
-  if (!isSupabaseConfigured()) {
+  if (!isServerSupabaseConfigured()) {
     return NextResponse.json({ error: 'Supabase not configured' }, { status: 400 });
   }
 

@@ -1,10 +1,10 @@
 'use client';
 
 import React, { useState } from 'react';
-import { api } from '@/lib/api-client';
+import { api } from '@/lib/client/api-client';
 import { Customer, Vehicle, Quotation } from '@crm/shared-types';
 import { PricingEngine } from '@crm/business-rules';
-import { useAuth } from '@/lib/auth-context';
+import { useAuth } from '@/lib/client/auth-context';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Modal } from '@/components/ui/Modal';
 import {

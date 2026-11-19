@@ -3,9 +3,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { getUserSession } from '@/lib/auth-context';
-import { api } from '@/lib/api-client';
-import { getActiveTenantId } from '@/lib/tenant-context';
+import { getUserSession } from '@/lib/client/auth-context';
+import { api } from '@/lib/client/api-client';
+import { getActiveTenantId } from '@/lib/client/tenant-context';
 import { Branch } from '@crm/shared-types';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Modal } from '@/components/ui/Modal';
@@ -17,7 +17,7 @@ import {
   deleteCustomModule,
   resetModulesToDefault,
   DealershipModule,
-} from '@/lib/modules-registry';
+} from '@/lib/client/stores/modules-registry';
 import {
   getEmployees,
   fetchEmployees,
@@ -29,7 +29,7 @@ import {
   deleteEmployee,
   Employee,
   EmployeeAccessControl,
-} from '@/lib/employee-store';
+} from '@/lib/client/stores/employee-store';
 import {
   getTestDrives,
   fetchTestDrives,
@@ -37,7 +37,7 @@ import {
   updateTestDrive,
   deleteTestDrive,
   TestDrive,
-} from '@/lib/test-drive-store';
+} from '@/lib/client/stores/test-drive-store';
 import {
   Settings,
   Layers,
@@ -97,6 +97,7 @@ export default function SettingsPage() {
 
   // Employees State
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [vehicles, setVehicles] = useState<any[]>([]);
   const [employeeSearch, setEmployeeSearch] = useState<string>('');
   const [employeeDeptFilter, setEmployeeDeptFilter] = useState<string>('All');
   const [selectedEmployeeForLeave, setSelectedEmployeeForLeave] = useState<Employee | null>(null);
@@ -256,6 +257,11 @@ export default function SettingsPage() {
     setEmployees(getEmployees());
     setTestDrives(getTestDrives());
     setBranches(api.getBranches());
+    setVehicles(api.getVehicles());
+
+    api.fetchVehicles().then((data) => {
+      if (Array.isArray(data)) setVehicles([...data]);
+    });
 
     api.fetchBranches().then((data) => {
       if (Array.isArray(data)) setBranches([...data]);
@@ -437,7 +443,7 @@ export default function SettingsPage() {
       department: newEmpForm.department,
       branch: newEmpForm.branch,
       salary: newEmpForm.salary,
-      password: newEmpForm.password.trim() || `Apex@${Math.floor(1000 + Math.random() * 9000)}!Pass`,
+      password: newEmpForm.password.trim() || `Temp@${Math.floor(1000 + Math.random() * 9000)}!Pass`,
       avatarUrl: newEmpForm.avatarUrl || undefined,
     });
 
@@ -448,7 +454,7 @@ export default function SettingsPage() {
       phone: '',
       designation: 'Sales Executive',
       department: 'Sales',
-      branch: 'Apex Downtown Flagship',
+      branch: 'Main Showroom',
       salary: '₹75,000 / mo',
       password: '',
       avatarUrl: '',
@@ -2117,8 +2123,10 @@ export default function SettingsPage() {
                   value={newEmpForm.branch}
                   onChange={(e) => setNewEmpForm({ ...newEmpForm, branch: e.target.value })}
                 >
-                  <option value="Apex Downtown Flagship">Apex Downtown Flagship</option>
-                  <option value="Apex Westside Automall">Apex Westside Automall</option>
+                  <option value="Main Showroom">Main Showroom</option>
+                  {branches.filter((b) => b.name !== 'Main Showroom').map((b) => (
+                    <option key={b.id} value={b.name}>{b.name}</option>
+                  ))}
                   <option value="All Branches">All Branches</option>
                 </select>
               </div>
@@ -2152,7 +2160,7 @@ export default function SettingsPage() {
                   onClick={() =>
                     setNewEmpForm({
                       ...newEmpForm,
-                      password: `Apex@${Math.floor(1000 + Math.random() * 9000)}!Secure`,
+                      password: `Temp@${Math.floor(1000 + Math.random() * 9000)}!Secure`,
                     })
                   }
                   style={{
@@ -3166,11 +3174,15 @@ export default function SettingsPage() {
                   value={newDriveForm.vehicleName}
                   onChange={(e) => setNewDriveForm({ ...newDriveForm, vehicleName: e.target.value })}
                 >
-                  <option value="Mahindra XUV700 AX7L AWD (Midnight Black)">Mahindra XUV700 AX7L AWD (MH-02-EZ-4120)</option>
-                  <option value="Hyundai Creta SX(O) Turbo DCT (Polar White)">Hyundai Creta SX(O) Turbo (MH-03-DF-8812)</option>
-                  <option value="Toyota Fortuner 4x4 AT Legender">Toyota Fortuner 4x4 Legender (MH-01-DA-1008)</option>
-                  <option value="Tata Nexon EV Max (Intense Teal)">Tata Nexon EV Max (MH-47-BE-6601)</option>
-                  <option value="Skoda Slavia 1.5 TSI Style DSG">Skoda Slavia 1.5 TSI (MH-02-SK-9988)</option>
+                  <option value="">Select Showroom Stock Vehicle</option>
+                  {vehicles.map((v) => (
+                    <option key={v.id} value={`${v.make} ${v.model}`}>
+                      {v.make} {v.model} {v.registrationNumber ? `(${v.registrationNumber})` : ''}
+                    </option>
+                  ))}
+                  {vehicles.length === 0 && (
+                    <option value="Demo Showroom Car">Demo Showroom Car</option>
+                  )}
                 </select>
               </div>
 

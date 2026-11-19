@@ -344,6 +344,12 @@ html, body {
   box-shadow: 0 2px 6px rgba(98, 83, 248, 0.22);
 }
 
+.nav-pill:empty,
+.nav-pill:blank,
+.nav-pill:not([href]) {
+  display: none !important;
+}
+
 /* Top Right Controls (Bell, Settings, Profile Avatar) */
 .top-bar__right {
   display: flex;

@@ -3,34 +3,9 @@
  * Tests all mandatory criteria specified in Section 11 of RLS remediation task.
  */
 
-import fs from 'fs';
-import path from 'path';
+import { loadWorkspaceEnv } from './lib/env.mjs';
 
-function loadEnv() {
-  const envPaths = [
-    path.resolve(process.cwd(), '.env.local'),
-    path.resolve(process.cwd(), 'apps/web/.env.local'),
-    path.resolve(process.cwd(), '.env'),
-    path.resolve(process.cwd(), 'apps/web/.env'),
-  ];
-  for (const p of envPaths) {
-    if (fs.existsSync(p)) {
-      const content = fs.readFileSync(p, 'utf-8');
-      for (const line of content.split('\n')) {
-        const trimmed = line.trim();
-        if (trimmed && !trimmed.startsWith('#')) {
-          const idx = trimmed.indexOf('=');
-          if (idx !== -1) {
-            const k = trimmed.slice(0, idx).trim();
-            const v = trimmed.slice(idx + 1).trim().replace(/^["']|["']$/g, '');
-            if (k && !process.env[k]) process.env[k] = v;
-          }
-        }
-      }
-    }
-  }
-}
-loadEnv();
+loadWorkspaceEnv();
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://rastqlhojjtpuaikxhvm.supabase.co';
 const ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';

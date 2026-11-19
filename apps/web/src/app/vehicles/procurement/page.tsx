@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { StatCard } from '@/components/ui/StatCard';
 import { Modal } from '@/components/ui/Modal';
-import { APP_CARD_PALETTES } from '@/lib/theme-palettes';
+import { APP_CARD_PALETTES } from '@/lib/data/theme-palettes';
 import {
   Truck,
   Plus,
@@ -588,8 +588,8 @@ export default function ProcurementPage() {
             const newTradeIn = {
               id: 'ti-' + Date.now(),
               customerName: custName || 'Direct Customer',
-              vehicleDescription: vehDesc || 'Certified Vehicle',
-              registrationNumber: regNo || 'MH-02-APPRAISAL',
+              vehicleDescription: vehDesc || 'Vehicle Evaluation',
+              registrationNumber: regNo || '',
               odometerKm: odo,
               appraisalOffer: offer,
               status: 'appraised',

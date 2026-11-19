@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useAuth } from '@/lib/auth-context';
+import { useAuth } from '@/lib/client/auth-context';
 import {
   LucideIcon,
   Settings,
@@ -11,14 +11,7 @@ import {
   LogOut,
   Building2,
   User,
-  Camera,
-  Upload,
-  Trash2,
   CheckCircle2,
-  Shield,
-  Phone,
-  MapPin,
-  Building,
   CheckCheck,
   Car,
   UserPlus,
@@ -39,8 +32,8 @@ import {
   ArrowLeft,
   LayoutGrid,
 } from 'lucide-react';
-import { Modal } from '@/components/ui/Modal';
-import { getModules, DealershipModule, DEFAULT_MODULES } from '@/lib/modules-registry';
+import { ProfileModal } from '@/components/layout/ProfileModal';
+import { getModules, fetchModules, DealershipModule, DEFAULT_MODULES } from '@/lib/client/stores/modules-registry';
 import {
   getCompanyProfile,
   fetchCompanyProfile,
@@ -48,9 +41,14 @@ import {
   CompanyProfile,
   getUserCredentials,
   compressDataUrl,
-} from '@/lib/company-store';
-import { getUserSession, UserSession } from '@/lib/auth-context';
-import { getEmployees } from '@/lib/employee-store';
+} from '@/lib/client/stores/company-store';
+import { getUserSession, UserSession } from '@/lib/client/auth-context';
+import { getEmployees } from '@/lib/client/stores/employee-store';
+import {
+  isStandaloneShellPath,
+  isWorkspaceContentPath,
+  isStaffAllowedOnPath,
+} from '@/config/routes';
 
 export interface DealershipNotification {
   id: string;
@@ -64,14 +62,6 @@ export interface DealershipNotification {
 }
 
 const DEFAULT_NOTIFICATIONS: DealershipNotification[] = [];
-
-const PRESET_PROFILE_AVATARS = [
-  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
-];
 
 const MODULE_THEMES: Record<
   string,
@@ -234,9 +224,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [profileName, setProfileName] = useState('');
   const [profilePhone, setProfilePhone] = useState('');
-  const [profileAvatarUrl, setProfileAvatarUrl] = useState('');
-  const [profileSavedToast, setProfileSavedToast] = useState(false);
-  const [profileError, setProfileError] = useState<string | null>(null);
 
   useEffect(() => {
     setIsMounted(true);
@@ -250,9 +237,17 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
     // Initial load
     setModules(getModules());
+    fetchModules().then((m) => {
+      if (m && m.length > 0) setModules(m);
+    });
     setCompany(getCompanyProfile());
     fetchCompanyProfile().then((p) => {
       if (p) setCompany(p);
+      const sess = getUserSession();
+      const isStaff = Boolean(sess?.employeeId && !sess?.isAdmin);
+      if (!isStaff && p && !p.isOnboarded && isWorkspaceContentPath(pathname)) {
+        router.replace('/onboarding');
+      }
     });
 
     try {
@@ -262,7 +257,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       } else {
         localStorage.setItem('crm_dealership_notifications_v1', JSON.stringify(DEFAULT_NOTIFICATIONS));
       }
-    } catch (e) {}
+    } catch {}
 
     const handleModulesChanged = () => {
       setModules(getModules());
@@ -299,16 +294,15 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
   // Save current active page to localStorage so page refresh or login preserves it
   useEffect(() => {
-    if (pathname && pathname !== '/' && pathname !== '/login' && pathname !== '/onboarding' && pathname !== '/emplogin' && !pathname.startsWith('/auth')) {
+    if (isWorkspaceContentPath(pathname) && pathname) {
       try {
         localStorage.setItem('crm_last_active_page', pathname);
-      } catch (e) {}
+      } catch {}
     }
   }, [pathname]);
 
   const activeSession = authSession || sessionState || (isMounted ? getUserSession() : null);
   const isStaffEmployee = Boolean(activeSession?.employeeId && !activeSession?.isAdmin);
-  const isEmployeeAdmin = !isStaffEmployee;
 
   const employeeAccess = useMemo(() => {
     if (activeSession?.accessControl) return activeSession.accessControl;
@@ -324,59 +318,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
     return undefined;
   }, [activeSession]);
 
-  // Protect employee workflow: prevent staff from accessing admin-only pages or pages without explicit permission
+  // Protect employee workflow using single route-permission table in config/routes.ts
   useEffect(() => {
-    if (!isMounted) return;
-    if (isStaffEmployee) {
-      if (
-        pathname === '/employees' ||
-        pathname === '/settings' ||
-        pathname === '/dashboard' ||
-        pathname === '/onboarding'
-      ) {
-        router.replace('/empportal');
-        return;
-      }
-      if (pathname.startsWith('/finance') && !employeeAccess?.finance) {
-        router.replace('/empportal');
-        return;
-      }
-      if (pathname.startsWith('/crm/leads') && !employeeAccess?.pipeline) {
-        router.replace('/empportal');
-        return;
-      }
-      if (pathname.startsWith('/crm/customers') && !employeeAccess?.customers) {
-        router.replace('/empportal');
-        return;
-      }
-      if (pathname.startsWith('/vehicles/procurement') && !employeeAccess?.procurement) {
-        router.replace('/empportal');
-        return;
-      }
-      if (pathname.startsWith('/vehicles') && !pathname.startsWith('/vehicles/procurement') && !employeeAccess?.inventory) {
-        router.replace('/empportal');
-        return;
-      }
-      if (pathname.startsWith('/sales') && !employeeAccess?.deals) {
-        router.replace('/empportal');
-        return;
-      }
-      if (pathname.startsWith('/finance') && !employeeAccess?.finance) {
-        router.replace('/empportal');
-        return;
-      }
-      if (pathname.startsWith('/documents') && !employeeAccess?.documents) {
-        router.replace('/empportal');
-        return;
-      }
-      if (pathname.startsWith('/reports') && !employeeAccess?.reports) {
-        router.replace('/empportal');
-        return;
-      }
-      if (pathname.startsWith('/test-drives') && !employeeAccess?.testDrives) {
-        router.replace('/empportal');
-        return;
-      }
+    if (!isMounted || !isStaffEmployee || !pathname) return;
+    if (!isStaffAllowedOnPath(pathname, employeeAccess)) {
+      router.replace('/empportal');
     }
   }, [pathname, isMounted, isStaffEmployee, employeeAccess, router]);
 
@@ -479,8 +425,19 @@ export function Shell({ children }: { children: React.ReactNode }) {
       return allowed;
     }
 
-    // Default for Administrators: show all plugged-in modules
-    return modules.filter((m) => m.isPluggedIn);
+    // Default for Administrators: show all plugged-in modules with non-empty label and unique href/label
+    const seenHrefs = new Set<string>();
+    const seenLabels = new Set<string>();
+    const rawList = modules.filter((m) => m && m.isPluggedIn);
+    return rawList.filter((m: any) => {
+      const label = String(m?.label || '').trim();
+      const href = String(m?.href || '').trim().replace(/\/+$/, '') || '/';
+      const lowerLabel = label.toLowerCase();
+      if (label.length < 2 || !href || seenHrefs.has(href) || seenLabels.has(lowerLabel)) return false;
+      seenHrefs.add(href);
+      seenLabels.add(lowerLabel);
+      return true;
+    });
   }, [modules, isStaffEmployee, activeSession, employeeAccess]);
 
   // Active top tab resolution
@@ -537,8 +494,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
     pathname === '';
 
   const userDisplayName = isMounted
-    ? (userContext?.user?.fullName || getUserSession()?.fullName || getUserCredentials()?.fullName || 'Anjali')
-    : 'Anjali';
+    ? (userContext?.user?.fullName || getUserSession()?.fullName || getUserCredentials()?.fullName || company.authorizedSignatoryName || 'Administrator')
+    : (company.authorizedSignatoryName || 'Administrator');
 
   const userEmail = isMounted
     ? (userContext?.user?.email || getUserSession()?.email || getUserCredentials()?.email || 'autobourn@dealership.com')
@@ -709,57 +666,19 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const openProfileModal = () => {
     const creds = getUserCredentials();
     const session = getUserSession();
-    const currentName = userContext?.user?.fullName || session?.fullName || creds?.fullName || 'Anjali';
-    const currentPhone = userContext?.user?.phone || session?.phone || '';
-    const currentAvatar = userAvatarUrl || '';
+    const currentName = userContext?.user?.fullName || session?.fullName || creds?.fullName || company.authorizedSignatoryName || '';
+    const rawSessionPhone = userContext?.user?.phone || session?.phone || '';
+    const currentPhone =
+      rawSessionPhone && rawSessionPhone !== '+91 98000 00000'
+        ? rawSessionPhone
+        : company.phone || rawSessionPhone || '';
     setProfileName(currentName);
     setProfilePhone(currentPhone);
-    setProfileAvatarUrl(currentAvatar);
-    setProfileSavedToast(false);
-    setProfileError(null);
     setIsProfileModalOpen(true);
   };
 
-  const handleAvatarFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setProfileError(null);
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 4 * 1024 * 1024) {
-      setProfileError('Photo size exceeds 4MB. Please choose a smaller photo.');
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const result = event.target?.result as string;
-      if (result) {
-        setProfileAvatarUrl(result);
-      }
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleSaveProfile = (e: React.FormEvent) => {
-    e.preventDefault();
-    updateUserProfile({
-      fullName: profileName.trim() || userDisplayName,
-      phone: profilePhone.trim(),
-      avatarUrl: profileAvatarUrl,
-    });
-    setProfileSavedToast(true);
-    setTimeout(() => {
-      setProfileSavedToast(false);
-      setIsProfileModalOpen(false);
-    }, 850);
-  };
-
   // Full-screen standalone layout for Welcome Landing (/), Onboarding, Login, Employee Login (/emplogin), and Auth (/auth/*)
-  if (
-    pathname === '/' ||
-    pathname === '/onboarding' ||
-    pathname === '/login' ||
-    pathname === '/emplogin' ||
-    pathname?.startsWith('/auth')
-  ) {
+  if (isStandaloneShellPath(pathname)) {
     return (
       <div className="app-shell" style={{ display: 'block', minHeight: '100vh', width: '100%' }}>
         {pathname === '/onboarding' ? (
@@ -813,16 +732,18 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
           {/* Center: Horizontal Capsule Nav Tabs (Spans across to fill space with balanced alignment) */}
           <nav className="nav-pills" aria-label="Dealership Navigation">
-            {activeNavTabs.map((tab: any) => (
-              <Link
-                key={tab.id}
-                href={tab.href}
-                className={`nav-pill ${activeTab === tab.href ? 'active' : ''}`}
-                title={tab.description}
-              >
-                {tab.label}
-              </Link>
-            ))}
+            {activeNavTabs
+              .filter((tab: any) => tab && typeof tab.label === 'string' && tab.label.trim().length >= 2 && Boolean(tab.href))
+              .map((tab: any) => (
+                <Link
+                  key={tab.id}
+                  href={tab.href}
+                  className={`nav-pill ${activeTab === tab.href ? 'active' : ''}`}
+                  title={tab.description}
+                >
+                  {tab.label.trim()}
+                </Link>
+              ))}
           </nav>
 
           {/* Right: Working Notifications Center and Profile Avatar (Settings pill button removed per request) */}
@@ -1561,312 +1482,19 @@ export function Shell({ children }: { children: React.ReactNode }) {
         </main>
       </div>
 
-      {/* ====== MY PROFILE & AVATAR MODAL ====== */}
-      <Modal
+      <ProfileModal
         isOpen={isProfileModalOpen}
         onClose={() => setIsProfileModalOpen(false)}
-        title="My Profile"
-        maxWidth="540px"
-      >
-        <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-          {/* Top Banner Card with Profile Avatar and Change Option */}
-          <div
-            style={{
-              borderRadius: '16px',
-              background: 'linear-gradient(135deg, rgba(121, 87, 246, 0.12) 0%, rgba(64, 84, 245, 0.06) 100%)',
-              border: '1px solid rgba(98, 83, 248, 0.15)',
-              padding: '22px 18px',
-              textAlign: 'center',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-            }}
-          >
-            {/* Avatar Circle with Camera Overlay */}
-            <div style={{ position: 'relative', width: '92px', height: '92px', marginBottom: '12px' }}>
-              {profileAvatarUrl ? (
-                <img
-                  src={profileAvatarUrl}
-                  alt={profileName || userDisplayName}
-                  style={{
-                    width: '92px',
-                    height: '92px',
-                    borderRadius: '50%',
-                    objectFit: 'cover',
-                    border: '3px solid #6253F8',
-                    boxShadow: '0 4px 16px rgba(98, 83, 248, 0.25)',
-                    display: 'block',
-                  }}
-                />
-              ) : (
-                <div
-                  style={{
-                    width: '92px',
-                    height: '92px',
-                    borderRadius: '50%',
-                    background: 'var(--dock-gradient)',
-                    color: '#FFFFFF',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontWeight: 900,
-                    fontSize: '2rem',
-                    boxShadow: '0 4px 16px rgba(98, 83, 248, 0.25)',
-                  }}
-                >
-                  {userInitials}
-                </div>
-              )}
-
-              {/* Camera Icon Overlay button to trigger file upload */}
-              <label
-                htmlFor="profile-avatar-file-input"
-                title="Change profile picture"
-                style={{
-                  position: 'absolute',
-                  bottom: '2px',
-                  right: '2px',
-                  width: '30px',
-                  height: '30px',
-                  borderRadius: '50%',
-                  backgroundColor: '#6253F8',
-                  color: '#FFFFFF',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  border: '2px solid #FFFFFF',
-                  boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
-                  transition: 'transform 0.15s ease',
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.1)')}
-                onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
-              >
-                <Camera size={15} />
-              </label>
-              <input
-                id="profile-avatar-file-input"
-                type="file"
-                accept="image/*"
-                style={{ display: 'none' }}
-                onChange={handleAvatarFileUpload}
-              />
-            </div>
-
-            {/* Profile Picture Action Buttons */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-              <label
-                htmlFor="profile-avatar-file-input"
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  padding: '5px 12px',
-                  borderRadius: '999px',
-                  backgroundColor: '#FFFFFF',
-                  border: '1px solid rgba(98, 83, 248, 0.3)',
-                  color: '#6253F8',
-                  fontSize: '0.78rem',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
-                }}
-              >
-                <Upload size={13} />
-                <span>Upload Photo</span>
-              </label>
-
-              {profileAvatarUrl && (
-                <button
-                  type="button"
-                  onClick={() => setProfileAvatarUrl('')}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    padding: '5px 12px',
-                    borderRadius: '999px',
-                    backgroundColor: '#FEE2E2',
-                    border: '1px solid rgba(239, 68, 68, 0.3)',
-                    color: '#DC2626',
-                    fontSize: '0.78rem',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                  }}
-                >
-                  <Trash2 size={13} />
-                  <span>Remove</span>
-                </button>
-              )}
-            </div>
-
-            {/* Quick Avatar Presets */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
-              <span style={{ fontSize: '0.72rem', color: 'var(--muted)', fontWeight: 600 }}>Quick Presets:</span>
-              {PRESET_PROFILE_AVATARS.map((url, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => setProfileAvatarUrl(url)}
-                  style={{
-                    width: '26px',
-                    height: '26px',
-                    borderRadius: '50%',
-                    padding: 0,
-                    border: profileAvatarUrl === url ? '2px solid #6253F8' : '1px solid #CBD5E1',
-                    overflow: 'hidden',
-                    cursor: 'pointer',
-                    boxShadow: profileAvatarUrl === url ? '0 0 0 2px rgba(98, 83, 248, 0.35)' : 'none',
-                    transform: profileAvatarUrl === url ? 'scale(1.1)' : 'none',
-                    transition: 'all 0.15s ease',
-                  }}
-                  title={`Select avatar preset ${idx + 1}`}
-                >
-                  <img src={url} alt={`Preset ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Error Banner */}
-          {profileError && (
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '10px 14px',
-                borderRadius: '10px',
-                backgroundColor: '#FEE2E2',
-                border: '1px solid #FCA5A5',
-                color: '#991B1B',
-                fontSize: '0.82rem',
-                fontWeight: 600,
-              }}
-            >
-              <span>{profileError}</span>
-            </div>
-          )}
-
-          {/* Success Banner */}
-          {profileSavedToast && (
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '10px 14px',
-                borderRadius: '10px',
-                backgroundColor: '#DCFCE7',
-                border: '1px solid #86EFAC',
-                color: '#15803D',
-                fontSize: '0.84rem',
-                fontWeight: 700,
-              }}
-            >
-              <CheckCircle2 size={16} />
-              <span>Profile details and picture updated successfully!</span>
-            </div>
-          )}
-
-          {/* Form Fields Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-            <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-              <label className="form-label" style={{ fontSize: '0.82rem', fontWeight: 700 }}>
-                Full Name
-              </label>
-              <input
-                type="text"
-                className="form-input"
-                value={profileName}
-                onChange={(e) => setProfileName(e.target.value)}
-                placeholder="Enter your full name"
-                required
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label" style={{ fontSize: '0.82rem', fontWeight: 700 }}>
-                Email Address
-              </label>
-              <input
-                type="email"
-                className="form-input"
-                value={userEmail}
-                disabled
-                style={{ backgroundColor: '#F8FAFC', color: '#64748B', cursor: 'not-allowed' }}
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label" style={{ fontSize: '0.82rem', fontWeight: 700 }}>
-                Phone Number
-              </label>
-              <input
-                type="tel"
-                className="form-input"
-                value={profilePhone}
-                onChange={(e) => setProfilePhone(e.target.value)}
-                placeholder="+91 98765 43210"
-              />
-            </div>
-          </div>
-
-          {/* Dealership & Role Metadata Info Badges */}
-          <div
-            style={{
-              padding: '12px 14px',
-              borderRadius: '12px',
-              background: '#F8FAFC',
-              border: '1px solid #E2E8F0',
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              gap: '10px',
-              fontSize: '0.78rem',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#475569' }}>
-              <Shield size={14} style={{ color: '#6253F8' }} />
-              <span>Role: <strong style={{ color: '#0F172A' }}>{userRoleDisplay}</strong></span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#475569' }}>
-              <Building size={14} style={{ color: '#6253F8' }} />
-              <span>Dealership: <strong style={{ color: '#0F172A' }}>{brandDisplayName}</strong></span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#475569' }}>
-              <MapPin size={14} style={{ color: '#6253F8' }} />
-              <span>Branch: <strong style={{ color: '#0F172A' }}>Main Showroom</strong></span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#475569' }}>
-              <CheckCircle2 size={14} style={{ color: '#16A34A' }} />
-              <span>Status: <strong style={{ color: '#16A34A' }}>Active & Verified</strong></span>
-            </div>
-          </div>
-
-          {/* Modal Footer Buttons */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '6px' }}>
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={() => setIsProfileModalOpen(false)}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="btn btn-primary btn-sm"
-              style={{
-                borderRadius: '999px',
-                padding: '0.5rem 1.5rem',
-                fontWeight: 700,
-                boxShadow: '0 4px 12px rgba(98, 83, 248, 0.35)',
-              }}
-            >
-              Save Profile
-            </button>
-          </div>
-        </form>
-      </Modal>
+        company={company}
+        onCompanyUpdated={setCompany}
+        userDisplayName={userDisplayName}
+        userInitials={userInitials}
+        initialFullName={profileName}
+        initialPhone={profilePhone}
+        initialAvatarUrl={userAvatarUrl || ""}
+        isStaffEmployee={isStaffEmployee}
+        onUpdateUserProfile={updateUserProfile}
+      />
     </div>
   );
 }

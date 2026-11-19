@@ -1,12 +1,12 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { api } from '@/lib/api-client';
+import { api } from '@/lib/client/api-client';
 import { Payment, Customer } from '@crm/shared-types';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { StatCard } from '@/components/ui/StatCard';
 import { Modal } from '@/components/ui/Modal';
-import { APP_CARD_PALETTES } from '@/lib/theme-palettes';
+import { APP_CARD_PALETTES } from '@/lib/data/theme-palettes';
 import {
   DollarSign,
   Plus,
@@ -26,10 +26,11 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { WordFadeIn } from '@/components/ui/WordFadeIn';
-import { InvoiceDocumentGenerator, ExecutiveSignatureSvg, getInvoiceColorSystem } from '@/components/invoices/InvoiceDocumentGenerator';
-import { getCompanyProfile } from '@/lib/company-store';
-import { getActiveTenantId } from '@/lib/tenant-context';
-import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { InvoiceDocumentGenerator } from '@/components/features/invoices/InvoiceDocumentGenerator';
+import { ExecutiveSignatureSvg, getInvoiceColorSystem } from '@/components/features/invoices/invoice-utils';
+import { getCompanyProfile } from '@/lib/client/stores/company-store';
+import { getActiveTenantId } from '@/lib/client/tenant-context';
+import { supabase, isSupabaseConfigured } from '@/lib/client/supabase';
 
 export default function FinancePage() {
   const [payments, setPayments] = useState<Payment[]>(api.getPayments());
@@ -1051,7 +1052,7 @@ export default function FinancePage() {
                           }}
                         >
                           <div style={{ fontSize: '0.92rem', fontWeight: 900, color: '#0F172A', lineHeight: 1.2 }}>
-                            {comp.authorizedSignatoryName || 'Anjali'}
+                            {comp.authorizedSignatoryName || 'Authorized Signatory'}
                           </div>
                           <div style={{ fontSize: '0.74rem', color: '#1E293B', fontWeight: 700, marginTop: '2px' }}>
                             {comp.authorizedSignatoryDesignation || 'COO'}

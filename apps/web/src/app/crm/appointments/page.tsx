@@ -1,13 +1,14 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { api } from '@/lib/api-client';
+import { api } from '@/lib/client/api-client';
 import { Appointment, Customer, Vehicle } from '@crm/shared-types';
 import { Modal } from '@/components/ui/Modal';
+import { ToastBanner, useToast } from '@/components/ui/Toast';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { SearchableCarSelect } from '@/components/ui/SearchableCarSelect';
-import { getAllCarOptions } from '@/lib/car-catalog';
-import { APP_CARD_PALETTES } from '@/lib/theme-palettes';
+import { buildInventoryCarOptions } from '@/lib/data/car-catalog';
+import { APP_CARD_PALETTES } from '@/lib/data/theme-palettes';
 import {
   Calendar as CalendarIcon,
   Plus,
@@ -28,23 +29,27 @@ export default function AppointmentsPage() {
   const [appointments, setAppointments] = useState<Appointment[]>(api.getAppointments());
   const [customers, setCustomers] = useState<Customer[]>(api.getCustomers());
   const [vehicles, setVehicles] = useState<Vehicle[]>(api.getVehicles());
+  const [employees, setEmployees] = useState<any[]>(api.getEmployees());
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedApt, setSelectedApt] = useState<Appointment | null>(null);
   const [editingAptId, setEditingAptId] = useState<string | null>(null);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const { toast, showToast, dismissToast } = useToast(3500);
 
   useEffect(() => {
     setAppointments([...api.getAppointments()]);
     setCustomers([...api.getCustomers()]);
     setVehicles([...api.getVehicles()]);
+    setEmployees([...api.getEmployees()]);
 
-    // Fetch live appointments, customers, and vehicles from Supabase backend (/api/crm)
+    // Fetch live appointments, customers, vehicles, and employees from Supabase backend (/api/crm)
     Promise.all([
       api.fetchCustomers(),
       api.fetchVehicles(),
-    ]).then(() => {
+      api.fetchEmployees(),
+    ]).then(([, , remoteEmployees]) => {
       setCustomers([...api.getCustomers()]);
       setVehicles([...api.getVehicles()]);
+      if (Array.isArray(remoteEmployees)) setEmployees([...remoteEmployees]);
       api.fetchAppointments().then((apts) => {
         if (Array.isArray(apts)) setAppointments([...apts]);
       });
@@ -54,15 +59,11 @@ export default function AppointmentsPage() {
       setAppointments([...api.getAppointments()]);
       setCustomers([...api.getCustomers()]);
       setVehicles([...api.getVehicles()]);
+      setEmployees([...api.getEmployees()]);
     };
     window.addEventListener('crm-data-changed', handleDataChanged);
     return () => window.removeEventListener('crm-data-changed', handleDataChanged);
   }, []);
-
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
-  };
 
   // Search & Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -75,22 +76,17 @@ export default function AppointmentsPage() {
     appointmentType: '' as any,
     scheduledAt: '',
     durationMinutes: '',
+    assignedTo: '',
+    assignedToName: '',
     notes: '',
   };
 
   const [formData, setFormData] = useState(emptyFormData);
 
-  const inventoryCarOptions = useMemo(() => {
-    const defaultSet = new Set(getAllCarOptions().map((o) => o.toLowerCase()));
-    const extra: string[] = [];
-    for (const v of vehicles) {
-      const label = [v.year, v.make, v.model, v.variant].filter(Boolean).join(' ').trim();
-      if (label && !defaultSet.has(label.toLowerCase()) && !extra.includes(label)) {
-        extra.push(label);
-      }
-    }
-    return extra;
-  }, [vehicles]);
+  const inventoryCarOptions = useMemo(
+    () => buildInventoryCarOptions(vehicles, { includeYear: true }),
+    [vehicles]
+  );
 
   const handleStartEdit = (apt: Appointment) => {
     const matchedVeh = vehicles.find((v) => v.id === apt.vehicleId);
@@ -104,6 +100,8 @@ export default function AppointmentsPage() {
       appointmentType: apt.appointmentType,
       scheduledAt: new Date(apt.scheduledAt).toISOString().slice(0, 16),
       durationMinutes: String(apt.durationMinutes || '45'),
+      assignedTo: (apt as any).assignedTo || '',
+      assignedToName: apt.assignedToName || '',
       notes: apt.notes || '',
     });
     setEditingAptId(apt.id);
@@ -126,6 +124,8 @@ export default function AppointmentsPage() {
         appointmentType: formData.appointmentType || 'showroom_visit',
         scheduledAt: formData.scheduledAt,
         durationMinutes: Number(formData.durationMinutes) || 45,
+        assignedTo: formData.assignedTo || undefined,
+        assignedToName: formData.assignedToName || undefined,
         notes: formData.notes,
         customerName: cust ? `${cust.firstName} ${cust.lastName}`.trim() : undefined,
         vehicleName: veh
@@ -210,6 +210,7 @@ export default function AppointmentsPage() {
         </button>
       </div>
 
+      <ToastBanner toast={toast} onDismiss={dismissToast} />
       {/* Unique Search Bar & Filters */}
       <div className="unique-search-wrapper">
         <div className="unique-search-bar">
@@ -531,6 +532,33 @@ export default function AppointmentsPage() {
           </div>
 
           <div className="form-group">
+            <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <User size={14} style={{ color: '#4F46E5' }} />
+              Assigned Consultant / Showroom Host
+            </label>
+            <select
+              className="form-select"
+              value={formData.assignedTo}
+              onChange={(e) => {
+                const empId = e.target.value;
+                const emp = employees.find((em) => em.id === empId);
+                setFormData({
+                  ...formData,
+                  assignedTo: empId,
+                  assignedToName: emp ? `${emp.full_name} (${(emp.role || 'Staff').replace(/_/g, ' ')})` : '',
+                });
+              }}
+            >
+              <option value="">-- Select Showroom Host / Consultant --</option>
+              {employees.map((emp) => (
+                <option key={emp.id} value={emp.id}>
+                  👤 {emp.full_name} — {(emp.role || 'Sales').replace(/_/g, ' ')} ({emp.department || 'Sales Desk'})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-group">
             <label className="form-label">
               Date and Time <span className="req-star">*</span>
             </label>
@@ -637,7 +665,7 @@ export default function AppointmentsPage() {
               </div>
               <div style={{ padding: '0.85rem', backgroundColor: '#F8FAFC', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
                 <span style={{ color: '#64748B', fontSize: '0.74rem', textTransform: 'uppercase', fontWeight: 600 }}>Assigned Executive</span>
-                <div style={{ fontWeight: 700, color: '#0F172A', marginTop: '2px' }}>{selectedApt.assignedToName || 'John Fernandes'}</div>
+                <div style={{ fontWeight: 700, color: '#0F172A', marginTop: '2px' }}>{selectedApt.assignedToName || 'Unassigned Host'}</div>
               </div>
             </div>
 

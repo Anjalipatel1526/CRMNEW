@@ -3,9 +3,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { WordFadeIn } from '@/components/ui/WordFadeIn';
 import { Modal } from '@/components/ui/Modal';
+import { ToastBanner, useToast } from '@/components/ui/Toast';
 import { SearchableCarSelect } from '@/components/ui/SearchableCarSelect';
-import { getAllCarOptions } from '@/lib/car-catalog';
-import { api } from '@/lib/api-client';
+import { buildInventoryCarOptions } from '@/lib/data/car-catalog';
+import { api } from '@/lib/client/api-client';
 import {
   getTestDrives,
   fetchTestDrives,
@@ -14,7 +15,7 @@ import {
   deleteTestDrive,
   initTestDrivesRealtime,
   TestDrive,
-} from '@/lib/test-drive-store';
+} from '@/lib/client/stores/test-drive-store';
 import {
   Gauge,
   Plus,
@@ -40,7 +41,7 @@ export default function TestDrivesPage() {
   const [endOdo, setEndOdo] = useState('');
   const [feedback, setFeedback] = useState('');
   const [rating, setRating] = useState(5);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const { toast, showToast, dismissToast } = useToast(3200);
 
   // New Drive Form
   const [newDriveForm, setNewDriveForm] = useState({
@@ -69,11 +70,6 @@ export default function TestDrivesPage() {
     window.addEventListener('crm-testdrives-changed', handleChanged);
     return () => window.removeEventListener('crm-testdrives-changed', handleChanged);
   }, []);
-
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3200);
-  };
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -112,18 +108,10 @@ export default function TestDrivesPage() {
     showToast(`Test drive ${selectedDriveForComplete.driveCode} marked as COMPLETED.`);
   };
 
-  const inventoryCarOptions = useMemo(() => {
-    const vehicles = api.getVehicles();
-    const defaultSet = new Set(getAllCarOptions().map((o) => o.toLowerCase()));
-    const extra: string[] = [];
-    for (const v of vehicles) {
-      const label = [v.year, v.make, v.model, v.variant].filter(Boolean).join(' ').trim();
-      if (label && !defaultSet.has(label.toLowerCase()) && !extra.includes(label)) {
-        extra.push(label);
-      }
-    }
-    return extra;
-  }, []);
+  const inventoryCarOptions = useMemo(
+    () => buildInventoryCarOptions(api.getVehicles(), { includeYear: true }),
+    []
+  );
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
@@ -140,29 +128,7 @@ export default function TestDrivesPage() {
 
   return (
     <div style={{ paddingBottom: '3rem' }}>
-      {toastMessage && (
-        <div
-          style={{
-            position: 'fixed',
-            top: '20px',
-            right: '24px',
-            background: '#0F172A',
-            color: '#FFFFFF',
-            padding: '10px 18px',
-            borderRadius: '10px',
-            fontSize: '0.84rem',
-            fontWeight: 600,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            boxShadow: '0 10px 25px rgba(0,0,0,0.25)',
-            zIndex: 99999,
-          }}
-        >
-          <CheckCircle2 size={16} style={{ color: '#10B981' }} />
-          <span>{toastMessage}</span>
-        </div>
-      )}
+      <ToastBanner toast={toast} onDismiss={dismissToast} />
 
       {/* Header */}
       <div className="page-header" style={{ marginBottom: '1.25rem' }}>
@@ -509,7 +475,7 @@ export default function TestDrivesPage() {
                   className="form-input"
                   value={newDriveForm.assignedStaff}
                   onChange={(e) => setNewDriveForm({ ...newDriveForm, assignedStaff: e.target.value })}
-                  placeholder="e.g. John Fernandes"
+                  placeholder="e.g. Sales Consultant"
                 />
               </div>
             </div>

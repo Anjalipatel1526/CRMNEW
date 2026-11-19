@@ -2,8 +2,8 @@
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
-import { InvoiceDocumentGenerator } from '@/components/invoices/InvoiceDocumentGenerator';
-import { addDocument } from '@/lib/document-store';
+import { InvoiceDocumentGenerator } from '@/components/features/invoices/InvoiceDocumentGenerator';
+import { addDocument } from '@/lib/client/stores/document-store';
 
 export default function NewDocumentPage() {
   const router = useRouter();
