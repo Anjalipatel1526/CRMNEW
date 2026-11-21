@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
   const tenantId = auth.session.tenantId;
 
   try {
-    const [vehiclesRes, customersRes, leadsRes, dealsRes, appointmentsRes, employeesRes, testDrivesRes] = await Promise.all([
+    const [vehiclesRes, customersRes, leadsRes, dealsRes, appointmentsRes, employeesRes, testDrivesRes, quotationsRes, invoicesRes, paymentsRes] = await Promise.all([
       supabaseAdmin.from('vehicles').select('*').eq('tenant_id', tenantId),
       supabaseAdmin.from('customers').select('*').eq('tenant_id', tenantId).order('created_at', { ascending: false }),
       supabaseAdmin.from('leads').select('*').eq('tenant_id', tenantId).order('created_at', { ascending: false }),
@@ -48,6 +48,9 @@ export async function GET(req: NextRequest) {
       supabaseAdmin.from('appointments').select('*').eq('tenant_id', tenantId).order('created_at', { ascending: false }),
       supabaseAdmin.from('employees').select('id, full_name, email, role, department').eq('tenant_id', tenantId),
       supabaseAdmin.from('test_drives').select('*').eq('tenant_id', tenantId).order('created_at', { ascending: false }),
+      supabaseAdmin.from('quotations').select('*').eq('tenant_id', tenantId).order('created_at', { ascending: false }),
+      supabaseAdmin.from('invoices').select('*').eq('tenant_id', tenantId).order('created_at', { ascending: false }),
+      supabaseAdmin.from('payments').select('*').eq('tenant_id', tenantId).order('created_at', { ascending: false }),
     ]);
 
     const employees = employeesRes.data || [];
@@ -70,16 +73,20 @@ export async function GET(req: NextRequest) {
 
     for (const cust of (customersRes.data || [])) {
       const custLeads = leadsByCustomer.get(cust.id) || [];
+      const hasRealActivity =
+        (appointmentsRes.data || []).some((a: any) => a.customer_id === cust.id || custLeads.some((l) => l.id === a.lead_id)) ||
+        (testDrivesRes.data || []).some((td: any) => td.customer_id === cust.id);
+
       const isContactedOrBeyond = custLeads.some((l) =>
-        ['contacted', 'qualified', 'negotiation', 'converted', 'lost'].includes(l.status)
+        ['contacted', 'qualified', 'appointment_set', 'test_drive', 'negotiation', 'converted', 'lost'].includes(l.status)
       );
 
-      if (!isContactedOrBeyond) {
-        // Uncontacted customer: MUST appear in "New Enquiries" (status: 'new')
+      if (!isContactedOrBeyond && !hasRealActivity) {
+        // Uncontacted customer without active bookings: ensure enquiry in "New Enquiries" (status: 'new')
         const newLead = custLeads.find((l) => l.status === 'new');
         if (!newLead) {
           if (custLeads.length > 0) {
-            // Existing uncontacted lead was auto-placed in appointment_set or test_drive; reset to 'new'
+            // Uncontacted lead without actual appointments: reset to 'new'
             const primaryLead = custLeads[0];
             primaryLead.status = 'new';
             leadIdsToResetToNew.push(primaryLead.id);
@@ -226,6 +233,9 @@ export async function GET(req: NextRequest) {
       appointments: enrichedAppointments,
       employees: employees,
       test_drives: testDrivesRes.data || [],
+      quotations: quotationsRes.data || [],
+      invoices: invoicesRes.data || [],
+      payments: paymentsRes.data || [],
     });
   } catch (err: any) {
     return NextResponse.json({ error: err?.message || 'Server error' }, { status: 500 });
@@ -572,13 +582,15 @@ export async function POST(req: NextRequest) {
             if (!existingDeal) {
               const dealId = randomUUID();
               const price = Number(data.budget_max || data.budgetMin) || 1850000;
+              const vehId = data.vehicle_id || data.vehicleId || null;
               await supabaseAdmin.from('deals').insert({
                 id: dealId,
                 tenant_id: tenantId,
                 branch_id: resolvedBranchId,
                 customer_id: custId,
+                vehicle_id: vehId,
                 deal_number: `DEAL-${Date.now().toString().slice(-4)}`,
-                stage: 'closed_won',
+                stage: 'ready',
                 vehicle_price: price,
                 grand_total: price,
                 amount_paid: 50000,
@@ -588,6 +600,10 @@ export async function POST(req: NextRequest) {
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
               });
+
+              if (vehId) {
+                await supabaseAdmin.from('vehicles').update({ status: 'reserved' }).eq('id', vehId);
+              }
             }
           }
         }
@@ -596,6 +612,11 @@ export async function POST(req: NextRequest) {
 
       case 'deal': {
         const dealId = (data.id && isUuid(data.id)) ? data.id : randomUUID();
+        const validStages = ['initiated', 'documents', 'finance', 'pdi', 'ready', 'delivered', 'cancelled'];
+        let resolvedStage = data.stage || 'initiated';
+        if (resolvedStage === 'closed_won' || resolvedStage === 'won') resolvedStage = 'ready';
+        if (!validStages.includes(resolvedStage)) resolvedStage = 'initiated';
+
         const payload = {
           id: dealId,
           tenant_id: tenantId,
@@ -603,7 +624,7 @@ export async function POST(req: NextRequest) {
           customer_id: data.customer_id || data.customerId,
           vehicle_id: data.vehicle_id || data.vehicleId || null,
           deal_number: data.deal_number || data.dealNumber || `DEAL-${Date.now().toString().slice(-4)}`,
-          stage: data.stage || 'draft',
+          stage: resolvedStage,
           vehicle_price: Number(data.vehicle_price || data.vehiclePrice) || 0,
           accessories_total: Number(data.accessories_total || data.accessoriesTotal) || 0,
           discount_total: Number(data.discount_total || data.discountTotal) || 0,
@@ -643,6 +664,125 @@ export async function POST(req: NextRequest) {
         const res = await supabaseAdmin.from('deals').upsert(payload, { onConflict: 'id' }).select();
         result = res.data;
         error = res.error;
+
+        // Auto-update connected vehicle status based on deal stage
+        if (payload.vehicle_id) {
+          if (resolvedStage === 'delivered') {
+            await supabaseAdmin.from('vehicles').update({ status: 'delivered' }).eq('id', payload.vehicle_id);
+          } else if (resolvedStage === 'ready' || resolvedStage === 'initiated') {
+            await supabaseAdmin.from('vehicles').update({ status: 'reserved' }).eq('id', payload.vehicle_id);
+          } else if (resolvedStage === 'cancelled') {
+            await supabaseAdmin.from('vehicles').update({ status: 'available' }).eq('id', payload.vehicle_id);
+          }
+        }
+        break;
+      }
+
+      case 'quotation': {
+        const quoteId = (data.id && isUuid(data.id)) ? data.id : randomUUID();
+        const payload = {
+          id: quoteId,
+          tenant_id: tenantId,
+          branch_id: data.branch_id || data.branchId || resolvedBranchId,
+          customer_id: data.customer_id || data.customerId,
+          opportunity_id: data.opportunity_id || data.opportunityId || null,
+          quote_number: data.quote_number || data.quoteNumber || `Q-2024-${Math.floor(100 + Math.random() * 900)}`,
+          revision: data.revision || 1,
+          status: data.status || 'issued',
+          subtotal: Number(data.subtotal || data.totals?.subtotal) || 0,
+          discount_total: Number(data.discount_total || data.totals?.discountTotal) || 0,
+          tax_total: Number(data.tax_total || data.totals?.taxTotal) || 0,
+          fees_total: Number(data.fees_total || data.totals?.feesTotal) || 0,
+          grand_total: Number(data.grand_total || data.totals?.grandTotal) || 0,
+          valid_until: data.valid_until || data.validUntil || new Date(Date.now() + 86400000 * 14).toISOString(),
+          notes: data.notes || '',
+          updated_at: new Date().toISOString(),
+        };
+        const res = await supabaseAdmin.from('quotations').upsert(payload, { onConflict: 'id' }).select();
+        result = res.data;
+        error = res.error;
+        break;
+      }
+
+      case 'invoice': {
+        const invId = (data.id && isUuid(data.id)) ? data.id : randomUUID();
+        const payload = {
+          id: invId,
+          tenant_id: tenantId,
+          branch_id: data.branch_id || data.branchId || resolvedBranchId,
+          customer_id: data.customer_id || data.customerId,
+          deal_id: (data.deal_id || data.dealId) && isUuid(data.deal_id || data.dealId) ? (data.deal_id || data.dealId) : null,
+          invoice_number: data.invoice_number || data.invoiceNumber || `INV-${Date.now().toString().slice(-4)}`,
+          status: data.status || 'paid',
+          subtotal: Number(data.subtotal) || Number(data.grand_total || data.grandTotal) || 0,
+          tax_total: Number(data.tax_total || data.taxTotal) || 0,
+          grand_total: Number(data.grand_total || data.grandTotal || data.amount) || 0,
+          paid_amount: Number(data.paid_amount || data.paidAmount || data.amount) || 0,
+          balance_due: Number(data.balance_due || data.balanceDue) || 0,
+          currency: data.currency || 'INR',
+          issued_at: data.issued_at || data.issuedAt || new Date().toISOString(),
+          due_date: data.due_date || data.dueDate || new Date().toISOString(),
+          created_at: data.created_at || new Date().toISOString(),
+        };
+        const res = await supabaseAdmin.from('invoices').upsert(payload, { onConflict: 'id' }).select();
+        result = res.data;
+        error = res.error;
+        break;
+      }
+
+      case 'payment': {
+        const paymentId = (data.id && isUuid(data.id)) ? data.id : randomUUID();
+        const amount = Number(data.amount) || 0;
+        const dealId = (data.deal_id || data.dealId) && isUuid(data.deal_id || data.dealId) ? (data.deal_id || data.dealId) : null;
+        const invoiceId = (data.invoice_id || data.invoiceId) && isUuid(data.invoice_id || data.invoiceId) ? (data.invoice_id || data.invoiceId) : null;
+        const payload = {
+          id: paymentId,
+          tenant_id: tenantId,
+          branch_id: data.branch_id || data.branchId || resolvedBranchId,
+          customer_id: data.customer_id || data.customerId,
+          deal_id: dealId,
+          invoice_id: invoiceId,
+          payment_number: data.payment_number || data.paymentNumber || `PMT-${Date.now().toString().slice(-4)}`,
+          method: data.method || 'upi',
+          status: data.status || 'settled',
+          amount: amount,
+          currency: data.currency || 'INR',
+          reference_number: data.reference_number || data.referenceNumber || 'TXN/' + Date.now(),
+          notes: data.notes || '',
+          settled_at: data.settled_at || data.settledAt || new Date().toISOString(),
+          created_at: data.created_at || new Date().toISOString(),
+        };
+        const res = await supabaseAdmin.from('payments').upsert(payload, { onConflict: 'id' }).select();
+        result = res.data;
+        error = res.error;
+
+        // Auto-update connected deal balance
+        if (dealId && amount > 0) {
+          const { data: curDeal } = await supabaseAdmin.from('deals').select('amount_paid, grand_total').eq('id', dealId).maybeSingle();
+          if (curDeal) {
+            const newPaid = (Number(curDeal.amount_paid) || 0) + amount;
+            const newBalance = Math.max(0, (Number(curDeal.grand_total) || 0) - newPaid);
+            await supabaseAdmin.from('deals').update({
+              amount_paid: newPaid,
+              balance_due: newBalance,
+              updated_at: new Date().toISOString(),
+            }).eq('id', dealId);
+          }
+        }
+
+        // Auto-update connected invoice balance
+        if (invoiceId && amount > 0) {
+          const { data: curInv } = await supabaseAdmin.from('invoices').select('paid_amount, grand_total').eq('id', invoiceId).maybeSingle();
+          if (curInv) {
+            const newPaid = (Number(curInv.paid_amount) || 0) + amount;
+            const newBalance = Math.max(0, (Number(curInv.grand_total) || 0) - newPaid);
+            await supabaseAdmin.from('invoices').update({
+              paid_amount: newPaid,
+              balance_due: newBalance,
+              status: newBalance <= 0 ? 'paid' : 'partially_paid',
+            }).eq('id', invoiceId);
+          }
+        }
         break;
       }
 

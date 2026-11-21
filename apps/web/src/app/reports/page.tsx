@@ -116,17 +116,20 @@ export default function ReportsPage() {
     });
   }, [leads, fromDate, toDate]);
 
+  const isWonOrDelivered = (s: string) =>
+    ['won', 'closed_won', 'ready', 'delivered', 'contract_signed'].includes(s);
+
   // Dynamic KPI Metrics
   const grossRevenue = useMemo(() => {
     return dateRangeFilteredDeals
-      .filter((d) => (d.stage || d.status) === 'won' || (d.stage || d.status) === 'delivered' || (d.stage || d.status) === 'contract_signed')
+      .filter((d) => isWonOrDelivered(d.stage || d.status))
       .reduce((sum, d) => sum + (d.pricing?.agreedVehiclePrice || d.grandTotal || d.salePrice || 0), 0);
   }, [dateRangeFilteredDeals]);
 
   const overallConversion = useMemo(() => {
     if (dateRangeFilteredLeads.length === 0) return 0;
-    const closedCount = dateRangeFilteredDeals.filter(
-      (d) => (d.stage || d.status) === 'won' || (d.stage || d.status) === 'delivered'
+    const closedCount = dateRangeFilteredDeals.filter((d) =>
+      isWonOrDelivered(d.stage || d.status)
     ).length;
     return Math.min(100, Math.round((closedCount / dateRangeFilteredLeads.length) * 100));
   }, [dateRangeFilteredDeals, dateRangeFilteredLeads]);
@@ -154,7 +157,7 @@ export default function ReportsPage() {
       const empDeals = dateRangeFilteredDeals.filter(
         (d) =>
           (d.salesExecutiveId === emp.id || d.assignedTo === emp.id) &&
-          ((d.stage || d.status) === 'won' || (d.stage || d.status) === 'delivered')
+          isWonOrDelivered(d.stage || d.status)
       );
       const rev = empDeals.reduce((sum, d) => sum + (d.pricing?.agreedVehiclePrice || d.grandTotal || d.salePrice || 0), 0);
       const rate = empLeads.length > 0 ? Math.round((empDeals.length / empLeads.length) * 100) : 0;

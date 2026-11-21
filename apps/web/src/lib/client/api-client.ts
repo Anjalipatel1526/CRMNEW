@@ -1,4 +1,4 @@
-import {
+import type {
   Customer,
   Branch,
   Lead,
@@ -18,8 +18,8 @@ import {
   UserContext,
 } from '@crm/shared-types';
 import { PricingEngine } from '@crm/business-rules';
-import { supabase, isSupabaseConfigured } from './supabase';
-import { getActiveTenantId, getScopedKey } from './tenant-context';
+import { supabase, isSupabaseConfigured } from './supabase.ts';
+import { getActiveTenantId, getScopedKey } from './tenant-context.ts';
 
 interface DataStore {
   tenant: any;
@@ -32,6 +32,7 @@ interface DataStore {
   quotations: Quotation[];
   appointments: Appointment[];
   payments: Payment[];
+  invoices?: any[];
   jobCards: JobCard[];
   campaigns: Campaign[];
   employees?: any[];
@@ -115,6 +116,7 @@ const initialData: DataStore = {
   quotations: [],
   appointments: [],
   payments: [],
+  invoices: [],
   jobCards: [],
   campaigns: [],
 };
@@ -290,17 +292,41 @@ class DataService {
   // Full Supabase Sync
   // ==========================================
   async syncAllFromSupabase(): Promise<void> {
-    if (!isSupabaseConfigured() || this.isSyncing) return;
+    if (this.isSyncing) return;
     this.isSyncing = true;
     try {
+      if (typeof window !== 'undefined') {
+        const res = await fetch('/api/crm');
+        if (res.ok) {
+          const json = await res.json();
+          if (Array.isArray(json.customers)) this.data.customers = json.customers;
+          if (Array.isArray(json.vehicles)) this.data.vehicles = json.vehicles;
+          if (Array.isArray(json.leads)) this.data.leads = json.leads;
+          if (Array.isArray(json.deals)) this.data.deals = json.deals;
+          if (Array.isArray(json.appointments)) this.data.appointments = json.appointments;
+          if (Array.isArray(json.employees)) (this.data as any).employees = json.employees;
+          if (Array.isArray(json.quotations)) this.data.quotations = json.quotations;
+          if (Array.isArray(json.invoices)) (this.data as any).invoices = json.invoices;
+          if (Array.isArray(json.payments)) this.data.payments = json.payments;
+          this.ensureCustomerLeads();
+          this.persist();
+          return;
+        }
+      }
+
       await Promise.allSettled([
         this.fetchBranches(),
         this.fetchCustomers(),
         this.fetchLeads(),
         this.fetchVehicles(),
         this.fetchDeals(),
+        this.fetchAppointments(),
+        this.fetchQuotations(),
+        this.fetchInvoices(),
+        this.fetchPayments(),
       ]);
       this.ensureCustomerLeads();
+      this.persist();
     } finally {
       this.isSyncing = false;
     }
@@ -843,11 +869,12 @@ class DataService {
       }
     }
 
-    // 3. Prune/reset any uncontacted leads that ended up in appointment_set or test_drive
+    // 3. Prune/reset orphan leads that ended up in appointment_set or test_drive without any actual appointments or test drives
     for (const l of this.data.leads) {
       if ((l.status === 'appointment_set' || l.status === 'test_drive') && !l.notes?.includes('[Moved to')) {
         const isContacted = l.customerId && contactedCustIds.has(l.customerId);
-        if (!isContacted) {
+        const hasAppointment = (l as any).appointment || (this.data.appointments || []).some((a) => a.leadId === l.id || (l.customerId && a.customerId === l.customerId && a.status !== 'cancelled'));
+        if (!isContacted && !hasAppointment) {
           l.status = 'new';
           l.updatedAt = new Date().toISOString();
           changed = true;
@@ -1085,6 +1112,11 @@ class DataService {
         }
       }
       lead.updatedAt = new Date().toISOString();
+
+      if (status === 'converted') {
+        this.ensureDealForLead(lead);
+      }
+
       this.persist();
 
       if (typeof window !== 'undefined') {
@@ -1104,11 +1136,49 @@ class DataService {
     return null;
   }
 
+  ensureDealForLead(lead: Lead): Deal | null {
+    if (!lead || !lead.customerId) return null;
+    const existing = (this.data.deals || []).find(
+      (d) => d.customerId === lead.customerId || (d as any).opportunityId === lead.id
+    );
+    if (existing) return existing;
+
+    const prefMake = (lead.preferredMake || '').toLowerCase().trim();
+    const prefModel = (lead.preferredModel || '').toLowerCase().trim();
+    const matchedVehicle = (this.data.vehicles || []).find(
+      (v) =>
+        v.status === 'available' &&
+        ((prefMake && v.make.toLowerCase().includes(prefMake)) ||
+         (prefModel && v.model.toLowerCase().includes(prefModel)))
+    ) || (this.data.vehicles || []).find((v) => v.status === 'available');
+
+    const price = matchedVehicle?.askingPrice || Number(lead.budgetMax) || 1850000;
+
+    return this.addDeal({
+      customerId: lead.customerId,
+      vehicleId: matchedVehicle?.id,
+      stage: 'ready',
+      vehiclePrice: price,
+      grandTotal: price,
+      amountPaid: 50000,
+      balanceDue: Math.max(0, price - 50000),
+      currency: 'INR',
+      financeType: 'cash',
+      opportunityId: lead.id,
+      notes: `Deal generated automatically upon converting lead for ${lead.customerName || 'customer'}.`,
+    });
+  }
+
   updateLead(leadId: string, leadData: Partial<Lead>): Lead | null {
     const lead = this.data.leads.find((l) => l.id === leadId);
     if (lead) {
       Object.assign(lead, leadData);
       lead.updatedAt = new Date().toISOString();
+
+      if (leadData.status === 'converted' || lead.status === 'converted') {
+        this.ensureDealForLead(lead);
+      }
+
       this.persist();
 
       if (typeof window !== 'undefined') {
@@ -1877,11 +1947,17 @@ class DataService {
       version: 1,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      customerName: cust ? `${cust.firstName} ${cust.lastName}` : 'Client',
-      vehicleName: veh ? `${veh.make} ${veh.model}` : 'Vehicle',
+      customerName: cust ? `${cust.firstName} ${cust.lastName}` : (dealData.customerName || 'Client'),
+      vehicleName: veh ? `${veh.make} ${veh.model}` : (dealData.vehicleName || 'Vehicle'),
     };
 
     this.data.deals.unshift(newDeal);
+
+    // Auto-reserve connected vehicle in inventory
+    if (newDeal.vehicleId) {
+      this.updateVehicle(newDeal.vehicleId, { status: 'reserved' });
+    }
+
     this.persist();
 
     // Persist Deal to Supabase backend API route
@@ -1925,8 +2001,119 @@ class DataService {
     return newDeal;
   }
 
+  updateDeal(id: string, updates: Partial<Deal>): Deal | null {
+    const idx = this.data.deals.findIndex((d) => d.id === id);
+    if (idx === -1) return null;
+
+    const oldDeal = this.data.deals[idx];
+    const updatedDeal: Deal = {
+      ...oldDeal,
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    };
+
+    if (updates.amountPaid !== undefined || updates.grandTotal !== undefined) {
+      const gt = updatedDeal.grandTotal;
+      const ap = updatedDeal.amountPaid;
+      updatedDeal.balanceDue = Math.max(0, gt - ap);
+    }
+
+    this.data.deals[idx] = updatedDeal;
+
+    // Synchronize vehicle status if stage changed
+    if (updates.stage && updatedDeal.vehicleId) {
+      if (updates.stage === 'delivered') {
+        this.updateVehicle(updatedDeal.vehicleId, { status: 'delivered' });
+      } else if (updates.stage === 'ready' || updates.stage === 'initiated') {
+        this.updateVehicle(updatedDeal.vehicleId, { status: 'reserved' });
+      } else if (updates.stage === 'cancelled') {
+        this.updateVehicle(updatedDeal.vehicleId, { status: 'available' });
+      }
+    }
+
+    this.persist();
+
+    // Persist to backend /api/crm
+    if (typeof window !== 'undefined') {
+      fetch('/api/crm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entity: 'deal', data: updatedDeal }),
+      }).catch((e) => console.warn('[API] Deal update sync info:', e?.message));
+    }
+
+    if (isSupabaseConfigured()) {
+      supabase
+        .from('deals')
+        .update({
+          stage: updatedDeal.stage,
+          amount_paid: updatedDeal.amountPaid,
+          balance_due: updatedDeal.balanceDue,
+          grand_total: updatedDeal.grandTotal,
+          vehicle_price: updatedDeal.vehiclePrice,
+          updated_at: updatedDeal.updatedAt,
+        })
+        .eq('id', id)
+        .then(({ error }) => {
+          if (error) console.error('[API] Supabase updateDeal error:', error.message);
+        });
+    }
+
+    return updatedDeal;
+  }
+
+  // ==========================================
+  // Quotations
+  // ==========================================
   getQuotations(): Quotation[] {
-    return this.data.quotations;
+    return this.data.quotations || [];
+  }
+
+  async fetchQuotations(): Promise<Quotation[]> {
+    if (typeof window === 'undefined') return this.data.quotations || [];
+    try {
+      const res = await fetch('/api/crm');
+      if (res.ok) {
+        const json = await res.json();
+        if (Array.isArray(json.quotations)) {
+          const remoteQuotes = json.quotations.map((r: any) => {
+            const cust = this.data.customers.find((c) => c.id === r.customer_id);
+            return {
+              id: r.id,
+              tenantId: r.tenant_id,
+              branchId: r.branch_id,
+              customerId: r.customer_id,
+              quoteNumber: r.quote_number,
+              revision: r.revision || 1,
+              status: r.status || 'issued',
+              items: [],
+              totals: {
+                subtotal: Number(r.subtotal) || 0,
+                discountTotal: Number(r.discount_total) || 0,
+                taxTotal: Number(r.tax_total) || 0,
+                feesTotal: Number(r.fees_total) || 0,
+                grandTotal: Number(r.grand_total) || 0,
+              },
+              validUntil: r.valid_until,
+              notes: r.notes || '',
+              createdAt: r.created_at || new Date().toISOString(),
+              updatedAt: r.updated_at || new Date().toISOString(),
+              customerName: cust ? `${cust.firstName} ${cust.lastName}` : 'Valued Client',
+              branchName: 'Main Showroom',
+            };
+          });
+
+          const remoteIds = new Set(remoteQuotes.map((q: any) => q.id));
+          const unsynced = (this.data.quotations || []).filter((q) => !remoteIds.has(q.id));
+          this.data.quotations = [...unsynced, ...remoteQuotes];
+          this.persist();
+          return this.data.quotations;
+        }
+      }
+    } catch (err) {
+      console.warn('[API] Failed to fetch quotations:', err);
+    }
+    return this.data.quotations || [];
   }
 
   createQuotation(qData: any): Quotation {
@@ -1935,11 +2122,11 @@ class DataService {
     const tenantId = getActiveTenantId();
 
     const newQ: Quotation = {
-      id: 'quo-' + Date.now(),
+      id: qData.id || 'quo-' + Date.now(),
       tenantId: qData.tenantId || tenantId,
       branchId: qData.branchId || `b_${tenantId}_main`,
       customerId: qData.customerId,
-      quoteNumber: 'Q-2024-' + Math.floor(100 + Math.random() * 900),
+      quoteNumber: qData.quoteNumber || 'Q-2024-' + Math.floor(100 + Math.random() * 900),
       revision: 1,
       status: 'issued',
       items: qData.items || [],
@@ -1952,41 +2139,230 @@ class DataService {
       branchName: 'Main Showroom',
     };
 
+    if (!this.data.quotations) this.data.quotations = [];
     this.data.quotations.unshift(newQ);
     this.persist();
+
+    // Persist to backend /api/crm
+    if (typeof window !== 'undefined') {
+      fetch('/api/crm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entity: 'quotation', data: newQ }),
+      }).catch((e) => console.warn('[API] Quotation sync info:', e?.message));
+    }
+
     return newQ;
+  }
+
+  convertQuotationToDeal(quotationId: string): Deal | null {
+    const quote = (this.data.quotations || []).find((q) => q.id === quotationId);
+    if (!quote) return null;
+
+    const dealTotals = PricingEngine.convertQuotationToDealTotals(quote.totals);
+    const vehicleItem = quote.items?.find((i) => i.itemType === 'vehicle');
+
+    const createdDeal = this.addDeal({
+      customerId: quote.customerId,
+      vehicleId: (vehicleItem as any)?.vehicleId,
+      stage: 'initiated',
+      vehiclePrice: dealTotals.vehiclePrice,
+      accessoriesTotal: dealTotals.accessoriesTotal,
+      feesTotal: dealTotals.feesTotal,
+      taxTotal: dealTotals.taxTotal,
+      discountTotal: dealTotals.discountTotal,
+      tradeInCredit: dealTotals.tradeInCredit,
+      grandTotal: dealTotals.grandTotal,
+      amountPaid: 0,
+      balanceDue: dealTotals.grandTotal,
+      notes: `Converted from Quotation #${quote.quoteNumber}`,
+    });
+
+    quote.status = 'accepted';
+    quote.updatedAt = new Date().toISOString();
+    this.persist();
+
+    return createdDeal;
   }
 
   // ==========================================
   // Finance & Payments
   // ==========================================
+  getInvoices(): any[] {
+    return (this.data as any).invoices || [];
+  }
+
+  async fetchInvoices(): Promise<any[]> {
+    if (typeof window === 'undefined') return this.getInvoices();
+    try {
+      const res = await fetch('/api/crm');
+      if (res.ok) {
+        const json = await res.json();
+        if (Array.isArray(json.invoices)) {
+          const remoteInvoices = json.invoices.map((r: any) => {
+            const cust = this.data.customers.find((c) => c.id === r.customer_id);
+            return {
+              id: r.id,
+              invoiceNumber: r.invoice_number,
+              customerName: cust ? `${cust.firstName} ${cust.lastName}` : 'Valued Customer',
+              customerId: r.customer_id,
+              vehicleDetails: 'Showroom Delivery & Services',
+              amount: Number(r.grand_total) || 0,
+              dueDate: r.due_date ? r.due_date.split('T')[0] : '',
+              status: r.status || 'paid',
+              date: r.issued_at ? r.issued_at.split('T')[0] : (r.created_at ? r.created_at.split('T')[0] : ''),
+              dealId: r.deal_id,
+              rawInvoice: r,
+            };
+          });
+
+          const remoteIds = new Set(remoteInvoices.map((i: any) => i.id));
+          const unsynced = this.getInvoices().filter((i) => !remoteIds.has(i.id));
+          (this.data as any).invoices = [...unsynced, ...remoteInvoices];
+          this.persist();
+          return (this.data as any).invoices;
+        }
+      }
+    } catch (err) {
+      console.warn('[API] Failed to fetch invoices:', err);
+    }
+    return this.getInvoices();
+  }
+
+  addInvoice(inv: any): any {
+    if (!(this.data as any).invoices) (this.data as any).invoices = [];
+    (this.data as any).invoices.unshift(inv);
+    this.persist();
+
+    if (typeof window !== 'undefined') {
+      fetch('/api/crm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entity: 'invoice', data: inv }),
+      }).catch((e) => console.warn('[API] Invoice sync info:', e?.message));
+    }
+    return inv;
+  }
+
   getPayments(): Payment[] {
-    return this.data.payments;
+    return this.data.payments || [];
+  }
+
+  async fetchPayments(): Promise<Payment[]> {
+    if (typeof window === 'undefined') return this.data.payments || [];
+    try {
+      const res = await fetch('/api/crm');
+      if (res.ok) {
+        const json = await res.json();
+        if (Array.isArray(json.payments)) {
+          const remotePayments: Payment[] = json.payments.map((r: any) => {
+            const cust = this.data.customers.find((c) => c.id === r.customer_id);
+            return {
+              id: r.id,
+              tenantId: r.tenant_id,
+              branchId: r.branch_id,
+              customerId: r.customer_id,
+              bookingId: r.booking_id,
+              dealId: r.deal_id,
+              invoiceId: r.invoice_id,
+              paymentNumber: r.payment_number,
+              method: r.method || 'upi',
+              status: r.status || 'settled',
+              amount: Number(r.amount) || 0,
+              currency: r.currency || 'INR',
+              referenceNumber: r.reference_number || '',
+              notes: r.notes || '',
+              settledAt: r.settled_at || r.created_at,
+              createdAt: r.created_at || new Date().toISOString(),
+              customerName: cust ? `${cust.firstName} ${cust.lastName}` : 'Valued Customer',
+            };
+          });
+
+          const remoteIds = new Set(remotePayments.map((p) => p.id));
+          const unsynced = (this.data.payments || []).filter((p) => !remoteIds.has(p.id));
+          this.data.payments = [...unsynced, ...remotePayments];
+          this.persist();
+          return this.data.payments;
+        }
+      }
+    } catch (err) {
+      console.warn('[API] Failed to fetch payments:', err);
+    }
+    return this.data.payments || [];
   }
 
   recordPayment(pData: any): Payment {
     const cust = this.data.customers.find((c) => c.id === pData.customerId);
     const tenantId = getActiveTenantId();
+    const amount = Number(pData.amount) || 0;
+
     const newPayment: Payment = {
-      id: 'pmt-' + Date.now(),
+      id: pData.id || 'pmt-' + Date.now(),
       tenantId: pData.tenantId || tenantId,
       branchId: pData.branchId || `b_${tenantId}_main`,
       customerId: pData.customerId,
       bookingId: pData.bookingId,
       dealId: pData.dealId,
-      paymentNumber: 'PMT-2024-' + Math.floor(100 + Math.random() * 900),
+      paymentNumber: pData.paymentNumber || 'PMT-2024-' + Math.floor(100 + Math.random() * 900),
       method: pData.method || 'upi',
       status: 'settled',
-      amount: Number(pData.amount),
+      amount,
       currency: 'INR',
       referenceNumber: pData.referenceNumber || 'TXN/' + Date.now(),
       notes: pData.notes || 'Direct payment receipt',
       settledAt: new Date().toISOString(),
       createdAt: new Date().toISOString(),
-      customerName: cust ? `${cust.firstName} ${cust.lastName}` : 'Customer',
+      customerName: cust ? `${cust.firstName} ${cust.lastName}` : (pData.customerName || 'Customer'),
     };
+
+    if (!this.data.payments) this.data.payments = [];
     this.data.payments.unshift(newPayment);
+
+    // If dealId is linked, update deal amountPaid and balanceDue in local data
+    if (pData.dealId) {
+      const dealIdx = this.data.deals.findIndex((d) => d.id === pData.dealId);
+      if (dealIdx >= 0) {
+        const d = this.data.deals[dealIdx];
+        const newPaid = (d.amountPaid || 0) + amount;
+        this.data.deals[dealIdx] = {
+          ...d,
+          amountPaid: newPaid,
+          balanceDue: Math.max(0, d.grandTotal - newPaid),
+          updatedAt: new Date().toISOString(),
+        };
+      }
+    }
+
     this.persist();
+
+    // Persist to backend /api/crm
+    if (typeof window !== 'undefined') {
+      fetch('/api/crm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entity: 'payment', data: newPayment }),
+      }).catch((e) => console.warn('[API] Payment sync info:', e?.message));
+    }
+
+    if (isSupabaseConfigured()) {
+      supabase.from('payments').upsert({
+        id: newPayment.id,
+        tenant_id: newPayment.tenantId,
+        branch_id: newPayment.branchId,
+        customer_id: newPayment.customerId,
+        deal_id: newPayment.dealId,
+        payment_number: newPayment.paymentNumber,
+        method: newPayment.method,
+        status: newPayment.status,
+        amount: newPayment.amount,
+        currency: newPayment.currency,
+        reference_number: newPayment.referenceNumber,
+        notes: newPayment.notes,
+        settled_at: newPayment.settledAt,
+        created_at: newPayment.createdAt,
+      }, { onConflict: 'id' }).then(() => {});
+    }
+
     return newPayment;
   }
 
@@ -1994,11 +2370,25 @@ class DataService {
   // Service & Marketing
   // ==========================================
   getJobCards(): JobCard[] {
-    return this.data.jobCards;
+    return this.data.jobCards || [];
+  }
+
+  addJobCard(card: JobCard): JobCard {
+    if (!this.data.jobCards) this.data.jobCards = [];
+    this.data.jobCards.unshift(card);
+    this.persist();
+    return card;
   }
 
   getCampaigns(): Campaign[] {
-    return this.data.campaigns;
+    return this.data.campaigns || [];
+  }
+
+  addCampaign(camp: Campaign): Campaign {
+    if (!this.data.campaigns) this.data.campaigns = [];
+    this.data.campaigns.unshift(camp);
+    this.persist();
+    return camp;
   }
 }
 

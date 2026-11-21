@@ -37,6 +37,18 @@ export default function QuotationsPage() {
   const [isBuilderOpen, setIsBuilderOpen] = useState(false);
   const [previewQuote, setPreviewQuote] = useState<Quotation | null>(null);
 
+  React.useEffect(() => {
+    setQuotations([...api.getQuotations()]);
+    api.fetchQuotations().then((q) => {
+      if (Array.isArray(q)) setQuotations([...q]);
+    });
+    const handleDataChanged = () => {
+      setQuotations([...api.getQuotations()]);
+    };
+    window.addEventListener('crm-data-changed', handleDataChanged);
+    return () => window.removeEventListener('crm-data-changed', handleDataChanged);
+  }, []);
+
   // Builder State
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [selectedVehicleId, setSelectedVehicleId] = useState('');
@@ -201,12 +213,30 @@ export default function QuotationsPage() {
                       <StatusBadge status={q.status} />
                     </td>
                     <td>
-                      <button
-                        className="btn btn-secondary btn-sm"
-                        onClick={() => setPreviewQuote(q)}
-                      >
-                        <Printer size={14} /> PDF
-                      </button>
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => setPreviewQuote(q)}
+                        >
+                          <Printer size={14} /> PDF
+                        </button>
+                        {q.status !== 'accepted' && (
+                          <button
+                            type="button"
+                            className="btn btn-primary btn-sm"
+                            onClick={() => {
+                              const deal = api.convertQuotationToDeal(q.id);
+                              if (deal) {
+                                setQuotations([...api.getQuotations()]);
+                              }
+                            }}
+                            title="Convert quotation into a formal sales closing deal"
+                          >
+                            Convert to Deal
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))

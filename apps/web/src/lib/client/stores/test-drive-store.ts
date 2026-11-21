@@ -218,15 +218,21 @@ export function updateTestDrive(id: string, updates: Partial<TestDrive>): TestDr
   current[idx] = updatedDrive;
   saveTestDrives(current);
 
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('crm-data-changed'));
+  }
+
   if (isSupabaseConfigured()) {
+    const payload: Record<string, any> = {};
+    if (updates.route !== undefined) payload.route = updates.route;
+    if (updates.feedback !== undefined) payload.feedback = updates.feedback;
+    if (updates.rating !== undefined) payload.rating = updates.rating;
+    if (updates.endOdo !== undefined) payload.end_odometer = updates.endOdo;
+    if (updates.status !== undefined) payload.status = updates.status;
+
     supabase
       .from('test_drives')
-      .update({
-        route: updates.route,
-        feedback: updates.feedback,
-        rating: updates.rating,
-        end_odometer: updates.endOdo,
-      })
+      .update(payload)
       .eq('id', id)
       .then(({ error }) => {
         if (error) console.warn('[TestDriveStore] Supabase update test drive:', error.message);

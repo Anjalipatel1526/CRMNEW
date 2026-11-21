@@ -7,7 +7,7 @@
  * User B logging in with another ID cannot see User A's data, records, or profiles.
  */
 
-import { sanitizeTenantSlug } from '@/lib/shared/tenant-slug';
+import { sanitizeTenantSlug } from '../shared/tenant-slug.ts';
 
 export const SESSION_KEY = 'crm_active_user_session_v1';
 

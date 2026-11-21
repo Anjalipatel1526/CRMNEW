@@ -40,6 +40,10 @@ export default function CustomersPage() {
   const [leads, setLeads] = useState<any[]>([]);
   const [deals, setDeals] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
+  const [appointments, setAppointments] = useState<any[]>([]);
+  const [quotations, setQuotations] = useState<any[]>([]);
+  const [invoices, setInvoices] = useState<any[]>([]);
+  const [payments, setPayments] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [customerToDelete, setCustomerToDelete] = useState<{ id: string; name: string } | null>(null);
@@ -49,6 +53,10 @@ export default function CustomersPage() {
     setLeads([...api.getLeads()]);
     setDeals([...api.getDeals()]);
     setEmployees([...api.getEmployees()]);
+    setAppointments([...api.getAppointments()]);
+    setQuotations([...api.getQuotations()]);
+    setInvoices([...api.getInvoices()]);
+    setPayments([...api.getPayments()]);
 
     // Fetch directly from Supabase backend on mount
     api.fetchCustomers().then((data) => {
@@ -63,12 +71,28 @@ export default function CustomersPage() {
     api.fetchEmployees().then((data) => {
       if (Array.isArray(data)) setEmployees([...data]);
     });
+    api.fetchAppointments().then((data) => {
+      if (Array.isArray(data)) setAppointments([...data]);
+    });
+    api.fetchQuotations().then((data) => {
+      if (Array.isArray(data)) setQuotations([...data]);
+    });
+    api.fetchInvoices().then((data) => {
+      if (Array.isArray(data)) setInvoices([...data]);
+    });
+    api.fetchPayments().then((data) => {
+      if (Array.isArray(data)) setPayments([...data]);
+    });
 
     const handleDataChanged = () => {
       setCustomers([...api.getCustomers()]);
       setLeads([...api.getLeads()]);
       setDeals([...api.getDeals()]);
       setEmployees([...api.getEmployees()]);
+      setAppointments([...api.getAppointments()]);
+      setQuotations([...api.getQuotations()]);
+      setInvoices([...api.getInvoices()]);
+      setPayments([...api.getPayments()]);
     };
     window.addEventListener('crm-data-changed', handleDataChanged);
     return () => window.removeEventListener('crm-data-changed', handleDataChanged);
@@ -183,11 +207,79 @@ export default function CustomersPage() {
       items.push({
         color: '#2563EB',
         title: `Deal ${d.stage.replace('_', ' ')}${d.vehicleName ? ` — ${d.vehicleName}` : ''}`,
-        subtitle: `Deal #${d.dealNumber || d.id} · Grand Total: ₹${(d.grandTotal / 100000).toFixed(2)} Lakh`,
+        subtitle: `Deal #${d.dealNumber || d.id} · Grand Total: ₹${(d.grandTotal / 100000).toFixed(2)} Lakh · Paid: ₹${((d.amountPaid || 0) / 100000).toFixed(2)} Lakh`,
       });
     });
 
-    // 2. Check for real test drives
+    // 2. Check for invoices
+    const cInvoices = invoices.filter(
+      (inv) =>
+        inv.customerId === c.id ||
+        (inv.customerName &&
+          `${c.firstName} ${c.lastName}`.toLowerCase().trim() ===
+            inv.customerName.toLowerCase().trim())
+    );
+
+    cInvoices.forEach((inv) => {
+      items.push({
+        color: '#059669',
+        title: `Invoice Generated — #${inv.invoiceNumber || inv.id}`,
+        subtitle: `Amount: ₹${((inv.grandTotal || 0) / 100000).toFixed(2)} Lakh · Status: ${(inv.status || 'Issued').toUpperCase()}`,
+      });
+    });
+
+    // 3. Check for payments
+    const cPayments = payments.filter(
+      (p) =>
+        p.customerId === c.id ||
+        (p.customerName &&
+          `${c.firstName} ${c.lastName}`.toLowerCase().trim() ===
+            p.customerName.toLowerCase().trim())
+    );
+
+    cPayments.forEach((p) => {
+      items.push({
+        color: '#10B981',
+        title: `Payment Recorded — ₹${((p.amount || 0) / 100000).toFixed(2)} Lakh`,
+        subtitle: `Method: ${(p.paymentMethod || 'Online').toUpperCase()} · Ref: ${p.transactionRef || p.receiptNumber || 'Verified'}`,
+      });
+    });
+
+    // 4. Check for quotations
+    const cQuotes = quotations.filter(
+      (q) =>
+        q.customerId === c.id ||
+        (q.customerName &&
+          `${c.firstName} ${c.lastName}`.toLowerCase().trim() ===
+            q.customerName.toLowerCase().trim())
+    );
+
+    cQuotes.forEach((q) => {
+      items.push({
+        color: '#8B5CF6',
+        title: `Quotation ${q.status || 'Active'}${q.vehicleName ? ` — ${q.vehicleName}` : ''}`,
+        subtitle: `Quote #${q.quotationNumber || q.id} · Total: ₹${((q.grandTotal || 0) / 100000).toFixed(2)} Lakh`,
+      });
+    });
+
+    // 5. Check for appointments
+    const cAppts = appointments.filter(
+      (a) =>
+        a.customerId === c.id ||
+        (a.customerName &&
+          `${c.firstName} ${c.lastName}`.toLowerCase().trim() ===
+            a.customerName.toLowerCase().trim())
+    );
+
+    cAppts.forEach((a) => {
+      items.push({
+        color: '#F59E0B',
+        title: `Appointment ${a.status ? a.status.replace('_', ' ') : 'Scheduled'} — ${a.type || 'Showroom Visit'}`,
+        subtitle: `${a.appointmentDate || 'Upcoming'}${a.timeSlot ? ` at ${a.timeSlot}` : ''} · Host: ${a.assignedToName || 'Sales Team'}`,
+      });
+    });
+
+    // 6. Check for real test drives
     try {
       const cDrives = getTestDrives().filter(
         (td) =>
@@ -208,9 +300,9 @@ export default function CustomersPage() {
       // test drives storage fallback
     }
 
-    // 3. Check if user explicitly wrote a preferred vehicle
+    // 7. Check if user explicitly wrote a preferred vehicle
     const userPreferredCar = (c as any).preferredVehicle ? String((c as any).preferredVehicle).trim() : '';
-    if (userPreferredCar && userPreferredCar !== 'Not specified' && cDeals.length === 0) {
+    if (userPreferredCar && userPreferredCar !== 'Not specified' && cDeals.length === 0 && cQuotes.length === 0) {
       items.push({
         color: '#7C3AED',
         title: `Vehicle Selected — ${userPreferredCar}`,
@@ -218,7 +310,7 @@ export default function CustomersPage() {
       });
     }
 
-    // 4. If no deals, test drives, or preferred vehicle, show neutral account status without ANY fake car names
+    // 8. If no activity, show neutral account status without fake car names
     if (items.length === 0) {
       const createdDate = c.createdAt
         ? new Date(c.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })

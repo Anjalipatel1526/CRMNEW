@@ -189,15 +189,16 @@ export default function DashboardPage() {
     };
 
     const refreshData = () => {
-      setVehicles(api.getVehicles());
-      setLeads(api.getLeads());
-      setDeals(api.getDeals());
-      setAppointments(api.getAppointments());
-      setJobCards(api.getJobCards());
-      setCustomers(api.getCustomers());
+      setVehicles([...api.getVehicles()]);
+      setLeads([...api.getLeads()]);
+      setDeals([...api.getDeals()]);
+      setAppointments([...api.getAppointments()]);
+      setJobCards([...api.getJobCards()]);
+      setCustomers([...api.getCustomers()]);
     };
 
     checkAuthAndOnboarding();
+    api.syncAllFromSupabase().catch(() => {});
 
     const handleCompany = () => setCompany(getCompanyProfile());
     window.addEventListener('crm-company-profile-changed', handleCompany);

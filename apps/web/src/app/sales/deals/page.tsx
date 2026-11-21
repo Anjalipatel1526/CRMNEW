@@ -39,15 +39,9 @@ export default function DealsPage() {
 
   const handleAuthorizeHandover = async (deal: Deal) => {
     try {
-      if (isSupabaseConfigured()) {
-        await supabase
-          .from('deals')
-          .update({
-            stage: 'ready',
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', deal.id);
+      api.updateDeal(deal.id, { stage: 'ready' });
 
+      if (isSupabaseConfigured()) {
         await supabase
           .from('deliveries')
           .upsert({
@@ -64,14 +58,23 @@ export default function DealsPage() {
           });
       }
 
-      setDeals((prev) =>
-        prev.map((d) => (d.id === deal.id ? { ...d, stage: 'ready' as DealStage } : d))
-      );
+      setDeals([...api.getDeals()]);
       showToast(`Authorized handover gate pass generated for deal ${deal.dealNumber}!`, 'success');
       setSelectedDeal(null);
     } catch (err: any) {
       console.error('Failed to authorize handover pass:', err);
       showToast(err?.message || 'Failed to authorize handover pass', 'error');
+    }
+  };
+
+  const handleMarkDelivered = async (deal: Deal) => {
+    try {
+      api.updateDeal(deal.id, { stage: 'delivered' });
+      setDeals([...api.getDeals()]);
+      showToast(`Deal ${deal.dealNumber} marked Delivered & Customer Handover complete! 🎉`, 'success');
+      setSelectedDeal(null);
+    } catch (err: any) {
+      showToast(err?.message || 'Failed to mark deal delivered', 'error');
     }
   };
 
@@ -502,15 +505,31 @@ export default function DealsPage() {
               </div>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '4px' }}>
-              <button
-                type="button"
-                className="unique-lead-submit-btn"
-                onClick={() => handleAuthorizeHandover(selectedDeal)}
-              >
-                <span className="btn-text">Authorize Handover Pass</span>
-                <ArrowRight size={15} className="btn-arrow-icon" />
-              </button>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', paddingTop: '4px' }}>
+              {selectedDeal.stage === 'ready' ? (
+                <button
+                  type="button"
+                  className="unique-lead-submit-btn"
+                  style={{ backgroundColor: '#16A34A' }}
+                  onClick={() => handleMarkDelivered(selectedDeal)}
+                >
+                  <CheckCircle size={15} />
+                  <span className="btn-text">Confirm Handover & Deliver Vehicle</span>
+                </button>
+              ) : selectedDeal.stage === 'delivered' ? (
+                <span className="badge badge-green" style={{ padding: '8px 16px', fontSize: '0.9rem' }}>
+                  ✓ Vehicle Delivered to Customer
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  className="unique-lead-submit-btn"
+                  onClick={() => handleAuthorizeHandover(selectedDeal)}
+                >
+                  <span className="btn-text">Authorize Handover Pass</span>
+                  <ArrowRight size={15} className="btn-arrow-icon" />
+                </button>
+              )}
             </div>
           </div>
         </Modal>

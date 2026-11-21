@@ -41,10 +41,30 @@ export default function FinancePage() {
   const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const [invoices, setInvoices] = useState<any[]>([]);
+  const [invoices, setInvoices] = useState<any[]>(api.getInvoices());
   const [expenses, setExpenses] = useState<any[]>([]);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [toastType, setToastType] = useState<'success' | 'error'>('success');
+
+  React.useEffect(() => {
+    setPayments([...api.getPayments()]);
+    setInvoices([...api.getInvoices()]);
+
+    api.fetchPayments().then((p) => {
+      if (Array.isArray(p)) setPayments([...p]);
+    });
+    api.fetchInvoices().then((i) => {
+      if (Array.isArray(i)) setInvoices([...i]);
+    });
+
+    const handleDataChanged = () => {
+      setPayments([...api.getPayments()]);
+      setInvoices([...api.getInvoices()]);
+    };
+
+    window.addEventListener('crm-data-changed', handleDataChanged);
+    return () => window.removeEventListener('crm-data-changed', handleDataChanged);
+  }, []);
 
   const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
     setToastMessage(msg);
@@ -174,8 +194,20 @@ export default function FinancePage() {
       }
     }
 
-    setPayments((prev) => [newPayment, ...prev]);
-    setInvoices((prev) => [newInvoice, ...prev]);
+    api.addInvoice(newInvoice);
+    api.recordPayment(newPayment);
+
+    // If deal exists for this customer or invoice, update deal
+    const matchedDeal = api.getDeals().find((d) => d.customerId === customerId || (inv.dealId && d.id === inv.dealId));
+    if (matchedDeal) {
+      api.updateDeal(matchedDeal.id, {
+        amountPaid: (matchedDeal.amountPaid || 0) + newPayment.amount,
+        balanceDue: Math.max(0, matchedDeal.grandTotal - ((matchedDeal.amountPaid || 0) + newPayment.amount)),
+      });
+    }
+
+    setPayments([...api.getPayments()]);
+    setInvoices([...api.getInvoices()]);
     setIsPaymentModalOpen(false);
     showToast(`Invoice ${newInvoice.invoiceNumber} and payment voucher successfully persisted!`, 'success');
   };
